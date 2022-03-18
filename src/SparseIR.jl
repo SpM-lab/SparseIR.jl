@@ -1,5 +1,7 @@
 module SparseIR
 
-# Write your package code here.
+export legendre, legvander, legendre_collocation, Rule, piecewise, quadrature, reseat
 
-end
+include("Gauss.jl")
+
+end # module

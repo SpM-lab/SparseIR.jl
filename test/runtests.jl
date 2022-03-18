@@ -1,6 +1,6 @@
-using SparseIR
 using Test
+using SparseIR
 
 @testset "SparseIR.jl" begin
-    # Write your tests here.
+    include("gauss.jl")
 end
