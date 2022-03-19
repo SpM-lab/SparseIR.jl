@@ -1,6 +1,6 @@
 name = "SparseIR"
 uuid = "fefa8bd7-c5b3-4143-ace4-737a34ae5886"
-authors = ["Samuel Badr <samuel.badr@gmail.com> and contributors"]
+authors = ["Samuel Badr <samuel.badr@gmail.com>"]
 version = "0.1.0"
 
 [deps]
