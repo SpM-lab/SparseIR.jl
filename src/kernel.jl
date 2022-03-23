@@ -1,3 +1,6 @@
+export LogisticKernel, RegularizedBoseKernel, sve_hints, segments_x, segments_y,
+       matrix_from_gauss, get_symmetrized, nsvals, ngauss, ypower, conv_radius, weight_func
+
 @doc raw"""
     AbstractKernel
 
@@ -87,8 +90,10 @@ struct SVEHintsReduced{T} <: AbstractSVEHints where {T<:AbstractSVEHints}
     inner_hints::T
 end
 
+abstract type AbstractReducedKernel <: AbstractKernel end
+
 @doc raw"""
-    AbstractReducedKernel
+    ReducedKernel
 
 Restriction of centrosymmetric kernel to positive interval.
 
@@ -105,7 +110,10 @@ This kernel is what this class represents.  The full singular functions can
 be reconstructed by (anti-)symmetrically continuing them to the negative
 axis.
 """
-abstract type AbstractReducedKernel <: AbstractKernel end
+struct ReducedKernel <: AbstractReducedKernel
+    inner::AbstractKernel
+    sign::Int
+end
 
 @doc raw"""
     LogisticKernelOdd{T} <: AbstractReducedKernel
@@ -314,7 +322,7 @@ Construct a symmetrized version of `kernel`, i.e. `kernel(x, y) + sign * kernel(
     which naively performs the sum.  You may want to override this
     to avoid cancellation.
 """
-function get_symmetrized end
+get_symmetrized(kernel::AbstractKernel, sign) = ReducedKernel(kernel, sign)
 
 function get_symmetrized(kernel::LogisticKernel, sign)
     sign == -1 && return LogisticKernelOdd(kernel, sign)
@@ -325,6 +333,8 @@ function get_symmetrized(kernel::RegularizedBoseKernel, sign)
     sign == -1 && return RegularizedBoseKernelOdd(kernel, sign)
     return Base.@invoke get_symmetrized(kernel::AbstractKernel, sign)
 end
+
+get_symmetrized(::AbstractReducedKernel, sign) = error("cannot symmetrize twice")
 
 function callreduced(kernel::AbstractReducedKernel, x, y, x₊, x₋)
     x, y = check_domain(kernel, x, y)
@@ -338,6 +348,8 @@ function callreduced(kernel::AbstractReducedKernel, x, y, x₊, x₋)
     K₋ = kernel.inner(x, -y, x₊, x₋)
     return K₊ + kernel.sign * K₋
 end
+
+(kernel::ReducedKernel)(x, y, x₊, x₋) = callreduced(kernel, x, y, x₊, x₋)
 
 """
     is_centrosymmetric(kernel)
