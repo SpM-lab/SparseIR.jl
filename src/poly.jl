@@ -1,158 +1,223 @@
 import AssociatedLegendrePolynomials: Plm
-import LinearAlgebra: dot
+import IntervalRootFinding: roots as roots_irf, Interval, isunique, interval, mid
+import SpecialFunctions: sphericalbesselj # TODO: if Bessels.jl has been released, use that instead
+import QuadGK: quadgk
+import Memoization: @memoize
 
-struct PiecewiseLegendrePoly
-    nsegments::Any
-    polyorder::Any
-    xmin::Any
-    xmax::Any
+export PiecewiseLegendrePolyArray, roots, hat, overlap
 
-    knots::Any
-    dx::Any
-    data::Any
-    symm::Any
+struct PiecewiseLegendrePoly{T<:Real}
+    nsegments::Int
+    polyorder::Int
+    xmin::T
+    xmax::T
+
+    knots::Vector{T}
+    dx::Vector{T}
+    data::Matrix{T}
+    symm::Int
 
     # internal
-    xm::Any
-    inv_xs::Any
-    norm::Any
-end
+    xm::Vector{T}
+    inv_xs::Vector{T}
+    norm::Vector{T}
 
-function PiecewiseLegendrePoly(data, knots; dx=nothing, symm=nothing)
-    !any(isnan, data) || error("data contains NaN")
-    if knots isa PiecewiseLegendrePoly
-        isnothing(dx) && !isnothing(symm) || error("wrong arguments")
-        knots.data = data
-        knots.symm = symm
-        return knots
-    end
-
-    ndims(data) >= 2 || error("data must be at least 2-dimensional")
-    polyorder, nsegments = first(size(data), 2)
-    size(knots) == (nsegments + 1,) || error("Invalid knots array")
-    issorted(knots) || error("knots must be monotonically increasing")
-    if isnothing(symm)
-        # TODO: infer symmetry from data
-        symm = zeros(size(data)[3:end])
-    else
-        size(symm) == size(data)[3:end] || error("shape mismatch")
-    end
-    if isnothing(dx)
-        dx = diff(knots)
-    else
+    function PiecewiseLegendrePoly(nsegments, polyorder, xmin, xmax, knots, dx, data,
+                                   symm, xm, inv_xs, norm)
+        !any(isnan, data) || error("data contains NaN")
+        size(knots) == (nsegments + 1,) || error("Invalid knots array")
+        issorted(knots) || error("knots must be monotonically increasing")
         dx ≈ diff(knots) || error("dx must work with knots")
+        return new{eltype(knots)}(nsegments, polyorder, xmin, xmax, knots, dx, data, symm,
+                                  xm, inv_xs, norm)
     end
-
-    return PiecewiseLegendrePoly(nsegments, polyorder, first(knots), last(knots), knots, dx,
-                                 data, symm,
-                                 (knots[(begin + 1):end] .+ knots[begin:(end - 1)]) ./ 2,
-                                 2 ./ dx, sqrt.(2 ./ dx))
 end
 
-function getindex(poly, l...)
-    new_symm = poly.symm[l...]
-    new_data = poly.data[:, :, l...]
-    return PiecewiseLegendrePoly(new_data, poly; symm=new_symm)
+function PiecewiseLegendrePoly(data, p::PiecewiseLegendrePoly; symm)
+    return PiecewiseLegendrePoly(p.nsegments, p.polyorder, p.xmin, p.xmax, p.knots, p.dx,
+                                 data, symm, p.xm, p.inv_xs, p.norm)
 end
+
+function PiecewiseLegendrePoly(data::Matrix, knots::Vector; dx=diff(knots), symm=0)
+    polyorder, nsegments = size(data)
+    xm = @views (knots[1:(end - 1)] + knots[2:end]) / 2
+    inv_xs = 2 ./ dx
+    norm = sqrt.(inv_xs)
+
+    return PiecewiseLegendrePoly(nsegments, polyorder, first(knots), last(knots), knots,
+                                 dx, data, symm, xm, inv_xs, norm)
+end
+
+Base.size(::PiecewiseLegendrePoly) = ()
 
 function (poly::PiecewiseLegendrePoly)(x)
-    # i, x̃ = split.(Ref(poly), x isa Array ? x : [x])
-
-    res = split.(Ref(poly), x isa Array ? x : [x])
-    i, x̃ = first.(res), last.(res) # TODO: this is kinda hacky
-
-    # Evaluate for all values of l.  x and data array must be
-    # broadcast'able against each other, so we append dimensions here
-    func_dims = ndims(poly.data) - 2
-    data = poly.data[:, i, fill(:, func_dims)...] # TODO: handle trailing dimensions properly
-    datashape = (size(i)..., ones(Int, func_dims)...)
-    res = legval(reshape(x̃, datashape), data)
-    res .*= poly.norm[reshape(i, datashape)] # TODO idk if this is right
-
-    # Finally, exchange the x and vector dimensions
-    order = ((ndims(i) + 1):(ndims(i) + func_dims)..., 1:ndims(i)...)
-    return permutedims(res, order)
-end
-
-function value(poly::PiecewiseLegendrePoly, l, x)
-    ndims(poly.data) == 3 || error("data must be 3-dimensional")
-    @show size(l)
-    @show size(x)
-    # l, x = 
+    i, x̃ = split(poly, x)
+    return legval(x̃, poly.data[:, i]) * poly.norm[i]
 end
 
 function overlap(poly::PiecewiseLegendrePoly, f; rtol=2.3e-16, return_error=false)
-    # TODO
-    return error("not implemented")
+    int_result, int_error = quadgk(x -> poly(x) * f(x), poly.xmin, poly.xmax; rtol)
+    if return_error
+        return int_result, int_error
+    else
+        return int_result
+    end
 end
 
 function deriv(poly::PiecewiseLegendrePoly, n=1)
-    # TODO
-    ddata = legder(poly.data, n)
+    ddata = poly.data
+    for _ in 1:n
+        ddata = legder.(eachcol(ddata))
+        ddata = reduce(hcat, ddata)
+    end
 
-    scale_shape = (1, :, fill(1, ndims(poly.data) - 2)...)
     scale = poly.inv_xs .^ n
-    ddata .*= reshape(scale, scale_shape)
-    return PiecewiseLegendrePoly(ddata, poly; symm=(-1) .^ n .* poly.symm)
+    ddata .*= scale'
+    return PiecewiseLegendrePoly(ddata, poly; symm=(-1)^n * poly.symm)
+end
+
+function roots(poly::PiecewiseLegendrePoly)
+    rts = roots_irf(x -> poly(x), x -> deriv(poly)(x), Interval(poly.xmin, poly.xmax))
+    all(isunique, rts) || error("Failed to determine roots uniquely")
+    return map(mid ∘ interval, rts)
 end
 
 in_domain(poly, x) = poly.xmin <= x <= poly.xmax
 
 function split(poly, x)
-    in_domain(poly, x) || throw(DomainError("x must be in [$poly.xmin, $poly.xmax]"))
+    # in_domain(poly, x) || throw(DomainError("x must be in [$(poly.xmin), $(poly.xmax)]"))
 
-    i = clamp(searchsortedlast(poly.knots, x), 1, poly.nsegments)
+    i = clamp(searchsortedlast(poly.knots, x; lt=<), 1, poly.nsegments)
     x̃ = x - poly.xm[i]
     x̃ *= poly.inv_xs[i]
     return i, x̃
 end
 
+function scale(poly::PiecewiseLegendrePoly, factor)
+    return PiecewiseLegendrePoly(poly.data * factor, poly.knots; dx=poly.dx, symm=poly.symm)
+end#poly(x) * poly.norm
+
+###########################
+## PiecewiseLegendrePolyArray ##
+###########################
+
+"""
+    PiecewiseLegendrePolyArray{T, N}
+
+Alias for `Array{PiecewiseLegendrePoly{T}, N}`.
+"""
+const PiecewiseLegendrePolyArray{T,N} = Array{PiecewiseLegendrePoly{T},N}
+
+function PiecewiseLegendrePolyArray(data::Array{T,N}, knots::Vector{T}) where {T<:Real,N}
+    polys = PiecewiseLegendrePolyArray{T,N - 2}(undef, size(data)[3:end]...)
+    for i in eachindex(polys)#CartesianIndices(axes(data)[3:end])
+        polys[i] = PiecewiseLegendrePoly(data[:, :, i], knots)
+    end
+    return polys
+end
+
+function PiecewiseLegendrePolyArray(polys::PiecewiseLegendrePolyArray, knots; dx, symm)# where {T<:Real,N<:Integer}
+    size(polys) == size(symm) || error("Sizes of polys and symm don't match")
+    polys_new = similar(polys)
+    for i in eachindex(polys)
+        polys_new[i] = PiecewiseLegendrePoly(polys[i].data, knots; dx, symm=symm[i])
+    end
+    return polys_new
+end
+
+function PiecewiseLegendrePolyArray(data, polys::PiecewiseLegendrePolyArray)
+    size(data)[3:end] == size(polys) || error("Sizes of data and polys don't match")
+    polys = similar(polys)
+    for i in eachindex(polys)#CartesianIndices(axes(data)[3:end])
+        polys[i] = PiecewiseLegendrePoly(data[:, :, i], knots; symm=u.symm[i])
+    end
+    return polys
+end
+
+(polys::PiecewiseLegendrePolyArray)(x) = map(poly -> poly(x), polys)
+
+function Base.getproperty(polys::PiecewiseLegendrePolyArray, sym::Symbol)
+    if sym ∈ (:xmin, :xmax, :knots, :dx, :polyorder, :nsegments, :xm, :inv_xs, :norm)
+        return getproperty(first(polys), sym)
+    elseif sym == :symm
+        return map(poly -> poly.symm, polys)
+    else
+        error("Unknown property $sym")
+    end
+end
+
+#########################
+## PiecewiseLegendreFT ##
+#########################
+
+struct PowerModel
+    moments::Matrix{Float64}
+    nmom::Int
+    nl::Int
+end
+
 const DEFAULT_GRID = [range(0; length=2^6);
                       trunc.(Int, 2 .^ range(6, 25; length=16 * (25 - 6) + 1))]
-struct PiecewiseLegendreFT
-    poly::Any
-    freq::Any
-    zeta::Any
-    n_asymp::Any
+struct PiecewiseLegendreFT{T<:Real}
+    poly::PiecewiseLegendrePoly{T}
+    freq::Symbol
+    ζ::Union{Int,Nothing}
+    n_asymp::Number
 
     # internal
-    model::Any
+    model::Union{PowerModel,Nothing}
+end
+
+const PiecewiseLegendreFTArray{T,N} = Array{PiecewiseLegendreFT{T},N}
+
+(polys::PiecewiseLegendreFTArray)(n) = map(poly -> poly(n), polys)
+function (polys::PiecewiseLegendreFTArray)(n::Array)
+    return reshape(reduce(vcat, polys.(n)), (size(polys)..., size(n)...))
 end
 
 function PiecewiseLegendreFT(poly, freq=:even, n_asymp=nothing)
     (poly.xmin, poly.xmax) == (-1, 1) || error("Only interval [-1, 1] is supported")
-    zeta = Dict(:any => nothing, :even => 0, :odd => 1)[freq] # TODO: type stability
+    ζ = Dict(:any => nothing, :even => 0, :odd => 1)[freq] # TODO: type stability
     if isnothing(n_asymp)
         n_asymp = Inf
         model = nothing
     else
         model = power_model(freq, poly)
     end
-    return PiecewiseLegendreFT(poly, freq, zeta, n_asymp, model)
+    return PiecewiseLegendreFT(poly, freq, ζ, n_asymp, model)
 end
 
-hat(poly, freq, n_asymp=nothing) = PiecewiseLegendreFT(poly, freq, n_asymp)
+function (polyFT::PiecewiseLegendreFT)(n)
+    n = check_reduced_matsubara(n, polyFT.ζ)
+    result = compute_unl_inner(polyFT.poly, n)
+
+    if abs(n) >= polyFT.n_asymp
+        result = transpose(giw(polyFT.model))
+    end
+
+    return result
+end
+
+Base.firstindex(::PiecewiseLegendreFT) = 1
+
+function hat(poly::PiecewiseLegendrePoly, freq; n_asymp=nothing)
+    return PiecewiseLegendreFT(poly, freq, n_asymp)
+end
 
 function derivs(ppoly, x)
     res = [ppoly(x)]
-    for _ in range(ppoly.polyorder - 1)
+    for _ in range(1, ppoly.polyorder - 1)
         ppoly = deriv(ppoly)
         push!(res, ppoly(x))
     end
     return res
 end
 
-struct PowerModel
-    moments
-    nmom
-    nl
-end
-
 PowerModel(moments) = PowerModel(moments, size(moments)...)
 
 function giw_ravel(wn)
     # TODO
-    error("not implemented")
+    return error("not implemented")
 end
 
 function power_moments(stat, deriv_x1)
@@ -165,70 +230,101 @@ function power_moments(stat, deriv_x1)
 end
 
 function power_model(stat, poly)
-    deriv_x1 = derivs(poly; x=1)
+    deriv_x1 = derivs(poly, 1)
     ndims(deriv_x1) == 1 && (deriv_x1 = deriv_x1[:, :])
     moments = power_moments(stat, deriv_x1)
     return PowerModel(moments)
+end
+
+check_reduced_matsubara(n::Integer) = n
+check_reduced_matsubara(n::Integer, ζ) = (n & 1 == ζ) ? n : error("n must be even")
+
+########################
+### Helper Functions ###
+########################
+
+function refine_grid(knots, α)
+    knots_new = eltype(knots)[]
+    for i in eachindex(knots)[begin:(end - 1)]
+        interknots = range(knots[i], knots[i + 1]; length=α + 1)[begin:(end - 1)]
+        append!(knots_new, interknots)
+    end
+    append!(last(knots))
+    return knots_new
+end
+
+function compute_unl_inner(poly, wn)
+    data_sc = poly.data ./ reshape(poly.norm, (1, :))
+
+    p = range(0; length=poly.polyorder)
+    wred = π / 2 * wn
+    phase_wi = phase_stable(poly, wn)
+    t_pin = get_tnl.(p', wred * poly.dx / 2) .* phase_wi
+
+    return sum(transpose(t_pin) .* data_sc)
+end
+
+function get_tnl(l, w)
+    result = 2 * im^l * sphericalbesselj(l, abs(w))
+    return w < 0 ? conj(result) : result
+end
+
+choose(a, choices) = [choices[a[i]][i] for i in eachindex(a)]
+
+function shift_xmid(knots, dx)
+    dx_half = dx ./ 2
+    xmid_m1 = cumsum(dx) .- dx_half
+    xmid_p1 = -reverse(cumsum(reverse(dx))) + dx_half
+    xmid_0 = knots[2:end] - dx_half
+
+    shift = round.(Int, xmid_0)
+    diff = choose(shift .+ 2, (xmid_m1, xmid_0, xmid_p1))
+    return diff, shift
+end
+
+function phase_stable(poly, wn)
+    xmid_diff, extra_shift = shift_xmid(poly.knots, poly.dx)
+
+    if wn isa Integer
+        shift_arg = wn * xmid_diff
+    else
+        delta_wn, wn = modf(wn)
+        wn = trunc(Int, wn)
+        shift_arg = wn * xmid_diff
+        shift_arg .+= delta_wn * (extra_shift + xmid_diff)
+    end
+
+    phase_shifted = exp.(im * π / 2 * shift_arg)
+    corr = im .^ mod.(wn * (extra_shift .+ 1), 4)
+    return corr .* phase_shifted
 end
 
 #######################
 ### HERE BE DRAGONS ###
 #######################
 
-# legval(x, c) = dot(c, Plm(range(0; length=size(c, 1)), 0, x))
-
-# function legval(x, c)
-#     legs = Plm(range(0; length=size(c, 1)), 0, x)
-#     legs = permutedims(legs, circshift(1:ndims(c), 1))
-#     legs .*= c
-#     return dropdims(sum(legs; dims=1); dims=1)
-# end
+@memoize legendreP(l, x) = Plm(l, 0, x)
 
 function legval(x, c)
-    all = ntuple(_ -> :, ndims(c) - 1)
-    nd = size(c, 1)
-
-    if nd == 1
-        c0 = c[begin, all...]
-        c1 = 0
-    elseif nd == 2
-        c0 = c[begin, all...]
-        c1 = c[begin + 1, all...]
-    else
-        c0 = c[end - 1, all...]
-        c1 = c[end, all...]
-        for i in range(3, nd)
-            tmp = c0
-            nd -= 1
-            c0 = c[end - i + 1, all...] - (c1 * (nd - 1)) / nd
-            c1 = tmp + (c1 .* x * (2nd - 1)) / nd
-        end
-    end
-    return c0 + c1 .* x
+    x = clamp(x, -1, 1)
+    return sum(c .* legendreP(range(0; length=length(c)), x))
 end
 
-function legder(c, m=1)
-    all = ntuple(_ -> :, ndims(c) - 1)
-
-    iszero(m) && return c
-
-    n = size(c, 1)
-    if m >= n
-        c = c[[begin], all...] * 0
-    else
-        for _ in 1:m
-            n -= 1
-            der = Array{eltype(c)}(undef, n, size(c)[(begin + 1):end])
-            for j in n:-1:3
-                der[j, all...] .= (2j - 1) .* c[j + 1, all...]
-                c[j - 1, all...] .+= c[j, all...]
-            end
-            if n > 1
-                der[2, all...] .= 3c[3, all...]
-            end
-            der[1, all...] .= c[2, all...]
-            c = der
+function legder(c)
+    n = length(c)
+    if n <= 1
+        return zeros(1)
+    else # n > 1
+        n -= 1
+        der = Array{eltype(c)}(undef, n)
+        for j in n:-1:3
+            der[j] = (2j - 1) * c[j + 1]
+            c[j - 1] += c[j]
         end
+        if n > 1
+            der[2] = 3c[3]
+        end
+        der[1] = c[2]
+        return der
     end
-    return c
 end

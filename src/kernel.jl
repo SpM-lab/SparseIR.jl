@@ -110,8 +110,8 @@ This kernel is what this class represents.  The full singular functions can
 be reconstructed by (anti-)symmetrically continuing them to the negative
 axis.
 """
-struct ReducedKernel <: AbstractReducedKernel
-    inner::AbstractKernel
+struct ReducedKernel{K<:AbstractKernel} <: AbstractReducedKernel
+    inner::K
     sign::Int
 end
 
@@ -260,7 +260,7 @@ end
 
 function segments_x(hints::SVEHintsRegularizedBose)
     # Somewhat less accurate...
-    nzeros = round(Int, 15 * log10(hints.kernel.Λ))
+    nzeros = max(round(Int, 15 * log10(hints.kernel.Λ)), 15)
     diffs = 1 ./ cosh.(0.18 * range(0; length=nzeros))
     cumsum!(diffs, diffs; dims=1) # From here on, `diffs` contains the zeros
     diffs ./= last(diffs)
@@ -447,11 +447,11 @@ Upper bound on the number of singular values above the given threshold, i.e. whe
 function nsvals end
 function nsvals(hints::SVEHintsLogistic)
     log10_Λ = max(1, log10(hints.kernel.Λ))
-    return round(Int, (25 + log10_Λ) / log10_Λ)
+    return round(Int, (25 + log10_Λ) * log10_Λ)
 end
 function nsvals(hints::SVEHintsRegularizedBose)
     log10_Λ = max(1, log10(hints.kernel.Λ))
-    return round(Int, 28 * log10_Λ)
+    return round(Int, 28 * log10_Λ) # TODO: the python version truncates instead. idk if the distinction is important
 end
 function nsvals(hints::SVEHintsReduced)
     return (nsvals(hints.inner_hints) + 1) ÷ 2

@@ -1,6 +1,6 @@
 using Test
 using LinearAlgebra
-import FastGaussQuadrature: gausslegendre
+import QuadGK: gauss
 
 using SparseIR
 
@@ -24,7 +24,7 @@ end
     @testset "gauss legendre" begin
         rule = legendre(200)
         gauss_validate(rule)
-        x, w = gausslegendre(200)
+        x, w = gauss(200)
         @test rule.x ≈ x
         @test rule.w ≈ w
     end

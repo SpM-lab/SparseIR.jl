@@ -1,6 +1,5 @@
 import AssociatedLegendrePolynomials: Plm
-import FastGaussQuadrature: gausslegendre
-using LinearAlgebra: dot
+import QuadGK: gauss
 
 export legendre, legvander, legendre_collocation, Rule, piecewise, quadrature, reseat
 
@@ -16,7 +15,7 @@ Approximation of an integral over `[a, b]` by a sum over discrete points `x` wit
 where we generally have superexponential convergence for smooth ``f(x)`` in 
 the number of quadrature points.
 """
-struct Rule{T<:Real} 
+struct Rule{T<:Real}
     x::Vector{T}
     w::Vector{T}
     a::T
@@ -38,7 +37,7 @@ end
 Approximate `f`'s integral.
 """
 function quadrature(rule, f)
-    return dot(rule.w, f.(rule.x))
+    return sum(rule.w .* f.(rule.x))
 end
 
 """
@@ -46,9 +45,9 @@ end
 
 Reseat quadrature rule to new domain.
 """
-function reseat(rule, a, b)
+function reseat(rule::Rule, a, b)
     scaling = (b - a) / (rule.b - rule.a)
-    x = (rule.x .- rule.a) * scaling .+ a
+    x = (rule.x .- (rule.a + rule.b)/2) * scaling .+ (a + b) / 2
     w = rule.w * scaling
     return Rule(x, w, a, b)
 end
@@ -95,8 +94,8 @@ end
 
 Gauss-Legendre quadrature with `n` points.
 """
-legendre(n) = Rule(gausslegendre(n)...)
-legendre(n, T) = convert(Rule{T}, legendre(n))
+legendre(n) = Rule(gauss(n)...)
+legendre(n, T) = Rule(gauss(T, n)...)
 
 """
     legvander(x, deg)

@@ -6,14 +6,14 @@ export MAX_EPS, MAX_T, compute
 const MAX_T = Float64
 const MAX_EPS = eps(MAX_T)
 
-function compute(a_matrix::AbstractMatrix, n_sv_hint=nothing, strategy=:fast)
+function compute(a_matrix::AbstractMatrix; n_sv_hint=nothing, strategy=:fast)
     m, n = size(a_matrix)
     isnothing(n_sv_hint) && (n_sv_hint = min(m, n))
     n_sv_hint = min(m, n, n_sv_hint)
 
     # TODO: extended precision
     if strategy == :fast
-        u, s, v = psvd(a_matrix; rank=n_sv_hint)
+        u, s, v = psvd(a_matrix; rank=n_sv_hint, rtol=0.0)
     elseif strategy == :default
         u, s, v = svd(a_matrix)
     elseif strategy == :accurate

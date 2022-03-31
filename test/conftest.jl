@@ -1,10 +1,8 @@
 using SparseIR
 
-const compute_sve = compute
+sve_logistic = Dict(10 => compute(LogisticKernel(10.0)),
+                    42 => compute(LogisticKernel(42.0)),
+                    10_000 => compute(LogisticKernel(10_000.0)))
 
-const sve_logistic = Dict(10 => compute_sve(LogisticKernel(10)),
-                          42 => compute_sve(LogisticKernel(42)),
-                          10_000 => compute_sve(LogisticKernel(10_000)))
-
-const sve_reg_bose = Dict(10 => compute_sve(RegularizedBoseKernel(10)),
-                          10_000 => compute_sve(RegularizedBoseKernel(10_000)))
+sve_reg_bose = Dict(10 => compute(RegularizedBoseKernel(10.0)),
+                    10_000 => compute(RegularizedBoseKernel(10_000.0)))

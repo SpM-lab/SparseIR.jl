@@ -5,75 +5,155 @@ using SparseIR
 @testset "poly.jl" begin
     @testset "shape" begin
         u, s, v = sve_logistic[42]
-        @show u
-        @show s
-        @show v
         l = length(s)
-        @test size(u) == (1,)
-        # @test size(u[3]) == ()
-        # @test size(u[2:5]) == (3,)
+        @test size(u) == (l,)
+
+        @test size(u[4]) == ()
+        @test size(u[3:5]) == (3,)
     end
 
-    # @testset "slice" begin
-    #     sve_result = sve_logistic[42]
+    @testset "slice" begin
+        sve_result = sve_logistic[42]
 
-    #     basis = IRBasis(:F, 42; sve_result)
-    #     @test length(basis[begin:5]) == 5
+        basis = IRBasis(:F, 42; sve_result)
+        @test length(basis[begin:5]) == 5
 
-    #     basis = FiniteTempBasis(:F, 4.2, 10; sve_result)
-    #     @test length(basis[begin:4]) == 4
-    # end
+        basis = FiniteTempBasis(:F, 4.2, 10; sve_result)
+        @test length(basis[begin:4]) == 4
+    end
 
-    # @testset "eval" begin
-    #     u, s, v = sve_logistic[42]
-    #     l = length(s)
+    @testset "eval" begin
+        u, s, v = sve_logistic[42]
+        l = length(s)
 
-    #     #Evaluate
-    #     # TODO: do we need assert_array_almost_equal_nulp here?
-    #     @test u(0.4) ≈ [u[i](0.4) for i in 1:l]
-    #     @test u([0.4, -0.2]) ≈ [[u[i](x) for x in (0.4, -0.2)] for i in 1:l]
-    # end
+        # Evaluate
+        # TODO: do we need assert_array_almost_equal_nulp here?
+        @test u(0.4) == [u[i](0.4) for i in 1:l]
+        @test u.([0.4, -0.2]) == [[u[i](x) for i in 1:l] for x in (0.4, -0.2)] # TODO: idk if this shape is okay
+    end
 
+    # # TODO idk if this is obsolete
     # @testset "broadcast" begin
     #     u, s, v = sve_logistic[42]
 
     #     x = [0.3, 0.5]
-    #     l = [2, 7]
+    #     l = [3, 8]
     #     # TODO: see above
-    #     @test value(u, l, x) ≈ [u[ll](xx) for (ll, xx) in zip(l, x)]
+    #     @test u[l].(x) ≈ [u[ll](xx) for (ll, xx) in zip(l, x)]
     # end
 
-    # @testset "matrix_hat" begin
-    #     u, s, v = sve_logistic[42]
-    #     û = hat(u, :odd)
+    @testset "matrix_hat" begin
+        u, s, v = sve_logistic[42]
+        û = hat.(u, :odd)
 
-    #     n = [1, 3, 5, -1, -3, 5]
-    #     result = û(reshape(n, (3, 2)))
-    #     result_iter = reshape(û(n), (:, 3, 2))
-    #     @test size(result) == size(result_iter)
-    #     @test result ≈ result_iter
-    # end
+        n = [1, 3, 5, -1, -3, 5]
+        result = û(reshape(n, (3, 2)))
+        result_iter = reshape(û(n), (:, 3, 2))
+        @test size(result) == size(result_iter)
+        @test result == result_iter
+    end
 
-    # @testset "overlap" begin
-    #     for (Λ, atol) in [(42, 1e-14), (10^4, 5e-13)]
-    #         u, s, v = sve_logistic[Λ]
+    @testset "overlap" begin
+        for (Λ, atol) in [(42, 1e-13), (10^4, 1e-13)]
+            # TODO: for some reason, these give different results (??????)
+            # u, s, v = sve_logistic[Λ]
+            u, s, v = compute(LogisticKernel(Λ))
 
-    #         # Keep only even number of polynomials
-    #         u, s, v = u[begin:(end - length(u) % 2)], s[begin:(end - length(s) % 2)],
-    #                   v[begin:(end - length(v) % 2)]
-    #         npoly = length(s)
+            # Keep only even number of polynomials
+            u, s, v = u[begin:(end - end % 2)], s[begin:(end - end % 2)],
+                      v[begin:(end - end % 2)]
 
-    #         @test overlap(first(u), first(u)) ≈ 1 rtol = 0 atol = atol
+            @test overlap(u[1], u[1]) ≈ 1 rtol = 0 atol = atol
+            @test overlap(u[1], u[2]) ≈ 0 rtol = 0 atol = atol
 
-    #         ref = ones(length(s))
-    #         ref[begin] = 0
-    #         @test abs(overlap(u, first(u)) - 1) ≈ ref rtol = 0 atol = atol
 
-    #         # Axis
-    #         trans_f(x) = transpose(first(u)(x))
-    #         @test abs(overlap(u, trans_f; axis=0) - 1) ≈ ref rtol = 0 atol = atol # TODO axis=0 ?
+            ## TOO SLOW!
+            # TODO: fix slowness (maybe I do need to write a custom adaptive integration routine)
 
-    #         @test overlap(u, u; axis=-1) ≈ Matrix(I, length(s), length(s)) rtol = 0 atol = atol # TODO
-    #     end
-    # end
+            #=
+            ref = float.(1:length(s) .== 1)
+            @test overlap(u[1], u) ≈ ref rtol = 0 atol = atol
+
+            function test(n)
+                u, s, v = compute(LogisticKernel(42.0))
+            
+                # Keep only even number of polynomials
+                u, s, v = u[begin:(end - end % 2)], s[begin:(end - end % 2)],
+                          v[begin:(end - end % 2)]
+            
+                return overlap(u[1], u[1:n])
+            end
+            
+            julia> @btime test(1)
+              30.816 ms (930126 allocations: 18.97 MiB)
+            1-element Vector{Float64}:
+             0.9999999999999993
+            
+            julia> @btime test(2)
+              31.050 ms (931701 allocations: 19.17 MiB)
+            2-element Vector{Float64}:
+             1.0000000000000002
+             1.734723475976807e-18
+            
+            julia> @btime test(3)
+              31.229 ms (934782 allocations: 19.47 MiB)
+            3-element Vector{Float64}:
+              1.0000000000000004
+              2.2551405187698492e-17
+             -8.500145032286355e-17
+            
+            julia> @btime test(4)
+              33.982 ms (954388 allocations: 21.43 MiB)
+            4-element Vector{Float64}:
+              1.0000000000000002
+             -1.3444106938820255e-17
+             -1.0408340855860843e-16
+              6.505213034913027e-19
+            
+            julia> @btime test(5)
+              38.704 ms (989623 allocations: 24.90 MiB)
+            5-element Vector{Float64}:
+              0.9999999999999991
+             -2.6020852139652106e-18
+              1.249000902703301e-16
+              1.3227266504323154e-17
+             -3.329584871702984e-16
+            
+            julia> @btime test(6)
+              41.473 ms (1070787 allocations: 33.31 MiB)
+            6-element Vector{Float64}:
+              0.9999999999999997
+              1.0299920638612292e-17
+              1.3010426069826053e-16
+              9.974659986866641e-18
+             -2.627021863932377e-16
+              1.214306433183765e-17
+            
+            julia> @btime test(7)
+              605.345 ms (6422321 allocations: 574.46 MiB)
+            7-element Vector{Float64}:
+              1.0
+              2.003741140024773e-17
+              4.333556083424561e-16
+             -1.2996873542669984e-17
+             -3.214117340333278e-16
+             -1.620882247865829e-17
+             -6.765760369488449e-16
+            
+            julia> @btime test(8)
+            # aborted because it took too long
+            =#
+        end
+    end
+
+    @testset "eval unique" begin
+        u, s, v = sve_logistic[42]
+        û = hat.(u, :odd)
+
+        # evaluate
+        res1 = û([1, 3, 3, 1])
+        idx = [1, 2, 2, 1]
+        res2 = û([1, 3])[:, idx]
+        @test res1 == res2
+    end
 end
