@@ -184,10 +184,10 @@ function compute(::LogisticKernel, u₊, u₋, v)
     #    k = exp(-u₊ * v) / (exp(-v) + 1)
     #      = exp(-u₋ * -v) / (exp(v) + 1)
     #
-    # We need to use the upper equation for v >= 0 and the lower one for
+    # We need to use the upper equation for v ≥ 0 and the lower one for
     # v < 0 to avoid overflowing both numerator and denominator
 
-    enum = exp(-abs(v) * (v >= 0 ? u₊ : u₋))
+    enum = exp(-abs(v) * (v ≥ 0 ? u₊ : u₋))
     denom = 1 + exp(-abs(v))
     return enum / denom
 end
@@ -198,17 +198,17 @@ function compute(kernel::RegularizedBoseKernel, u₊, u₋, v)
     #   K = -1/lambda * exp(-u_+ * v) * v / (exp(-v) - 1)
     #     = -1/lambda * exp(-u_- * -v) * (-v) / (exp(v) - 1)
     #
-    # where we again need to use the upper equation for v >= 0 and the
+    # where we again need to use the upper equation for v ≥ 0 and the
     # lower one for v < 0 to avoid overflow.
     absv = abs(v)
-    enum = exp(-absv * (v >= 0 ? u₊ : u₋))
+    enum = exp(-absv * (v ≥ 0 ? u₊ : u₋))
     T = eltype(v)
 
     # The expression ``v / (exp(v) - 1)`` is tricky to evaluate: firstly,
     # it has a singularity at v=0, which can be cured by treating that case
     # separately.  Secondly, the denominator loses precision around 0 since
     # exp(v) = 1 + v + ..., which can be avoided using expm1(...)
-    denom = absv >= 1e-200 ? absv / expm1(-absv) : one(absv)
+    denom = absv ≥ 1e-200 ? absv / expm1(-absv) : one(absv)
     return -1 / T(kernel.Λ) * enum * denom
 end
 
@@ -286,7 +286,7 @@ function matrix_from_gauss(kernel, gauss_x, gauss_y)
     # (1 ± x) is problematic around x = -1 and x = 1, where the quadrature
     # nodes are clustered most tightly.  Thus we have the need for the
     # matrix method.
-    return kernel.(gauss_x.x, gauss_y.x', gauss_x.x .- gauss_x.a, gauss_x.b .- gauss_x.x)
+    return kernel.(gauss_x.x, permutedims(gauss_y.x), gauss_x.x .- gauss_x.a, gauss_x.b .- gauss_x.x)
 end
 
 """
@@ -296,10 +296,10 @@ Check that `(x, y)` lies within `kernel`'s domain and return it.
 """
 function check_domain(kernel, x, y)
     xmin, xmax = xrange(kernel)
-    xmin <= x <= xmax || throw(DomainError("x value not in range [$xmin, $xmax]"))
+    xmin ≤ x ≤ xmax || throw(DomainError("x value not in range [$xmin, $xmax]"))
 
     ymin, ymax = yrange(kernel)
-    ymin <= y <= ymax || throw(DomainError("y value not in range [$ymin, $ymax]"))
+    ymin ≤ y ≤ ymax || throw(DomainError("y value not in range [$ymin, $ymax]"))
 
     return x, y
 end
@@ -442,7 +442,7 @@ sve_hints(kernel::AbstractReducedKernel, ε) = SVEHintsReduced(sve_hints(kernel.
 Upper bound for number of singular values.
 
 Upper bound on the number of singular values above the given threshold, i.e. where
-`s[l] >= ε * first(s)`.
+`s[l] ≥ ε * first(s)`.
 """
 function nsvals end
 function nsvals(hints::SVEHintsLogistic)
@@ -463,8 +463,8 @@ end
 Gauss-Legendre order to use to guarantee accuracy.
 """
 function ngauss end
-ngauss(hints::SVEHintsLogistic) = hints.ε >= 1e-8 ? 10 : 16
-ngauss(hints::SVEHintsRegularizedBose) = hints.ε >= 1e-8 ? 10 : 16
+ngauss(hints::SVEHintsLogistic) = hints.ε ≥ 1e-8 ? 10 : 16
+ngauss(hints::SVEHintsRegularizedBose) = hints.ε ≥ 1e-8 ? 10 : 16
 ngauss(hints::SVEHintsReduced) = ngauss(hints.inner_hints)
 
 """
@@ -492,23 +492,23 @@ conv_radius(kernel::RegularizedBoseKernel) = 40 * kernel.Λ
 conv_radius(kernel::AbstractReducedKernel) = conv_radius(kernel.inner)
 
 """
-    weight_func(kernel, statistics::Symbol)
+    weight_func(kernel, statistics::Statistics)
 
 Return the weight function for the given statistics.
 """
 function weight_func(::AbstractKernel, statistics)
-    statistics ∈ (:F, :B) || error("statistics must be :F for fermions or :B for bosons")
+    statistics ∈ (fermion, boson) || error("statistics must be fermion for fermions or boson for bosons")
     return x -> ones(eltype(x), size(x))
 end
 function weight_func(kernel::LogisticKernel, statistics)
-    statistics ∈ (:F, :B) || error("statistics must be :F for fermions or :B for bosons")
-    if statistics == :F
+    statistics ∈ (fermion, boson) || error("statistics must be fermion for fermions or boson for bosons")
+    if statistics == fermion
         return y -> ones(eltype(y), size(y))
     else
         return y -> 1 / tanh(0.5 * kernel.Λ * y)
     end
 end
 function weight_func(::RegularizedBoseKernel, statistics)
-    statistics == :B || error("Kernel is designed for bosonic functions")
+    statistics == boson || error("Kernel is designed for bosonic functions")
     return y -> 1 / y
 end

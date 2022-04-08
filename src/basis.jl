@@ -1,25 +1,27 @@
 using SparseIR
 
-export IRBasis, FiniteTempBasis
+export IRBasis, FiniteTempBasis, finite_temp_bases, fermion, boson
+
+@enum Statistics fermion boson
 
 abstract type AbstractBasis end
 
-struct IRBasis{K<:AbstractKernel, T<:Real} <: AbstractBasis
+struct IRBasis{K<:AbstractKernel,T<:Real} <: AbstractBasis
     kernel::K
     u::PiecewiseLegendrePolyArray{T}
-    û::PiecewiseLegendreFTArray{T}
+    uhat::PiecewiseLegendreFTArray{T}
     s::Vector{T}
     v::PiecewiseLegendrePolyArray{T}
     sampling_points_v::Vector{T}
-    statistics::Symbol
+    statistics::Statistics
 end
 
 function IRBasis(statistics, Λ, ε=nothing; kernel=nothing, sve_result=nothing)
-    Λ >= 0 || error("Kernel cutoff Λ must be non-negative")
+    Λ ≥ 0 || error("Kernel cutoff Λ must be non-negative")
 
-    self_kernel = get_kernel(statistics, Λ, kernel) # TODO better name
+    kernel = get_kernel(statistics, Λ, kernel) # TODO better name
     if isnothing(sve_result)
-        u, s, v = compute(self_kernel; ε)
+        u, s, v = compute(kernel; ε)
     else
         u, s, v = sve_result
         size(u) == size(s) == size(v) || error("Mismatched shapes in SVE")
@@ -34,14 +36,15 @@ function IRBasis(statistics, Λ, ε=nothing; kernel=nothing, sve_result=nothing)
     # The radius of convergence of the asymptotic expansion is Λ/2,
     # so for significantly larger frequencies we use the asymptotics,
     # since it has lower relative error.
-    even_odd = Dict(:F => :odd, :B => :even)[statistics]
-    û = hat.(u, even_odd; n_asymp=conv_radius(self_kernel))
+    even_odd = Dict(fermion => :odd, boson => :even)[statistics]
+    uhat = hat.(u, even_odd; n_asymp=conv_radius(kernel))
     rts = roots(last(v))
     sampling_points_v = [v.xmin; (rts[begin:(end - 1)] .+ rts[(begin + 1):end]) / 2; v.xmax]
-    return IRBasis(self_kernel, u, û, s, v, sampling_points_v, statistics)
+    return IRBasis(kernel, u, uhat, s, v, sampling_points_v, statistics)
 end
 
 Λ(basis::IRBasis) = basis.kernel.Λ
+is_well_conditioned(::IRBasis) = true
 
 function Base.getindex(basis::IRBasis, i)
     sve_result = basis.u[i], basis.s[i], basis.v[i]
@@ -49,8 +52,8 @@ function Base.getindex(basis::IRBasis, i)
 end
 
 function get_kernel(statistics, Λ, kernel)
-    statistics ∈ (:F, :B) ||
-        error("""statistics must be either :B (for fermionic basis) or :F (for bosonic basis)""")
+    statistics ∈ (fermion, boson) ||
+        error("""statistics must be either boson (for fermionic basis) or fermion (for bosonic basis)""")
     if isnothing(kernel)
         kernel = LogisticKernel(Λ)
     else
@@ -59,20 +62,20 @@ function get_kernel(statistics, Λ, kernel)
     return kernel
 end
 
-struct FiniteTempBasis{K<:AbstractKernel, T<:Real} <: AbstractBasis
+struct FiniteTempBasis{K<:AbstractKernel,T<:Real} <: AbstractBasis
     kernel::K
     sve_result::Tuple{PiecewiseLegendrePolyArray{T},Vector{T},PiecewiseLegendrePolyArray{T}}
-    statistics::Symbol
+    statistics::Statistics
     β::T
     u::PiecewiseLegendrePolyArray{T}
     v::PiecewiseLegendrePolyArray{T}
     s::Vector{T}
-    û::PiecewiseLegendreFTArray{T}
+    uhat::PiecewiseLegendreFTArray{T}
 end
 
 function FiniteTempBasis(statistics, β, wmax, ε=nothing; kernel=nothing, sve_result=nothing)
     β > 0 || error("Inverse temperature β must be positive")
-    wmax >= 0 || error("Frequency cutoff wmax must be non-negative")
+    wmax ≥ 0 || error("Frequency cutoff wmax must be non-negative")
 
     kernel = get_kernel(statistics, β * wmax, kernel)
     if isnothing(sve_result)
@@ -106,14 +109,15 @@ function FiniteTempBasis(statistics, β, wmax, ε=nothing; kernel=nothing, sve_r
     û_base = scale.(u, √β)
 
     conv_radius = 40 * kernel.Λ
-    even_odd = Dict(:F => :odd, :B => :even)[statistics]
-    û = hat.(û_base, even_odd; n_asymp=conv_radius)
+    even_odd = Dict(fermion => :odd, boson => :even)[statistics]
+    uhat = hat.(û_base, even_odd; n_asymp=conv_radius)
 
-    return FiniteTempBasis(kernel, (u, s, v), statistics, β, u_, v_, s_, û)
+    return FiniteTempBasis(kernel, (u, s, v), statistics, β, u_, v_, s_, uhat)
 end
 
 Base.firstindex(::AbstractBasis) = 1
 Base.length(basis::AbstractBasis) = length(basis.s)
+is_well_conditioned(::IRBasis) = true
 
 function Base.getindex(basis::FiniteTempBasis, i)
     u, s, v = basis.sve_result
@@ -123,3 +127,50 @@ function Base.getindex(basis::FiniteTempBasis, i)
 end
 
 wmax(basis::FiniteTempBasis) = basis.kernel.Λ / basis.β
+
+function finite_temp_bases(β, wmax, ε, sve_result=compute(LogisticKernel(β * wmax); ε))
+    basis_f = FiniteTempBasis(fermion, β, wmax, ε; sve_result)
+    basis_b = FiniteTempBasis(boson, β, wmax, ε; sve_result)
+    return basis_f, basis_b
+end
+
+default_tau_sampling_points(basis::AbstractBasis) = _default_sampling_points(basis.u)
+default_matsubara_sampling_points(basis::AbstractBasis; mitigate=true) = _default_matsubara_sampling_points(basis.uhat, mitigate)
+
+function _default_sampling_points(u)
+    poly = last(u)
+    maxima = roots(deriv(poly))
+    left = (first(maxima) + poly.xmin) / 2
+    right = (last(maxima) + poly.xmax) / 2
+    return [left; maxima; right]
+end
+
+function _default_matsubara_sampling_points(uhat, mitigate=true)
+    # Use the (discrete) extrema of the corresponding highest-order basis
+    # function in Matsubara.  This turns out to be close to optimal with
+    # respect to conditioning for this size (within a few percent).
+    polyhat = last(uhat)
+    wn = extrema(polyhat)
+
+    # While the condition number for sparse sampling in tau saturates at a
+    # modest level, the conditioning in Matsubara steadily deteriorates due
+    # to the fact that we are not free to set sampling points continuously.
+    # At double precision, tau sampling is better conditioned than iwn
+    # by a factor of ~4 (still OK). To battle this, we fence the largest
+    # frequency with two carefully chosen oversampling points, which brings
+    # the two sampling problems within a factor of 2.
+    if mitigate
+        wn_outer = [first(wn), last(wn)]
+        wn_diff = 2 * round.(Int, 0.025 * wn_outer)
+        length(wn) ≥ 20 && append!(wn, wn_outer - wn_diff)
+        length(wn) ≥ 42 && append!(wn, wn_outer + wn_diff)
+        unique!(wn)
+    end
+
+    if iseven(first(wn))
+        pushfirst!(wn, 0)
+        unique!(wn)
+    end
+
+    return wn
+end

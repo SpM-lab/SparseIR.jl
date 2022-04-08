@@ -1,14 +1,10 @@
-using Test
 using LinearAlgebra
 import QuadGK: gauss
 
-using SparseIR
-
-
 function gauss_validate(rule)
-    @test rule.a <= rule.b
-    @test all(<=(rule.b), rule.x)
-    @test all(>=(rule.a), rule.x)
+    @test rule.a ≤ rule.b
+    @test all(≤(rule.b), rule.x)
+    @test all(≥(rule.a), rule.x)
     @test issorted(rule.x)
     @test length(rule.x) == length(rule.w)
 end

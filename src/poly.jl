@@ -1,12 +1,13 @@
 import AssociatedLegendrePolynomials: Plm
-import IntervalRootFinding: roots as roots_irf, Interval, isunique, interval, mid
+import IntervalRootFinding: roots as roots_irf, Interval, isunique, interval, mid, Newton,
+                            Krawczyk
 import SpecialFunctions: sphericalbesselj # TODO: if Bessels.jl has been released, use that instead
 import QuadGK: quadgk
 import Memoization: @memoize
 
-export PiecewiseLegendrePolyArray, roots, hat, overlap
+export PiecewiseLegendrePolyArray, roots, hat, overlap, deriv
 
-struct PiecewiseLegendrePoly{T<:Real}
+struct PiecewiseLegendrePoly{T<:Real} <: Function
     nsegments::Int
     polyorder::Int
     xmin::T
@@ -65,29 +66,39 @@ function overlap(poly::PiecewiseLegendrePoly, f; rtol=2.3e-16, return_error=fals
 end
 
 function deriv(poly::PiecewiseLegendrePoly, n=1)
-    ddata = poly.data
-    for _ in 1:n
-        ddata = legder.(eachcol(ddata))
-        ddata = reduce(hcat, ddata)
-    end
+    ddata = reduce(hcat, legder(c, n) for c in eachcol(poly.data))
 
     scale = poly.inv_xs .^ n
-    ddata .*= scale'
+    ddata .*= transpose(scale)
     return PiecewiseLegendrePoly(ddata, poly; symm=(-1)^n * poly.symm)
 end
 
-function roots(poly::PiecewiseLegendrePoly)
-    rts = roots_irf(x -> poly(x), x -> deriv(poly)(x), Interval(poly.xmin, poly.xmax))
-    all(isunique, rts) || error("Failed to determine roots uniquely")
-    return map(mid ∘ interval, rts)
+function roots(poly::PiecewiseLegendrePoly{T}) where {T}
+    m = (poly.xmin + poly.xmax) / 2
+    xmin = abs(poly.symm) == 1 ? m : poly.xmin
+    xmax = poly.xmax
+
+    rts = roots_irf(poly, Interval(xmin, xmax))
+    filter!(isunique, rts)
+    rts = map(mid ∘ interval, rts)
+
+    if abs(poly.symm) == 1
+        append!(rts, 2m .- rts)
+        poly.symm == -1 && push!(rts, m)
+    end
+    sort!(rts)
+    return rts
 end
 
-in_domain(poly, x) = poly.xmin <= x <= poly.xmax
+function check_domain(poly, x)
+    poly.xmin ≤ x ≤ poly.xmax || throw(DomainError("x is outside the domain"))
+    return true
+end
 
 function split(poly, x)
-    # in_domain(poly, x) || throw(DomainError("x must be in [$(poly.xmin), $(poly.xmax)]"))
+    @boundscheck check_domain(poly, x)
 
-    i = clamp(searchsortedlast(poly.knots, x; lt=<), 1, poly.nsegments)
+    i = max(searchsortedlast(poly.knots, x; lt=≤), 1)
     x̃ = x - poly.xm[i]
     x̃ *= poly.inv_xs[i]
     return i, x̃
@@ -135,6 +146,9 @@ function PiecewiseLegendrePolyArray(data, polys::PiecewiseLegendrePolyArray)
 end
 
 (polys::PiecewiseLegendrePolyArray)(x) = map(poly -> poly(x), polys)
+function (polys::PiecewiseLegendrePolyArray)(x::Array)
+    return reshape(reduce(vcat, polys.(x)), (size(polys)..., size(x)...))
+end
 
 function Base.getproperty(polys::PiecewiseLegendrePolyArray, sym::Symbol)
     if sym ∈ (:xmin, :xmax, :knots, :dx, :polyorder, :nsegments, :xm, :inv_xs, :norm)
@@ -157,7 +171,7 @@ struct PowerModel
 end
 
 const DEFAULT_GRID = [range(0; length=2^6);
-                      trunc.(Int, 2 .^ range(6, 25; length=16 * (25 - 6) + 1))]
+                      trunc.(Int, exp2.(range(6, 25; length=16 * (25 - 6) + 1)))]
 struct PiecewiseLegendreFT{T<:Real}
     poly::PiecewiseLegendrePoly{T}
     freq::Symbol
@@ -189,12 +203,24 @@ end
 
 function (polyFT::PiecewiseLegendreFT)(n)
     n = check_reduced_matsubara(n, polyFT.ζ)
-    result = compute_unl_inner(polyFT.poly, n)
+    result = _compute_unl_inner(polyFT.poly, n)
 
-    if abs(n) >= polyFT.n_asymp
-        result = transpose(giw(polyFT.model))
+    if abs(n) ≥ polyFT.n_asymp
+        result = transpose(giw(polyFT.model, n))
     end
 
+    return result
+end
+
+function giw(model::PowerModel, wn)
+    check_reduced_matsubara(wn)
+    T_result = promote_type(typeof(im), typeof(wn), eltype(model.moments))
+    result = zero(T_result)
+    inv_iw = !iszero(wn) ? 2 / (im * π * wn) : im * π / 2 * wn
+    for mom in reverse(model.moments)
+        result += mom
+        result *= inv_iw
+    end
     return result
 end
 
@@ -202,6 +228,87 @@ Base.firstindex(::PiecewiseLegendreFT) = 1
 
 function hat(poly::PiecewiseLegendrePoly, freq; n_asymp=nothing)
     return PiecewiseLegendreFT(poly, freq, n_asymp)
+end
+
+function Base.extrema(polyFT::PiecewiseLegendreFT, part=nothing, grid=DEFAULT_GRID)
+    f = _func_for_part(polyFT, part)
+    x₀ = _discrete_extrema(f, grid)
+    x₀ .= 2x₀ .+ polyFT.ζ
+
+    return _symmetrize_matsubara(x₀)
+end
+
+function _func_for_part(polyFT::PiecewiseLegendreFT, part=nothing)
+    if isnothing(part)
+        parity = polyFT.poly.symm
+        if parity == 1
+            part = iszero(polyFT.ζ) ? real : imag
+        elseif parity == -1
+            part = iszero(polyFT.ζ) ? imag : real
+        else
+            error("Cannot detect parity")
+        end
+    end
+    return n -> part(polyFT(2n + polyFT.ζ))
+end
+
+function _discrete_extrema(f::Function, xgrid)
+    fx = f.(xgrid)
+    absfx = abs.(fx)
+
+    # Forward differences: derivativesignchange[i] now means that the secant changes sign
+    # fx[i+1]. This means that the extremum is STRICTLY between x[i] and
+    # x[i+2]
+    gx = diff(fx)
+    sgx = signbit.(gx)
+    derivativesignchange = sgx[1:(end - 1)] .!= sgx[2:end]
+    derivativesignchange_a = [derivativesignchange; false; false]
+    derivativesignchange_b = [false; false; derivativesignchange]
+
+    a = xgrid[derivativesignchange_a]
+    b = xgrid[derivativesignchange_b]
+    absf_a = absfx[derivativesignchange_a]
+    absf_b = absfx[derivativesignchange_b]
+    res = _bisect_discr_extremum.(f, a, b, absf_a, absf_b)
+
+    # We consider the outer point to be extremua if there is a decrease
+    # in magnitude or a sign change inwards
+    sfx = signbit.(fx)
+    if absfx[begin] > absfx[begin + 1] || sfx[begin] != sfx[begin + 1]
+        pushfirst!(res, first(xgrid))
+    end
+    if absfx[end] > absfx[end - 1] || sfx[end] != sfx[end - 1]
+        push!(res, last(xgrid))
+    end
+
+    return res
+end
+
+function _bisect_discr_extremum(f, a, b, absf_a, absf_b)
+    d = b - a
+    d ≤ 1 && return absf_a > absf_b ? a : b
+    d == 2 && return a + 1
+
+    m = (a + b) ÷ 2
+    n = m + 1
+    absf_m = abs(f(m))
+    absf_n = abs(f(n))
+    if absf_m > absf_n
+        return _bisect_discr_extremum(f, a, n, absf_a, absf_n)
+    else
+        return _bisect_discr_extremum(f, m, b, absf_m, absf_b)
+    end
+end
+
+function _symmetrize_matsubara(x₀)
+    issorted(x₀) || error("set of Matsubara points not ordered")
+    first(x₀) ≥ 0 || error("points must be non-negative")
+    if iszero(first(x₀))
+        x₀ = [-reverse(x₀); x₀[2:end]]
+    else
+        x₀ = [-reverse(x₀); x₀]
+    end
+    return x₀
 end
 
 function derivs(ppoly, x)
@@ -253,19 +360,19 @@ function refine_grid(knots, α)
     return knots_new
 end
 
-function compute_unl_inner(poly, wn)
-    data_sc = poly.data ./ reshape(poly.norm, (1, :))
+function _compute_unl_inner(poly, wn)
+    data_sc = poly.data ./ reshape(√2 * poly.norm, (1, :))
 
     p = range(0; length=poly.polyorder)
     wred = π / 2 * wn
     phase_wi = phase_stable(poly, wn)
-    t_pin = get_tnl.(p', wred * poly.dx / 2) .* phase_wi
+    t_pin = _get_tnl.(p', wred * poly.dx / 2) .* phase_wi
 
     return sum(transpose(t_pin) .* data_sc)
 end
 
-function get_tnl(l, w)
-    result = 2 * im^l * sphericalbesselj(l, abs(w))
+function _get_tnl(l, w)
+    result = 2im^l * sphericalbesselj(l, abs(w))
     return w < 0 ? conj(result) : result
 end
 
@@ -306,25 +413,31 @@ end
 @memoize legendreP(l, x) = Plm(l, 0, x)
 
 function legval(x, c)
-    x = clamp(x, -1, 1)
+    # x = clamp(x, -1, 1)
     return sum(c .* legendreP(range(0; length=length(c)), x))
 end
 
-function legder(c)
+"""
+Adapted from https://github.com/numpy/numpy/blob/4adc87dff15a247e417d50f10cc4def8e1c17a03/numpy/polynomial/legendre.py#L612-L701
+"""
+function legder(cc::AbstractVector{T}, cnt=1) where {T<:Number}
+    cnt ≥ 0 || error("cnt must be non-negative")
+    cnt == 0 && return cc
+    c = copy(cc)
     n = length(c)
-    if n <= 1
-        return zeros(1)
-    else # n > 1
-        n -= 1
-        der = Array{eltype(c)}(undef, n)
-        for j in n:-1:3
-            der[j] = (2j - 1) * c[j + 1]
-            c[j - 1] += c[j]
+    if n ≤ cnt
+        c = [zero(T)]
+    else
+        for _ in 1:cnt
+            n -= 1
+            der = Vector{T}(undef, n)
+            for j in n:-1:2
+                der[j] = (2j - 1) * c[j + 1]
+                c[j - 1] += c[j + 1]
+            end
+            der[1] = c[2]
+            c = der
         end
-        if n > 1
-            der[2] = 3c[3]
-        end
-        der[1] = c[2]
-        return der
     end
+    return c
 end

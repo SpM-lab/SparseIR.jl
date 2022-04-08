@@ -1,7 +1,3 @@
-using Test
-
-using SparseIR
-
 @testset "poly.jl" begin
     @testset "shape" begin
         u, s, v = sve_logistic[42]
@@ -15,10 +11,10 @@ using SparseIR
     @testset "slice" begin
         sve_result = sve_logistic[42]
 
-        basis = IRBasis(:F, 42; sve_result)
+        basis = IRBasis(fermion, 42; sve_result)
         @test length(basis[begin:5]) == 5
 
-        basis = FiniteTempBasis(:F, 4.2, 10; sve_result)
+        basis = FiniteTempBasis(fermion, 4.2, 10; sve_result)
         @test length(basis[begin:4]) == 4
     end
 

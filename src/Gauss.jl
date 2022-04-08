@@ -22,9 +22,9 @@ struct Rule{T<:Real}
     b::T
 
     function Rule(x, w, a=-1, b=1)
-        a <= b || error("a must be <= b")
-        all(<=(b), x) || error("x must be <= b")
-        all(>=(a), x) || error("x must be >= a")
+        a ≤ b || error("a must be ≤ b")
+        all(≤(b), x) || error("x must be ≤ b")
+        all(≥(a), x) || error("x must be ≥ a")
         issorted(x) || error("x must be strictly increasing")
         length(x) == length(w) || error("x and w must have the same length")
         return new{eltype(x)}(x, w, a, b)

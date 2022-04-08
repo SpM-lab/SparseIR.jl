@@ -1,7 +1,8 @@
 using SparseIR
 import Tullio: @tullio
 
-export compute, SamplingSVE, CentroSymmSVE, choose_acuracy
+# TODO reduce exports
+export compute, SamplingSVE, CentrosymmSVE, choose_accuracy, is_centrosymmetric, matrices
 
 const HAVE_XPREC = false # TODO
 
@@ -17,8 +18,8 @@ struct SamplingSVE{K<:AbstractKernel,T<:Real} <: AbstractSVE
     rule::Rule
     segs_x::Vector{T}
     segs_y::Vector{T}
-    gauss_x::Rule
-    gauss_y::Rule
+    gauss_x::Rule{T}
+    gauss_y::Rule{T}
     sqrtw_x::Vector{T}
     sqrtw_y::Vector{T}
 end
@@ -43,10 +44,11 @@ function SamplingSVE(kernel, ε; n_gauss=nothing, T::Type{<:Real}=Float64)
                        gauss_x, gauss_y, sqrt.(gauss_x.w), sqrt.(gauss_y.w))
 end
 
+# TODO: surely this can be done more elegantly
+# TODO: remove explicit use of Float64
 function compute(kernel::AbstractKernel; ε::Union{Float64,Nothing}=nothing,
-                 n_sv=typemax(Int),
-                 n_gauss::Union{Int,Nothing}=nothing, T::Type{<:Real}=Float64,
-                 work_T::Union{Type{<:Real},Nothing}=nothing,
+                 n_sv=typemax(Int), n_gauss::Union{Int,Nothing}=nothing,
+                 T::Type{<:Real}=Float64, work_T::Union{Type{<:Real},Nothing}=nothing,
                  sve_strat::Type{<:AbstractSVE}=is_centrosymmetric(kernel) ? CentrosymmSVE :
                                                 SamplingSVE,
                  svd_strat::Union{Symbol,Nothing}=nothing)
@@ -57,8 +59,8 @@ function compute(kernel::AbstractKernel; ε::Union{Float64,Nothing}=nothing,
         svd_strat = default_svd_strat
     end
     sve = sve_strat(kernel, ε; n_gauss, T=work_T)
-    u, s, v = zip((compute(matrix; n_sv_hint=sve.nsvals_hint, strategy=svd_strat) for matrix in
-                                                                                      matrices(sve))...)
+    svds = [compute(matrix; n_sv_hint=sve.nsvals_hint, strategy=svd_strat) for matrix in matrices(sve)]
+    u, s, v = zip(svds...)
     u, s, v = truncate(u, s, v, ε, n_sv)
     return postprocess(sve, u, s, v, T)
 end
@@ -100,9 +102,7 @@ function postprocess(sve::SamplingSVE, u, s, v, T=nothing)
     return ulx, s, vly
 end
 
-function CentrosymmSVE(kernel, ε; InnerSVE=nothing, inner_args...)
-    isnothing(InnerSVE) && (InnerSVE = SamplingSVE)
-
+function CentrosymmSVE(kernel, ε; InnerSVE=SamplingSVE, inner_args...)
     even = InnerSVE(get_symmetrized(kernel, +1), ε; inner_args...)
     odd = InnerSVE(get_symmetrized(kernel, -1), ε; inner_args...)
     return CentrosymmSVE(kernel, ε, even, odd, max(even.nsvals_hint, odd.nsvals_hint))
@@ -113,7 +113,6 @@ function matrices(sve::CentrosymmSVE)
 end
 
 function postprocess(sve::CentrosymmSVE, u, s, v, T)
-    # @show u[1][1:3, 1:3]
     u_even, s_even, v_even = postprocess(sve.even, u[1], s[1], v[1], T)
     u_odd, s_odd, v_odd = postprocess(sve.odd, u[2], s[2], v[2], T)
 
@@ -122,8 +121,6 @@ function postprocess(sve::CentrosymmSVE, u, s, v, T)
     v = [v_even; v_odd]
     s = [s_even; s_odd]
     signs = [fill(1, length(s_even)); fill(-1, length(s_odd))]
-
-    # @show size(u) size(first(u).data) first(u).data[1:3, 1:3]
 
     # Sort: now for totally positive kernels like defined in this module,
     # this strictly speaking is not necessary as we know that the even/odd
@@ -167,14 +164,14 @@ function choose_accuracy(ε, work_T)
     end
 
     if isnothing(work_T)
-        if ε >= sqrt(eps(Float64))
+        if ε ≥ sqrt(eps(Float64))
             return ε, Float64, :fast
         end
         work_T = MAX_T
     end
 
     safe_ε = sqrt(eps(work_T))
-    if ε >= safe_ε
+    if ε ≥ safe_ε
         svd_strat = :fast
     else
         svd_strat = :accurate
@@ -189,10 +186,10 @@ end
 
 function truncate(u, s, v, rtol=0, lmax=nothing)
     if !isnothing(lmax)
-        lmax >= 0 || error("lmax must be non-negative")
+        lmax ≥ 0 || error("lmax must be non-negative")
         lmax isa Integer || error("lmax must be an integer")
     end
-    0 <= rtol <= 1 || error("rtol must be in [0, 1]")
+    0 ≤ rtol ≤ 1 || error("rtol must be in [0, 1]")
 
     sall = vcat(s...)
 

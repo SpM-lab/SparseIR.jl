@@ -1,6 +1,3 @@
-using Test
-using SparseIR
-
 @testset "kernel.jl" begin
     @testset "accuracy" begin
         for K in [LogisticKernel(9),
