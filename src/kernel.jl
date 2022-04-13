@@ -131,7 +131,7 @@ struct LogisticKernelOdd{T<:AbstractFloat} <: AbstractReducedKernel
     sign::Int
 
     function LogisticKernelOdd(inner::LogisticKernel{T}, sign) where {T<:AbstractFloat}
-        is_centrosymmetric(inner) || error("inner kernel must be centrosymmetric")
+        iscentrosymmetric(inner) || error("inner kernel must be centrosymmetric")
         abs(sign) == 1 || error("sign must be -1 or 1")
         return new{T}(inner, sign)
     end
@@ -154,7 +154,7 @@ struct RegularizedBoseKernelOdd{T} <: AbstractReducedKernel where {T<:AbstractFl
 
     function RegularizedBoseKernelOdd(inner::RegularizedBoseKernel{T},
                                       sign) where {T<:AbstractFloat}
-        is_centrosymmetric(inner) || error("inner kernel must be centrosymmetric")
+        iscentrosymmetric(inner) || error("inner kernel must be centrosymmetric")
         abs(sign) == 1 || error("sign must be -1 or 1")
         return new{T}(inner, sign)
     end
@@ -361,10 +361,10 @@ in range. This allows the kernel to be block-diagonalized,
 speeding up the singular value expansion by a factor of 4.  Defaults
 to `false`.
 """
-is_centrosymmetric(::AbstractKernel) = false
-is_centrosymmetric(::LogisticKernel) = true
-is_centrosymmetric(::RegularizedBoseKernel) = true
-is_centrosymmetric(::AbstractReducedKernel) = false
+iscentrosymmetric(::AbstractKernel) = false
+iscentrosymmetric(::LogisticKernel) = true
+iscentrosymmetric(::RegularizedBoseKernel) = true
+iscentrosymmetric(::AbstractReducedKernel) = false
 
 """
     kernel(x, y[, x₊, x₋])

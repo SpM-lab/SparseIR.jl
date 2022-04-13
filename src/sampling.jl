@@ -2,72 +2,112 @@ import LinearAlgebra: svd, SVD
 
 export TauSampling, MatsubaraSampling, evaluate, fit
 
+"""
+    AbstractSampling
+
+Abstract class for sparse sampling.
+
+Encodes the "basis transformation" of a propagator from the truncated IR
+basis coefficients `G_ir[l]` to time/frequency sampled on sparse points
+`G(x[i])` together with its inverse, a least squares fit:
+
+         ________________                   ___________________
+        |                |    evaluate     |                   |
+        |     Basis      |---------------->|     Value on      |
+        |  coefficients  |<----------------|  sampling points  |
+        |________________|      fit        |___________________|
+
+"""
 abstract type AbstractSampling end
 
+"""
+    cond(sampling)
+
+Condition number of the fitting problem.
+"""
 cond(sampling::AbstractSampling) = first(sampling.matrix.S) / last(sampling.matrix.S)
 
-struct TauSampling{T<:Number,B<:AbstractBasis} <: AbstractSampling
+"""
+    TauSampling <: AbstractSampling
+
+Sparse sampling in imaginary time.
+
+Allows the transformation between the IR basis and a set of sampling points
+in (scaled/unscaled) imaginary time.
+"""
+struct TauSampling{T<:Number,B<:AbstractBasis,S<:AbstractFloat} <: AbstractSampling
     sampling_points::Vector{T}
     basis::B
-    matrix::SVD
+    matrix::SVD{S,S,Matrix{S}}
+    matrixfull::Matrix{S}
 end
 
-struct MatsubaraSampling{T<:Number,B<:AbstractBasis} <: AbstractSampling
-    sampling_points::Vector{T}
-    basis::B
-    matrix::SVD
-end
+"""
+    TauSampling(basis, sampling_points)
 
+Construct a `TauSampling` object.
+"""
 function TauSampling(basis, sampling_points=default_tau_sampling_points(basis))
-    matrix = svd(eval_matrix(TauSampling, basis, sampling_points))
-    sampling = TauSampling(sampling_points, basis, matrix)
+    matrixfull = eval_matrix(TauSampling, basis, sampling_points)
+    sampling = TauSampling(sampling_points, basis, svd(matrixfull), matrixfull)
 
-    if is_well_conditioned(basis) && cond(sampling) > 1e8
+    if iswellconditioned(basis) && cond(sampling) > 1e8
         @warn "Sampling matrix is poorly conditioned (cond = $(cond(sampling)))."
     end
 
     return sampling
 end
 
+"""
+    MatsubaraSampling <: AbstractSampling
+
+Sparse sampling in Matsubara frequencies.
+
+Allows the transformation between the IR basis and a set of sampling points
+in (scaled/unscaled) imaginary frequencies.
+"""
+struct MatsubaraSampling{T<:Number,B<:AbstractBasis,S<:AbstractFloat} <: AbstractSampling
+    sampling_points::Vector{T}
+    basis::B
+    matrix::SVD{S,S,Matrix{S}}
+    matrixfull::Matrix{S}
+end
+
+"""
+    MatsubaraSampling(basis, sampling_points)
+
+Construct a `MatsubaraSampling` object.
+"""
 function MatsubaraSampling(basis, sampling_points=default_matsubara_sampling_points(basis))
-    matrix = svd(eval_matrix(MatsubaraSampling, basis, sampling_points))
-    sampling = MatsubaraSampling(sampling_points, basis, matrix)
+    matrixfull = eval_matrix(MatsubaraSampling, basis, sampling_points)
+    sampling = MatsubaraSampling(sampling_points, basis, svd(matrixfull), matrixfull)
 
-    if is_well_conditioned(basis) && cond(sampling) > 1e8
+    if iswellconditioned(basis) && cond(sampling) > 1e8
         @warn "Sampling matrix is poorly conditioned (cond = $(cond(sampling)))."
     end
 
     return sampling
 end
 
+"""
+    eval_matrix(T, basis, x)
+
+Return evaluation matrix from coefficients to sampling points. `T <: AbstractSampling`.
+"""
 eval_matrix(::Type{TauSampling}, basis, x) = permutedims(basis.u(x))
 eval_matrix(::Type{MatsubaraSampling}, basis, x) = permutedims(basis.uhat(x))
 
 # TODO implement axis
-evaluate(smpl::AbstractSampling, al, axis=nothing) = Matrix(smpl.matrix) * al
+"""
+    evaluate(sampling, al)
+
+Evaluate the basis coefficients at the sparse sampling points.
+"""
+evaluate(smpl::AbstractSampling, al, axis=nothing) = smpl.matrixfull * al
+
+"""
+    fit(sampling, al)
+
+Fit basis coefficients from the sparse sampling points
+"""
 fit(smpl::AbstractSampling, al, axis=nothing) = smpl.matrix \ al
-
-# struct DecomposedMatrix{T <: Number}
-#     a::Matrix{T}
-#     uH::Matrix{T}
-#     s::Vector{T}
-#     v::Matrix{T}
-# end
-
-# function get_svd_result(a, ε=Inf)
-#     F = svd(a)
-#     u, s, vH = F.U, F.S, F.Vt
-#     if isinf(ε)
-#         return u, s, vH
-#     else
-#         wher = s / first(s) .≤ ε
-#         return u[:, wher], s[wher], vH[wher, :]
-#     end
-# end
-
-# function DecomposedMatrix(a, svd_result=get_svd_result(a))
-#     ndims(a) == 2 || error("a must be a matrix")
-#     u, s, vH = svd_result
-
-#     return DecomposedMatrix(a, u', s, v')
-# end

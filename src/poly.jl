@@ -6,6 +6,15 @@ include("_bessels.jl")
 
 export PiecewiseLegendrePoly, PiecewiseLegendrePolyArray, roots, hat, overlap, deriv
 
+"""
+    PiecewiseLegendrePoly <: Function
+
+Piecewise Legendre polynomial.
+
+Models a function on the interval ``[xmin, xmax]`` as a set of segments on the
+intervals ``S[i] = [a[i], a[i+1]]``, where on each interval the function
+is expanded in scaled Legendre polynomials.
+"""
 struct PiecewiseLegendrePoly{T<:AbstractFloat} <: Function
     nsegments::Int
     polyorder::Int
@@ -51,10 +60,21 @@ end
 Base.size(::PiecewiseLegendrePoly) = ()
 
 function (poly::PiecewiseLegendrePoly)(x)
-    i, x̃ = split(poly, x)
+    i, x̃ = _split(poly, x)
     return legval(x̃, poly.data[:, i]) * poly.norm[i]
 end
 
+"""
+    overlap(poly::PiecewiseLegendrePoly, f::Function)
+
+Evaluate overlap integral of `poly` with arbitrary function `f`.
+
+Given the function `f`, evaluate the integral::
+
+    ∫ dx * f(x) * poly(x)
+
+using adaptive Gauss-Legendre quadrature.
+"""
 function overlap(poly::PiecewiseLegendrePoly, f; rtol=2.3e-16, return_error=false)
     int_result, int_error = quadgk(x -> poly(x) * f(x), poly.xmin, poly.xmax; rtol)
     if return_error
@@ -64,6 +84,11 @@ function overlap(poly::PiecewiseLegendrePoly, f; rtol=2.3e-16, return_error=fals
     end
 end
 
+"""
+    deriv(poly, n=1)
+
+Get polynomial for the n'th derivative.
+"""
 function deriv(poly::PiecewiseLegendrePoly, n=1)
     ddata = legder(poly.data, n)
 
@@ -72,6 +97,11 @@ function deriv(poly::PiecewiseLegendrePoly, n=1)
     return PiecewiseLegendrePoly(ddata, poly; symm=(-1)^n * poly.symm)
 end
 
+"""
+    roots(poly)
+
+Find all roots of the piecewise polynomial.
+"""
 function roots(poly::PiecewiseLegendrePoly{T}) where {T}
     m = (poly.xmin + poly.xmax) / 2
     xmin = abs(poly.symm) == 1 ? m : poly.xmin
@@ -94,7 +124,14 @@ function check_domain(poly, x)
     return true
 end
 
-function split(poly, x)
+"""
+    _split(poly, x)
+
+Split segment.
+
+Find segment of poly's domain that covers `x`.
+"""
+function _split(poly, x)
     @boundscheck check_domain(poly, x)
 
     i = max(searchsortedlast(poly.knots, x; lt=≤), 1)
@@ -105,7 +142,7 @@ end
 
 function scale(poly::PiecewiseLegendrePoly, factor)
     return PiecewiseLegendrePoly(poly.data * factor, poly.knots; dx=poly.dx, symm=poly.symm)
-end#poly(x) * poly.norm
+end
 
 ###########################
 ## PiecewiseLegendrePolyArray ##
@@ -118,16 +155,16 @@ Alias for `Array{PiecewiseLegendrePoly{T}, N}`.
 """
 const PiecewiseLegendrePolyArray{T,N} = Array{PiecewiseLegendrePoly{T},N}
 
-function PiecewiseLegendrePolyArray(data::Array{T,N},
-                                    knots::Vector{T}) where {T<:AbstractFloat,N}
+# TODO simplify constructors
+function PiecewiseLegendrePolyArray(data::Array{T,N}, knots::Vector{T}) where {T,N}
     polys = PiecewiseLegendrePolyArray{T,N - 2}(undef, size(data)[3:end]...)
-    for i in eachindex(polys)#CartesianIndices(axes(data)[3:end])
+    for i in eachindex(polys)
         polys[i] = PiecewiseLegendrePoly(data[:, :, i], knots)
     end
     return polys
 end
 
-function PiecewiseLegendrePolyArray(polys::PiecewiseLegendrePolyArray, knots; dx, symm)# where {T<:AbstractFloat,N<:Integer}
+function PiecewiseLegendrePolyArray(polys::PiecewiseLegendrePolyArray, knots; dx, symm)
     size(polys) == size(symm) || error("Sizes of polys and symm don't match")
     polys_new = similar(polys)
     for i in eachindex(polys)
@@ -139,7 +176,7 @@ end
 function PiecewiseLegendrePolyArray(data, polys::PiecewiseLegendrePolyArray)
     size(data)[3:end] == size(polys) || error("Sizes of data and polys don't match")
     polys = similar(polys)
-    for i in eachindex(polys)#CartesianIndices(axes(data)[3:end])
+    for i in eachindex(polys)
         polys[i] = PiecewiseLegendrePoly(data[:, :, i], knots; symm=u.symm[i])
     end
     return polys
@@ -164,13 +201,38 @@ end
 ## PiecewiseLegendreFT ##
 #########################
 
+"""
+    PowerModel
+
+Model from a high-frequency series expansion::
+
+    A(iω) == sum(A[n] / (iω)^(n+1) for n in 1:N)
+
+where ``iω == i * π/2 * wn`` is a reduced imaginary frequency, i.e.,
+``wn`` is an odd/even number for fermionic/bosonic frequencies.
+"""
 struct PowerModel{T<:AbstractFloat}
     moments::Vector{T}
 end
 
 const DEFAULT_GRID = [range(0; length=2^6);
                       trunc.(Int, exp2.(range(6, 25; length=16 * (25 - 6) + 1)))]
-struct PiecewiseLegendreFT{T<:AbstractFloat}
+
+"""
+    PiecewiseLegendreFT <: Function
+
+Fourier transform of a piecewise Legendre polynomial.
+
+For a given frequency index `n`, the Fourier transform of the Legendre
+function is defined as:
+
+        p̂(n) == ∫ dx exp(i * π * n * x / (xmax - xmin)) p(x)
+
+The polynomial is continued either periodically (`freq=:even`), in which
+case `n` must be even, or antiperiodically (`freq=:odd`), in which case
+`n` must be odd.
+"""
+struct PiecewiseLegendreFT{T<:AbstractFloat} <: Function
     poly::PiecewiseLegendrePoly{T}
     freq::Symbol
     ζ::Union{Int,Nothing}
@@ -199,6 +261,11 @@ function PiecewiseLegendreFT(poly, freq=:even, n_asymp=nothing)
     return PiecewiseLegendreFT(poly, freq, ζ, float(n_asymp), model)
 end
 
+"""
+    (polyFT::PiecewiseLegendreFT)(n)
+
+Obtain Fourier transform of polynomial for given frequency index `n`.
+"""
 function (polyFT::PiecewiseLegendreFT)(n)
     n = check_reduced_matsubara(n, polyFT.ζ)
     result = _compute_unl_inner(polyFT.poly, n)
@@ -211,6 +278,11 @@ function (polyFT::PiecewiseLegendreFT)(n)
     return result
 end
 
+"""
+    giw(model::PowerModel, wn)
+
+Return model Green's function for reduced frequencies
+"""
 function giw(model::PowerModel, wn)
     check_reduced_matsubara(wn)
     T_result = promote_type(typeof(im), typeof(wn), eltype(model.moments))
@@ -220,7 +292,6 @@ function giw(model::PowerModel, wn)
         result += mom
         result *= inv_iw
     end
-    # result = evalpoly(inv_iw, vec(model.moments)) / inv_iw
     return result
 end
 
@@ -333,6 +404,20 @@ function power_model(stat, poly)
     return PowerModel(moments)
 end
 
+"""
+    check_reduced_matsubara(n[, ζ])
+
+Checks that `n` is a reduced Matsubara frequency.
+
+Check that the argument is a reduced Matsubara frequency, which is an
+integer obtained by scaling the freqency `ω[n]` as follows:
+
+    β / π * ω[n] == 2n + ζ
+
+Note that this means that instead of a fermionic frequency (`ζ == 1`),
+we expect an odd integer, while for a bosonic frequency (`ζ == 0`),
+we expect an even one.  If `ζ` is omitted, any one is fine.
+"""
 check_reduced_matsubara(n::Integer) = n
 check_reduced_matsubara(n::Integer, ζ) = (n & 1 == ζ) ? n : error("n must be even")
 
@@ -340,16 +425,11 @@ check_reduced_matsubara(n::Integer, ζ) = (n & 1 == ζ) ? n : error("n must be e
 ### Helper Functions ###
 ########################
 
-function refine_grid(knots, α)
-    knots_new = eltype(knots)[]
-    for i in eachindex(knots)[begin:(end - 1)]
-        interknots = range(knots[i], knots[i + 1]; length=α + 1)[begin:(end - 1)]
-        append!(knots_new, interknots)
-    end
-    append!(last(knots))
-    return knots_new
-end
+"""
+    _compute_unl_inner(poly, wn)
 
+Compute piecewise Legendre to Matsubara transform.
+"""
 function _compute_unl_inner(poly, wn)
     data_sc = poly.data ./ reshape(√2 * poly.norm, (1, :))
 
@@ -361,6 +441,13 @@ function _compute_unl_inner(poly, wn)
     return sum(transpose(t_pin) .* data_sc)
 end
 
+"""
+    _get_tnl(l, w)
+
+Fourier integral of the `l`-th Legendre polynomial::
+
+    Tₗ(ω) == ∫ dx exp(iωx) Pₗ(x)
+"""
 function _get_tnl(l, w)
     result = 2im^l * sphericalbesselj(l, abs(w))
     return (w < 0 ? conj : identity)(result)
@@ -368,7 +455,16 @@ end
 
 choose(a, choices) = [choices[a[i]][i] for i in eachindex(a)]
 
-function shift_xmid(knots, dx)
+"""
+    _shift_xmid(knots, dx)
+
+Return midpoint relative to the nearest integer plus a shift.
+
+Return the midpoints `xmid` of the segments, as pair `(diff, shift)`,
+where shift is in `(0, 1, -1)` and `diff` is a float such that
+`xmid == shift + diff` to floating point accuracy.
+"""
+function _shift_xmid(knots, dx)
     dx_half = dx ./ 2
     xmid_m1 = cumsum(dx) .- dx_half
     xmid_p1 = -reverse(cumsum(reverse(dx))) + dx_half
@@ -379,8 +475,17 @@ function shift_xmid(knots, dx)
     return diff, shift
 end
 
+"""
+    _phase_stable(poly, wn)
+
+Phase factor for the piecewise Legendre to Matsubara transform.
+
+Compute the following phase factor in a stable way:
+
+    exp.(iπ/2 * wn .* cumsum(poly.dx)')
+"""
 function _phase_stable(poly, wn)
-    xmid_diff, extra_shift = shift_xmid(poly.knots, poly.dx)
+    xmid_diff, extra_shift = _shift_xmid(poly.knots, poly.dx)
 
     if wn isa Integer
         shift_arg = wn * xmid_diff

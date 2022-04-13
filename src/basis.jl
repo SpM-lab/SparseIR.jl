@@ -6,6 +6,62 @@ export IRBasis, FiniteTempBasis, finite_temp_bases, fermion, boson
 
 abstract type AbstractBasis end
 
+"""
+    IRBasis <: AbstractBasis
+
+Intermediate representation (IR) basis in reduced variables.
+
+For a continuation kernel `K` from real frequencies, `ω ∈ [-ωmax, ωmax]`, to
+imaginary time, `τ ∈ [0, β]`, this class stores the truncated singular
+value expansion or IR basis:
+
+    K(x, y) ≈ sum(u[l](x) * s[l] * v[l](y) for l in range(L))
+
+The functions are given in reduced variables, `x = 2τ/β - 1` and
+`y = ω/ωmax`, which scales both sides to the interval `[-1, 1]`.  The
+kernel then only depends on a cutoff parameter `Λ = β * ωmax`.
+
+# Examples
+The following example code assumes the spectral function is a single
+pole at `x = 0.2`. We first compute an IR basis suitable for fermions and `β*W <= 42`. Then we get G(iw) on the first few Matsubara frequencies:
+
+```julia-repl
+julia> using SparseIR
+
+julia> basis = IRBasis(fermion, 42);
+
+julia> gl = basis.s .* basis.v(0.2);
+
+julia> giw = transpose(basis.uhat([1, 3, 5, 7])) * gl
+```
+
+# Fields
+- `u::PiecewiseLegendrePolyArray`: Set of IR basis functions on the reduced imaginary time (`x`) axis. These functions are stored as piecewise Legendre polynomials.
+
+  To obtain the value of all basis functions at a point or a array of
+  points `x`, you can call the function `u(x)`.  To obtain a single
+  basis function, a slice or a subset `l`, you can use `u[l]`.
+
+- `uhat::PiecewiseLegendreFTArray`: Set of IR basis functions on the Matsubara frequency (`wn`) axis.
+These objects are stored as a set of Bessel functions.
+
+  To obtain the value of all basis functions at a Matsubara frequency
+  or a array of points `wn`, you can call the function `uhat(wn)`.
+  Note that we expect reduced frequencies, which are simply even/odd
+  numbers for bosonic/fermionic objects. To obtain a single basis
+  function, a slice or a subset `l`, you can use `uhat[l]`.
+
+- `s`: Vector of singular values of the continuation kernel
+
+- `v::PiecewiseLegendrePolyArray`: Set of IR basis functions on the reduced real frequency (`y`) axis.
+These functions are stored as piecewise Legendre polynomials.
+
+  To obtain the value of all basis functions at a point or a array of
+  points `y`, you can call the function `v(y)`.  To obtain a single
+  basis function, a slice or a subset `l`, you can use `v[l]`.
+
+See also [`FiniteTempBasis`](@ref) for a basis directly in time/frequency.
+"""
 struct IRBasis{K<:AbstractKernel,T<:AbstractFloat} <: AbstractBasis
     kernel::K
     u::PiecewiseLegendrePolyArray{T}
@@ -16,11 +72,16 @@ struct IRBasis{K<:AbstractKernel,T<:AbstractFloat} <: AbstractBasis
     statistics::Statistics
 end
 
+"""
+    IRBasis(statistics, Λ, ε=nothing; kernel=nothing, sve_result=nothing)
+
+Construct an IR basis suitable for the given `statistics` and cutoff `Λ`.
+"""
 function IRBasis(statistics, Λ, ε=nothing; kernel=nothing, sve_result=nothing)
     Λ = float(Λ)
     Λ ≥ 0 || error("Kernel cutoff Λ must be non-negative")
 
-    self_kernel = get_kernel(statistics, Λ, kernel)
+    self_kernel = _get_kernel(statistics, Λ, kernel)
     if isnothing(sve_result)
         u, s, v = compute(self_kernel; ε)
     else
@@ -44,25 +105,75 @@ function IRBasis(statistics, Λ, ε=nothing; kernel=nothing, sve_result=nothing)
     return IRBasis(self_kernel, u, uhat, s, v, sampling_points_v, statistics)
 end
 
+"""
+    Λ(basis)
+
+Basis cutoff parameter `Λ = β * ωmax`.
+"""
 Λ(basis::IRBasis) = basis.kernel.Λ
-is_well_conditioned(::IRBasis) = true
 
 function Base.getindex(basis::IRBasis, i)
     sve_result = basis.u[i], basis.s[i], basis.v[i]
     return IRBasis(basis.statistics, Λ(basis); kernel=basis.kernel, sve_result)
 end
 
-function get_kernel(statistics, Λ, kernel)
-    statistics ∈ (fermion, boson) ||
-        error("""statistics must be either boson (for fermionic basis) or fermion (for bosonic basis)""")
-    if isnothing(kernel)
-        kernel = LogisticKernel(Λ)
-    else
-        @assert kernel.Λ ≈ Λ
-    end
-    return kernel
-end
+"""
+    FiniteTempBasis <: AbstractBasis
 
+Intermediate representation (IR) basis for given temperature.
+
+For a continuation kernel `K` from real frequencies, `ω ∈ [-ωmax, ωmax]`, to
+imaginary time, `τ ∈ [0, beta]`, this class stores the truncated singular
+value expansion or IR basis:
+
+    K(τ, ω) ≈ sum(u[l](τ) * s[l] * v[l](ω) for l in 1:L)
+
+This basis is inferred from a reduced form by appropriate scaling of
+the variables.
+
+# Examples
+The following example code assumes the spectral function is a single
+pole at `ω = 2.5`. We first compute an IR basis suitable for fermions and `β = 10`, `W ≤ 4.2`. Then we get G(iw) on the first few Matsubara frequencies:
+
+```julia-repl
+julia> using SparseIR
+
+julia> basis = FiniteTempBasis(fermion, 42, 4.2);
+
+julia> gl = basis.s .* basis.v(2.5);
+
+julia> giw = transpose(basis.uhat([1, 3, 5, 7])) * gl
+```
+
+# Fields
+- `u::PiecewiseLegendrePolyArray`:
+  Set of IR basis functions on the imaginary time (`tau`) axis.
+  These functions are stored as piecewise Legendre polynomials.
+  
+  To obtain the value of all basis functions at a point or a array of
+  points `x`, you can call the function `u(x)`.  To obtain a single
+  basis function, a slice or a subset `l`, you can use `u[l]`.
+
+- `uhat::PiecewiseLegendreFT`:
+  Set of IR basis functions on the Matsubara frequency (`wn`) axis.
+  These objects are stored as a set of Bessel functions.
+
+  To obtain the value of all basis functions at a Matsubara frequency
+  or a array of points `wn`, you can call the function `uhat(wn)`.
+  Note that we expect reduced frequencies, which are simply even/odd
+  numbers for bosonic/fermionic objects. To obtain a single basis
+  function, a slice or a subset `l`, you can use `uhat[l]`.
+
+- `s`: Vector of singular values of the continuation kernel
+
+- `v::PiecewiseLegendrePoly`:
+  Set of IR basis functions on the real frequency (`w`) axis.
+  These functions are stored as piecewise Legendre polynomials.
+
+  To obtain the value of all basis functions at a point or a array of
+  points `w`, you can call the function `v(w)`.  To obtain a single
+  basis function, a slice or a subset `l`, you can use `v[l]`.
+"""
 struct FiniteTempBasis{K<:AbstractKernel,T<:AbstractFloat} <: AbstractBasis
     kernel::K
     sve_result::Tuple{PiecewiseLegendrePolyArray{T},Vector{T},PiecewiseLegendrePolyArray{T}}
@@ -74,11 +185,16 @@ struct FiniteTempBasis{K<:AbstractKernel,T<:AbstractFloat} <: AbstractBasis
     uhat::PiecewiseLegendreFTArray{T}
 end
 
+"""
+    FiniteTempBasis(statistics, β, wmax, ε=nothing; kernel=nothing, sve_result=nothing)
+
+Construct a finite temperature basis suitable for the given `statistics` and cutoffs `β` and `wmax`.
+"""
 function FiniteTempBasis(statistics, β, wmax, ε=nothing; kernel=nothing, sve_result=nothing)
     β > 0 || error("Inverse temperature β must be positive")
     wmax ≥ 0 || error("Frequency cutoff wmax must be non-negative")
 
-    kernel = get_kernel(statistics, β * wmax, kernel)
+    kernel = _get_kernel(statistics, β * wmax, kernel)
     if isnothing(sve_result)
         u, s, v = compute(kernel; ε)
     else
@@ -118,7 +234,14 @@ end
 
 Base.firstindex(::AbstractBasis) = 1
 Base.length(basis::AbstractBasis) = length(basis.s)
-is_well_conditioned(::FiniteTempBasis) = true
+
+"""
+    iswellconditioned(basis)
+
+Return `true` if the sampling is expected to be well-conditioned.
+"""
+iswellconditioned(::IRBasis) = true
+iswellconditioned(::FiniteTempBasis) = true
 
 function Base.getindex(basis::FiniteTempBasis, i)
     u, s, v = basis.sve_result
@@ -127,15 +250,36 @@ function Base.getindex(basis::FiniteTempBasis, i)
                            sve_result)
 end
 
+"""
+    wmax(basis::FiniteTempBasis)
+
+Real frequency cutoff.
+"""
 wmax(basis::FiniteTempBasis) = basis.kernel.Λ / basis.β
 
+"""
+    finite_temp_bases(β, wmax, ε, sve_result=compute(LogisticKernel(β * wmax); ε))
+
+Construct FiniteTempBasis objects for fermion and bosons using the same LogisticKernel instance.
+"""
 function finite_temp_bases(β, wmax, ε, sve_result=compute(LogisticKernel(β * wmax); ε))
     basis_f = FiniteTempBasis(fermion, β, wmax, ε; sve_result)
     basis_b = FiniteTempBasis(boson, β, wmax, ε; sve_result)
     return basis_f, basis_b
 end
 
+"""
+    default_tau_sampling_points(basis)
+
+Default sampling points on the imaginary time/`x` axis.
+"""
 default_tau_sampling_points(basis::AbstractBasis) = _default_sampling_points(basis.u)
+
+"""
+    _default_matsubara_sampling_points(basis; mitigate=true)
+
+Default sampling points on the imaginary frequency axis.
+"""
 function default_matsubara_sampling_points(basis::AbstractBasis; mitigate=true)
     return _default_matsubara_sampling_points(basis.uhat, mitigate)
 end
@@ -176,4 +320,15 @@ function _default_matsubara_sampling_points(uhat, mitigate=true)
     end
 
     return wn
+end
+
+function _get_kernel(statistics, Λ, kernel)
+    statistics ∈ (fermion, boson) ||
+        error("""statistics must be either boson (for fermionic basis) or fermion (for bosonic basis)""")
+    if isnothing(kernel)
+        kernel = LogisticKernel(Λ)
+    else
+        @assert kernel.Λ ≈ Λ
+    end
+    return kernel
 end
