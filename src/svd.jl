@@ -1,10 +1,5 @@
 import LowRankApprox: psvd
 import LinearAlgebra: svd, QRIteration
-# import GenericLinearAlgebra: svd
-# import MultiFloats: Float64, use_bigfloat_transcendentals
-# use_bigfloat_transcendentals()
-
-# export MAX_EPS, MAX_T, compute
 
 const MAX_T = Float64
 const MAX_EPS = eps(MAX_T) # approximately 5e-32
@@ -14,7 +9,6 @@ function compute(a_matrix::AbstractMatrix{MAX_T}; n_sv_hint=nothing, strategy=:f
     isnothing(n_sv_hint) && (n_sv_hint = min(m, n))
     n_sv_hint = min(m, n, n_sv_hint)
 
-    # u, s, v = svd(a_matrix)
     if strategy == :fast
         u, s, v = psvd(a_matrix; rank=n_sv_hint, rtol=0.0)
     elseif strategy == :default

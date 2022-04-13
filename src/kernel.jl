@@ -6,7 +6,7 @@ export LogisticKernel, RegularizedBoseKernel, sve_hints, segments_x, segments_y,
 
 Integral kernel `K(x, y)`.
 
-Abstract base type for an integral kernel, i.e. a real binary function
+Abstract base type for an integral kernel, i.e. a AbstractFloat binary function
 ``K(x, y)`` used in a Fredhold integral equation of the first kind:
 ```math
     u(x) = ∫ K(x, y) v(y) dy
@@ -49,7 +49,7 @@ where the weight function is given by
     w(y) = \frac{1}{\tanh(Λ y/2)}.
 ```
 """
-struct LogisticKernel{T} <: AbstractKernel where {T<:Real}
+struct LogisticKernel{T<:AbstractFloat} <: AbstractKernel
     Λ::T
 end
 
@@ -65,7 +65,7 @@ integral kernel is a function on ``[-1, 1] × [-1, 1]``:
 ```
 Care has to be taken in evaluating this expression around ``y = 0``.
 """
-struct RegularizedBoseKernel{T} <: AbstractKernel where {T<:Real}
+struct RegularizedBoseKernel{T<:AbstractFloat} <: AbstractKernel
     Λ::T
 end
 
@@ -76,12 +76,12 @@ Discretization hints for singular value expansion of a given kernel.
 """
 abstract type AbstractSVEHints end
 
-struct SVEHintsLogistic{T,S} <: AbstractSVEHints where {T,S<:Real}
+struct SVEHintsLogistic{T,S} <: AbstractSVEHints where {T,S<:AbstractFloat}
     kernel::LogisticKernel{T}
     ε::S
 end
 
-struct SVEHintsRegularizedBose{T,S} <: AbstractSVEHints where {T,S<:Real}
+struct SVEHintsRegularizedBose{T,S} <: AbstractSVEHints where {T,S<:AbstractFloat}
     kernel::RegularizedBoseKernel{T}
     ε::S
 end
@@ -126,11 +126,11 @@ integral kernel is a function on ``[-1, 1] × [-1, 1]``:
     K(x, y) = -\frac{\sinh(Λ x y / 2)}{\cosh(Λ y / 2)}
 ```
 """
-struct LogisticKernelOdd{T} <: AbstractReducedKernel where {T<:Real}
+struct LogisticKernelOdd{T<:AbstractFloat} <: AbstractReducedKernel
     inner::LogisticKernel{T}
     sign::Int
 
-    function LogisticKernelOdd(inner::LogisticKernel{T}, sign) where {T<:Real}
+    function LogisticKernelOdd(inner::LogisticKernel{T}, sign) where {T<:AbstractFloat}
         is_centrosymmetric(inner) || error("inner kernel must be centrosymmetric")
         abs(sign) == 1 || error("sign must be -1 or 1")
         return new{T}(inner, sign)
@@ -148,11 +148,12 @@ integral kernel is a function on ``[-1, 1] × [-1, 1]``:
     K(x, y) = -y \frac{\sinh(Λ x y / 2)}{\sinh(Λ y / 2)}
 ```
 """
-struct RegularizedBoseKernelOdd{T} <: AbstractReducedKernel where {T<:Real}
+struct RegularizedBoseKernelOdd{T} <: AbstractReducedKernel where {T<:AbstractFloat}
     inner::RegularizedBoseKernel{T}
     sign::Int
 
-    function RegularizedBoseKernelOdd(inner::RegularizedBoseKernel{T}, sign) where {T<:Real}
+    function RegularizedBoseKernelOdd(inner::RegularizedBoseKernel{T},
+                                      sign) where {T<:AbstractFloat}
         is_centrosymmetric(inner) || error("inner kernel must be centrosymmetric")
         abs(sign) == 1 || error("sign must be -1 or 1")
         return new{T}(inner, sign)
@@ -286,7 +287,8 @@ function matrix_from_gauss(kernel, gauss_x, gauss_y)
     # (1 ± x) is problematic around x = -1 and x = 1, where the quadrature
     # nodes are clustered most tightly.  Thus we have the need for the
     # matrix method.
-    return kernel.(gauss_x.x, permutedims(gauss_y.x), gauss_x.x .- gauss_x.a, gauss_x.b .- gauss_x.x)
+    return kernel.(gauss_x.x, permutedims(gauss_y.x), gauss_x.x .- gauss_x.a,
+                   gauss_x.b .- gauss_x.x)
 end
 
 """
@@ -451,7 +453,7 @@ function nsvals(hints::SVEHintsLogistic)
 end
 function nsvals(hints::SVEHintsRegularizedBose)
     log10_Λ = max(1, log10(hints.kernel.Λ))
-    return round(Int, 28 * log10_Λ) # TODO: the python version truncates instead. idk if the distinction is important
+    return round(Int, 28 * log10_Λ)
 end
 function nsvals(hints::SVEHintsReduced)
     return (nsvals(hints.inner_hints) + 1) ÷ 2
@@ -497,11 +499,13 @@ conv_radius(kernel::AbstractReducedKernel) = conv_radius(kernel.inner)
 Return the weight function for the given statistics.
 """
 function weight_func(::AbstractKernel, statistics)
-    statistics ∈ (fermion, boson) || error("statistics must be fermion for fermions or boson for bosons")
+    statistics ∈ (fermion, boson) ||
+        error("statistics must be fermion for fermions or boson for bosons")
     return x -> ones(eltype(x), size(x))
 end
 function weight_func(kernel::LogisticKernel, statistics)
-    statistics ∈ (fermion, boson) || error("statistics must be fermion for fermions or boson for bosons")
+    statistics ∈ (fermion, boson) ||
+        error("statistics must be fermion for fermions or boson for bosons")
     if statistics == fermion
         return y -> ones(eltype(y), size(y))
     else

@@ -8,6 +8,7 @@ include("conftest.jl")
     include("kernel.jl")
     include("poly.jl")
     include("sve.jl")
-    include("basis.jl")
+    include("basis_set.jl")
     include("sampling.jl")
+    # include("matsubara.jl")
 end

@@ -4,7 +4,7 @@ import QuadGK: gauss
 export legendre, legvander, legendre_collocation, Rule, piecewise, quadrature, reseat
 
 @doc raw"""
-    Rule{T<:Real}
+    Rule{T<:AbstractFloat}
 
 Quadrature rule.
 
@@ -15,7 +15,7 @@ Approximation of an integral over `[a, b]` by a sum over discrete points `x` wit
 where we generally have superexponential convergence for smooth ``f(x)`` in 
 the number of quadrature points.
 """
-struct Rule{T<:Real}
+struct Rule{T<:AbstractFloat}
     x::Vector{T}
     w::Vector{T}
     a::T
@@ -116,6 +116,6 @@ function legendre_collocation(rule, n=length(rule.x))
     return res
 end
 
-function Base.convert(::Type{Rule{T}}, rule::Rule{S}) where {T,S<:Real}
+function Base.convert(::Type{Rule{T}}, rule::Rule{S}) where {T,S<:AbstractFloat}
     return Rule(T.(rule.x), T.(rule.w), T(rule.a), T(rule.b))
 end

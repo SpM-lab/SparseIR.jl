@@ -6,7 +6,7 @@ export IRBasis, FiniteTempBasis, finite_temp_bases, fermion, boson
 
 abstract type AbstractBasis end
 
-struct IRBasis{K<:AbstractKernel,T<:Real} <: AbstractBasis
+struct IRBasis{K<:AbstractKernel,T<:AbstractFloat} <: AbstractBasis
     kernel::K
     u::PiecewiseLegendrePolyArray{T}
     uhat::PiecewiseLegendreFTArray{T}
@@ -17,11 +17,12 @@ struct IRBasis{K<:AbstractKernel,T<:Real} <: AbstractBasis
 end
 
 function IRBasis(statistics, Λ, ε=nothing; kernel=nothing, sve_result=nothing)
+    Λ = float(Λ)
     Λ ≥ 0 || error("Kernel cutoff Λ must be non-negative")
 
-    kernel = get_kernel(statistics, Λ, kernel) # TODO better name
+    self_kernel = get_kernel(statistics, Λ, kernel)
     if isnothing(sve_result)
-        u, s, v = compute(kernel; ε)
+        u, s, v = compute(self_kernel; ε)
     else
         u, s, v = sve_result
         size(u) == size(s) == size(v) || error("Mismatched shapes in SVE")
@@ -37,10 +38,10 @@ function IRBasis(statistics, Λ, ε=nothing; kernel=nothing, sve_result=nothing)
     # so for significantly larger frequencies we use the asymptotics,
     # since it has lower relative error.
     even_odd = Dict(fermion => :odd, boson => :even)[statistics]
-    uhat = hat.(u, even_odd; n_asymp=conv_radius(kernel))
+    uhat = hat.(u, even_odd; n_asymp=conv_radius(self_kernel))
     rts = roots(last(v))
     sampling_points_v = [v.xmin; (rts[begin:(end - 1)] .+ rts[(begin + 1):end]) / 2; v.xmax]
-    return IRBasis(kernel, u, uhat, s, v, sampling_points_v, statistics)
+    return IRBasis(self_kernel, u, uhat, s, v, sampling_points_v, statistics)
 end
 
 Λ(basis::IRBasis) = basis.kernel.Λ
@@ -62,7 +63,7 @@ function get_kernel(statistics, Λ, kernel)
     return kernel
 end
 
-struct FiniteTempBasis{K<:AbstractKernel,T<:Real} <: AbstractBasis
+struct FiniteTempBasis{K<:AbstractKernel,T<:AbstractFloat} <: AbstractBasis
     kernel::K
     sve_result::Tuple{PiecewiseLegendrePolyArray{T},Vector{T},PiecewiseLegendrePolyArray{T}}
     statistics::Statistics
@@ -117,7 +118,7 @@ end
 
 Base.firstindex(::AbstractBasis) = 1
 Base.length(basis::AbstractBasis) = length(basis.s)
-is_well_conditioned(::IRBasis) = true
+is_well_conditioned(::FiniteTempBasis) = true
 
 function Base.getindex(basis::FiniteTempBasis, i)
     u, s, v = basis.sve_result
@@ -135,7 +136,9 @@ function finite_temp_bases(β, wmax, ε, sve_result=compute(LogisticKernel(β * 
 end
 
 default_tau_sampling_points(basis::AbstractBasis) = _default_sampling_points(basis.u)
-default_matsubara_sampling_points(basis::AbstractBasis; mitigate=true) = _default_matsubara_sampling_points(basis.uhat, mitigate)
+function default_matsubara_sampling_points(basis::AbstractBasis; mitigate=true)
+    return _default_matsubara_sampling_points(basis.uhat, mitigate)
+end
 
 function _default_sampling_points(u)
     poly = last(u)

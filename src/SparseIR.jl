@@ -7,5 +7,6 @@ include("sve.jl")
 include("poly.jl")
 include("basis.jl")
 include("sampling.jl")
+include("basis_set.jl")
 
 end # module

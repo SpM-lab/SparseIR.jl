@@ -1,11 +1,11 @@
 @testset "kernel.jl" begin
     @testset "accuracy" begin
-        for K in [LogisticKernel(9),
-                  RegularizedBoseKernel(8),
-                  LogisticKernel(120_000),
-                  RegularizedBoseKernel(127_500),
-                  get_symmetrized(LogisticKernel(40_000), -1),
-                  get_symmetrized(RegularizedBoseKernel(35_000), -1)]
+        for K in [LogisticKernel(9.0),
+                  RegularizedBoseKernel(8.0),
+                  LogisticKernel(120_000.0),
+                  RegularizedBoseKernel(127_500.0),
+                  get_symmetrized(LogisticKernel(40_000.0), -1),
+                  get_symmetrized(RegularizedBoseKernel(35_000.0), -1)]
             T = Float32
             T_x = Float64
 

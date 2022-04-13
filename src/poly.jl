@@ -1,13 +1,12 @@
 import AssociatedLegendrePolynomials: Plm
 import IntervalRootFinding: roots as roots_irf, Interval, isunique, interval, mid, Newton,
                             Krawczyk
-import SpecialFunctions: sphericalbesselj # TODO: if Bessels.jl has been released, use that instead
 import QuadGK: quadgk
-import Memoization: @memoize
+include("_bessels.jl")
 
-export PiecewiseLegendrePolyArray, roots, hat, overlap, deriv
+export PiecewiseLegendrePoly, PiecewiseLegendrePolyArray, roots, hat, overlap, deriv
 
-struct PiecewiseLegendrePoly{T<:Real} <: Function
+struct PiecewiseLegendrePoly{T<:AbstractFloat} <: Function
     nsegments::Int
     polyorder::Int
     xmin::T
@@ -66,10 +65,10 @@ function overlap(poly::PiecewiseLegendrePoly, f; rtol=2.3e-16, return_error=fals
 end
 
 function deriv(poly::PiecewiseLegendrePoly, n=1)
-    ddata = reduce(hcat, legder(c, n) for c in eachcol(poly.data))
+    ddata = legder(poly.data, n)
 
     scale = poly.inv_xs .^ n
-    ddata .*= transpose(scale)
+    ddata .*= reshape(scale, (1, :))
     return PiecewiseLegendrePoly(ddata, poly; symm=(-1)^n * poly.symm)
 end
 
@@ -119,7 +118,8 @@ Alias for `Array{PiecewiseLegendrePoly{T}, N}`.
 """
 const PiecewiseLegendrePolyArray{T,N} = Array{PiecewiseLegendrePoly{T},N}
 
-function PiecewiseLegendrePolyArray(data::Array{T,N}, knots::Vector{T}) where {T<:Real,N}
+function PiecewiseLegendrePolyArray(data::Array{T,N},
+                                    knots::Vector{T}) where {T<:AbstractFloat,N}
     polys = PiecewiseLegendrePolyArray{T,N - 2}(undef, size(data)[3:end]...)
     for i in eachindex(polys)#CartesianIndices(axes(data)[3:end])
         polys[i] = PiecewiseLegendrePoly(data[:, :, i], knots)
@@ -127,7 +127,7 @@ function PiecewiseLegendrePolyArray(data::Array{T,N}, knots::Vector{T}) where {T
     return polys
 end
 
-function PiecewiseLegendrePolyArray(polys::PiecewiseLegendrePolyArray, knots; dx, symm)# where {T<:Real,N<:Integer}
+function PiecewiseLegendrePolyArray(polys::PiecewiseLegendrePolyArray, knots; dx, symm)# where {T<:AbstractFloat,N<:Integer}
     size(polys) == size(symm) || error("Sizes of polys and symm don't match")
     polys_new = similar(polys)
     for i in eachindex(polys)
@@ -164,19 +164,17 @@ end
 ## PiecewiseLegendreFT ##
 #########################
 
-struct PowerModel
-    moments::Matrix{Float64}
-    nmom::Int
-    nl::Int
+struct PowerModel{T<:AbstractFloat}
+    moments::Vector{T}
 end
 
 const DEFAULT_GRID = [range(0; length=2^6);
                       trunc.(Int, exp2.(range(6, 25; length=16 * (25 - 6) + 1)))]
-struct PiecewiseLegendreFT{T<:Real}
+struct PiecewiseLegendreFT{T<:AbstractFloat}
     poly::PiecewiseLegendrePoly{T}
     freq::Symbol
     ζ::Union{Int,Nothing}
-    n_asymp::Number
+    n_asymp::AbstractFloat
 
     # internal
     model::Union{PowerModel,Nothing}
@@ -198,13 +196,14 @@ function PiecewiseLegendreFT(poly, freq=:even, n_asymp=nothing)
     else
         model = power_model(freq, poly)
     end
-    return PiecewiseLegendreFT(poly, freq, ζ, n_asymp, model)
+    return PiecewiseLegendreFT(poly, freq, ζ, float(n_asymp), model)
 end
 
 function (polyFT::PiecewiseLegendreFT)(n)
     n = check_reduced_matsubara(n, polyFT.ζ)
     result = _compute_unl_inner(polyFT.poly, n)
 
+    # TODO this doesn't work right because the derivatives needed for the powermodel are wrong at higher orders
     if abs(n) ≥ polyFT.n_asymp
         result = transpose(giw(polyFT.model, n))
     end
@@ -216,11 +215,12 @@ function giw(model::PowerModel, wn)
     check_reduced_matsubara(wn)
     T_result = promote_type(typeof(im), typeof(wn), eltype(model.moments))
     result = zero(T_result)
-    inv_iw = !iszero(wn) ? 2 / (im * π * wn) : im * π / 2 * wn
+    inv_iw = (iszero(wn) ? identity : inv)(im * π / 2 * wn)
     for mom in reverse(model.moments)
         result += mom
         result *= inv_iw
     end
+    # result = evalpoly(inv_iw, vec(model.moments)) / inv_iw
     return result
 end
 
@@ -301,7 +301,7 @@ function _bisect_discr_extremum(f, a, b, absf_a, absf_b)
 end
 
 function _symmetrize_matsubara(x₀)
-    issorted(x₀) || error("set of Matsubara points not ordered")
+    issorted(x₀) || error("set of Matsubara points not ordered")
     first(x₀) ≥ 0 || error("points must be non-negative")
     if iszero(first(x₀))
         x₀ = [-reverse(x₀); x₀[2:end]]
@@ -313,32 +313,22 @@ end
 
 function derivs(ppoly, x)
     res = [ppoly(x)]
-    for _ in range(1, ppoly.polyorder - 1)
+    for _ in 2:(ppoly.polyorder)
         ppoly = deriv(ppoly)
         push!(res, ppoly(x))
     end
     return res
 end
 
-PowerModel(moments) = PowerModel(moments, size(moments)...)
-
-function giw_ravel(wn)
-    # TODO
-    return error("not implemented")
-end
-
 function power_moments(stat, deriv_x1)
-    statsign = Dict(:odd => -1, :even => 1)[stat]
-    mmax, lmax = size(deriv_x1)
-    m = range(0; length=mmax)
-    l = range(0; length=lmax)
-    coeff_lm = @. ((-1)^(m + 1) + statsign * (-1)^(l')) * deriv_x1
+    statsign = (stat == :odd) ? -1 : 1
+    mmax = length(deriv_x1)
+    coeff_lm = @. ((-1)^(1:mmax) + statsign) * deriv_x1
     return -statsign / √2 * coeff_lm
 end
 
 function power_model(stat, poly)
     deriv_x1 = derivs(poly, 1)
-    ndims(deriv_x1) == 1 && (deriv_x1 = deriv_x1[:, :])
     moments = power_moments(stat, deriv_x1)
     return PowerModel(moments)
 end
@@ -365,7 +355,7 @@ function _compute_unl_inner(poly, wn)
 
     p = range(0; length=poly.polyorder)
     wred = π / 2 * wn
-    phase_wi = phase_stable(poly, wn)
+    phase_wi = _phase_stable(poly, wn)
     t_pin = _get_tnl.(p', wred * poly.dx / 2) .* phase_wi
 
     return sum(transpose(t_pin) .* data_sc)
@@ -373,7 +363,7 @@ end
 
 function _get_tnl(l, w)
     result = 2im^l * sphericalbesselj(l, abs(w))
-    return w < 0 ? conj(result) : result
+    return (w < 0 ? conj : identity)(result)
 end
 
 choose(a, choices) = [choices[a[i]][i] for i in eachindex(a)]
@@ -389,7 +379,7 @@ function shift_xmid(knots, dx)
     return diff, shift
 end
 
-function phase_stable(poly, wn)
+function _phase_stable(poly, wn)
     xmid_diff, extra_shift = shift_xmid(poly.knots, poly.dx)
 
     if wn isa Integer
@@ -410,20 +400,24 @@ end
 ### HERE BE DRAGONS ###
 #######################
 
-@memoize legendreP(l, x) = Plm(l, 0, x)
+legendreP(l, x) = Plm(l, 0, x)
 
 function legval(x, c)
-    # x = clamp(x, -1, 1)
+    x = clamp(x, -1, 1)
     return sum(c .* legendreP(range(0; length=length(c)), x))
 end
 
 """
+    legder
+
 Adapted from https://github.com/numpy/numpy/blob/4adc87dff15a247e417d50f10cc4def8e1c17a03/numpy/polynomial/legendre.py#L612-L701
 """
-function legder(cc::AbstractVector{T}, cnt=1) where {T<:Number}
-    cnt ≥ 0 || error("cnt must be non-negative")
-    cnt == 0 && return cc
-    c = copy(cc)
+legder(cc::AbstractMatrix, cnt=1; dims=1) = mapslices(c -> legder(c, cnt), cc; dims)
+
+function legder(c::AbstractVector{T}, cnt=1) where {T}
+    cnt ≥ 0 || error("The order of derivation must be non-negative")
+    c = copy(c)
+    cnt == 0 && return c
     n = length(c)
     if n ≤ cnt
         c = [zero(T)]

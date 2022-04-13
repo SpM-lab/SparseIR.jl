@@ -6,13 +6,13 @@ abstract type AbstractSampling end
 
 cond(sampling::AbstractSampling) = first(sampling.matrix.S) / last(sampling.matrix.S)
 
-struct TauSampling{T<:Real,B<:AbstractBasis} <: AbstractSampling
+struct TauSampling{T<:Number,B<:AbstractBasis} <: AbstractSampling
     sampling_points::Vector{T}
     basis::B
     matrix::SVD
 end
 
-struct MatsubaraSampling{T<:Real,B<:AbstractBasis} <: AbstractSampling
+struct MatsubaraSampling{T<:Number,B<:AbstractBasis} <: AbstractSampling
     sampling_points::Vector{T}
     basis::B
     matrix::SVD

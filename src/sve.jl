@@ -1,14 +1,10 @@
-using SparseIR
-import Tullio: @tullio
-
-# TODO reduce exports
-export compute, SamplingSVE, CentrosymmSVE, choose_accuracy, is_centrosymmetric, matrices
+export compute
 
 const HAVE_XPREC = false # TODO
 
 abstract type AbstractSVE end
 
-struct SamplingSVE{K<:AbstractKernel,T<:Real} <: AbstractSVE
+struct SamplingSVE{K<:AbstractKernel,T<:AbstractFloat} <: AbstractSVE
     kernel::K
     ε::T
     n_gauss::Int
@@ -24,7 +20,8 @@ struct SamplingSVE{K<:AbstractKernel,T<:Real} <: AbstractSVE
     sqrtw_y::Vector{T}
 end
 
-struct CentrosymmSVE{K<:AbstractKernel,T<:Real,SVEeven<:AbstractSVE,SVEodd<:AbstractSVE} <:
+struct CentrosymmSVE{K<:AbstractKernel,T<:AbstractFloat,SVEeven<:AbstractSVE,
+                     SVEodd<:AbstractSVE} <:
        AbstractSVE
     kernel::K
     ε::T
@@ -33,7 +30,7 @@ struct CentrosymmSVE{K<:AbstractKernel,T<:Real,SVEeven<:AbstractSVE,SVEodd<:Abst
     nsvals_hint::Int
 end
 
-function SamplingSVE(kernel, ε; n_gauss=nothing, T::Type{<:Real}=Float64)
+function SamplingSVE(kernel, ε; n_gauss=nothing, T::Type{<:AbstractFloat}=Float64)
     sve_hints_ = sve_hints(kernel, ε)
     isnothing(n_gauss) && (n_gauss = ngauss(sve_hints_))
     rule = legendre(n_gauss, T)
@@ -48,7 +45,8 @@ end
 # TODO: remove explicit use of Float64
 function compute(kernel::AbstractKernel; ε::Union{Float64,Nothing}=nothing,
                  n_sv=typemax(Int), n_gauss::Union{Int,Nothing}=nothing,
-                 T::Type{<:Real}=Float64, work_T::Union{Type{<:Real},Nothing}=nothing,
+                 T::Type{<:AbstractFloat}=Float64,
+                 work_T::Union{Type{<:AbstractFloat},Nothing}=nothing,
                  sve_strat::Type{<:AbstractSVE}=is_centrosymmetric(kernel) ? CentrosymmSVE :
                                                 SamplingSVE,
                  svd_strat::Union{Symbol,Nothing}=nothing)
@@ -59,7 +57,8 @@ function compute(kernel::AbstractKernel; ε::Union{Float64,Nothing}=nothing,
         svd_strat = default_svd_strat
     end
     sve = sve_strat(kernel, ε; n_gauss, T=work_T)
-    svds = [compute(matrix; n_sv_hint=sve.nsvals_hint, strategy=svd_strat) for matrix in matrices(sve)]
+    svds = [compute(matrix; n_sv_hint=sve.nsvals_hint, strategy=svd_strat)
+            for matrix in matrices(sve)]
     u, s, v = zip(svds...)
     u, s, v = truncate(u, s, v, ε, n_sv)
     return postprocess(sve, u, s, v, T)
@@ -82,18 +81,20 @@ function postprocess(sve::SamplingSVE, u, s, v, T=nothing)
     # TODO: Surely all this can be done much more elegantly
 
     u_x = permutedims(reshape(permutedims(u_x),
-                              (length(s), sve.n_gauss, length(sve.segs_x) - 1)), (3, 2, 1))
+                              (length(s), sve.n_gauss, length(sve.segs_x) - 1)), (2, 3, 1))
     v_y = permutedims(reshape(permutedims(v_y),
-                              (length(s), sve.n_gauss, length(sve.segs_y) - 1)), (3, 2, 1))
+                              (length(s), sve.n_gauss, length(sve.segs_y) - 1)), (2, 3, 1))
 
     cmat = legendre_collocation(sve.rule)
-    @tullio u_data[l, i, s] := cmat[l, x] * u_x[i, x, s]
-    @tullio v_data[l, i, s] := cmat[l, x] * v_y[i, x, s]
+    u_data = reshape(cmat * reshape(u_x, (size(u_x, 1), :)),
+                     (size(cmat, 1), size(u_x, 2), size(u_x, 3)))
+    v_data = reshape(cmat * reshape(v_y, (size(v_y, 1), :)),
+                     (size(cmat, 1), size(v_y, 2), size(v_y, 3)))
 
     dsegs_x = diff(sve.segs_x)
     dsegs_y = diff(sve.segs_y)
-    @tullio u_data[i, j, k] *= sqrt.(dsegs_x / 2)[j]
-    @tullio v_data[i, j, k] *= sqrt.(dsegs_y / 2)[j]
+    u_data .*= transpose(sqrt.(dsegs_x / 2))
+    v_data .*= transpose(sqrt.(dsegs_y / 2))
 
     # Construct polynomial
     ulx = PiecewiseLegendrePolyArray(T.(u_data), T.(sve.segs_x))

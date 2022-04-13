@@ -26,7 +26,7 @@ end
             basis = IRBasis(fermion, Λ; sve_result=sve_logistic[Λ])
             for i in 1:length(basis.u)
                 ui_roots = roots(basis.u[i])
-                @test length(ui_roots) == i-1
+                @test length(ui_roots) == i - 1
             end
         end
     end
