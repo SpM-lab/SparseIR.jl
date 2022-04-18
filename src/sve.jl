@@ -1,6 +1,6 @@
 export compute
 
-const HAVE_XPREC = false # TODO
+const HAVE_XPREC = false # TODO:
 
 abstract type AbstractSVE end
 
@@ -26,14 +26,14 @@ be reconstructed from the singular vectors `u` and `v` as follows:
 
 [1] P. Hansen, Discrete Inverse Problems, Ch. 3.1
 """
-struct SamplingSVE{K<:AbstractKernel,T<:AbstractFloat} <: AbstractSVE
+struct SamplingSVE{K<:AbstractKernel,T} <: AbstractSVE
     kernel::K
     ε::T
     n_gauss::Int
     nsvals_hint::Int
 
     # internal
-    rule::Rule
+    rule::Rule{T}
     segs_x::Vector{T}
     segs_y::Vector{T}
     gauss_x::Rule{T}
@@ -78,8 +78,8 @@ Chebyshev system [1], then even and odd basis functions alternate.
 
 [1]: A. Karlin, Total Positivity (1968).
 """
-struct CentrosymmSVE{K<:AbstractKernel,T<:AbstractFloat,SVEeven<:AbstractSVE,
-                     SVEodd<:AbstractSVE} <: AbstractSVE
+struct CentrosymmSVE{K<:AbstractKernel,T,SVEeven<:AbstractSVE,SVEodd<:AbstractSVE} <:
+       AbstractSVE
     kernel::K
     ε::T
     even::SVEeven
@@ -180,8 +180,8 @@ function postprocess(sve::SamplingSVE, u, s, v, T=nothing)
     u_x = u ./ sve.sqrtw_x
     v_y = v ./ sve.sqrtw_y
 
-    # TODO Surely this can be done much more elegantly.
-    # As is it's practically unmaintenable :/
+    # TODO: Surely this can be done much more elegantly.
+    # As is it feels prety much unmaintenable
     u_x = permutedims(reshape(permutedims(u_x),
                               (length(s), sve.n_gauss, length(sve.segs_x) - 1)), (2, 3, 1))
     v_y = permutedims(reshape(permutedims(v_y),
@@ -255,7 +255,7 @@ Choose work type and accuracy based on specs and defaults
 function choose_accuracy(ε, Twork)
     if isnothing(ε)
         if isnothing(Twork)
-            return sqrt(MAX_EPS), MAX_T, :fast  # TODO adjust for extended precision
+            return sqrt(MAX_EPS), MAX_T, :fast  # TODO: adjust for extended precision
         end
         safe_ε = sqrt(eps(Twork))
         return safe_ε, Twork, :fast

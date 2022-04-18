@@ -99,7 +99,7 @@ function IRBasis(statistics, Λ, ε=nothing; kernel=nothing, sve_result=nothing)
     # so for significantly larger frequencies we use the asymptotics,
     # since it has lower relative error.
     even_odd = Dict(fermion => :odd, boson => :even)[statistics]
-    uhat = hat.(u, even_odd; n_asymp=conv_radius(self_kernel))
+    uhat = hat.(u, even_odd, 0:length(u)-1; n_asymp=conv_radius(self_kernel)) # TODO: fix this
     rts = roots(last(v))
     sampling_points_v = [v.xmin; (rts[begin:(end - 1)] .+ rts[(begin + 1):end]) / 2; v.xmax]
     return IRBasis(self_kernel, u, uhat, s, v, sampling_points_v, statistics)
@@ -174,7 +174,7 @@ julia> giw = transpose(basis.uhat([1, 3, 5, 7])) * gl
   points `w`, you can call the function `v(w)`.  To obtain a single
   basis function, a slice or a subset `l`, you can use `v[l]`.
 """
-struct FiniteTempBasis{K<:AbstractKernel,T<:AbstractFloat} <: AbstractBasis
+struct FiniteTempBasis{K,T} <: AbstractBasis
     kernel::K
     sve_result::Tuple{PiecewiseLegendrePolyArray{T},Vector{T},PiecewiseLegendrePolyArray{T}}
     statistics::Statistics
@@ -227,7 +227,7 @@ function FiniteTempBasis(statistics, β, wmax, ε=nothing; kernel=nothing, sve_r
 
     conv_radius = 40 * kernel.Λ
     even_odd = Dict(fermion => :odd, boson => :even)[statistics]
-    uhat = hat.(û_base, even_odd; n_asymp=conv_radius)
+    uhat = hat.(û_base, even_odd, 0:length(u)-1; n_asymp=conv_radius) # TODO: fix this
 
     return FiniteTempBasis(kernel, (u, s, v), statistics, β, u_, v_, s_, uhat)
 end

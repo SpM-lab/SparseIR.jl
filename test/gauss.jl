@@ -1,7 +1,7 @@
-using LinearAlgebra
+import LinearAlgebra: I
 import QuadGK: gauss
 
-function gauss_validate(rule)
+function validategauss(rule)
     @test rule.a ≤ rule.b
     @test all(≤(rule.b), rule.x)
     @test all(≥(rule.a), rule.x)
@@ -14,12 +14,12 @@ end
         r = legendre(20)
         cmat = legendre_collocation(r)
         emat = legvander(r.x, length(r.x) - 1)
-        @test emat * cmat ≈ Matrix(I, 20, 20)
+        @test emat * cmat ≈ I(20)
     end
 
     @testset "gauss legendre" begin
         rule = legendre(200)
-        gauss_validate(rule)
+        validategauss(rule)
         x, w = gauss(200)
         @test rule.x ≈ x
         @test rule.w ≈ w
@@ -28,7 +28,7 @@ end
     @testset "piecewise" begin
         edges = [-4, -1, 1, 3]
         rule = piecewise(legendre(20), edges)
-        gauss_validate(rule)
+        validategauss(rule)
     end
 
     @testset "integrals" begin

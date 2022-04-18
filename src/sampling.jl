@@ -35,10 +35,10 @@ Sparse sampling in imaginary time.
 Allows the transformation between the IR basis and a set of sampling points
 in (scaled/unscaled) imaginary time.
 """
-struct TauSampling{T<:Number,B<:AbstractBasis,S<:AbstractFloat} <: AbstractSampling
+struct TauSampling{T,B<:AbstractBasis,S,Sr} <: AbstractSampling
     sampling_points::Vector{T}
     basis::B
-    matrix::SVD{S,S,Matrix{S}}
+    matrix::SVD{S,Sr,Matrix{S}}
     matrixfull::Matrix{S}
 end
 
@@ -66,10 +66,10 @@ Sparse sampling in Matsubara frequencies.
 Allows the transformation between the IR basis and a set of sampling points
 in (scaled/unscaled) imaginary frequencies.
 """
-struct MatsubaraSampling{T<:Number,B<:AbstractBasis,S<:AbstractFloat} <: AbstractSampling
+struct MatsubaraSampling{T,B<:AbstractBasis,S,Sr} <: AbstractSampling
     sampling_points::Vector{T}
     basis::B
-    matrix::SVD{S,S,Matrix{S}}
+    matrix::SVD{S,Sr,Matrix{S}}
     matrixfull::Matrix{S}
 end
 
@@ -97,7 +97,7 @@ Return evaluation matrix from coefficients to sampling points. `T <: AbstractSam
 eval_matrix(::Type{TauSampling}, basis, x) = permutedims(basis.u(x))
 eval_matrix(::Type{MatsubaraSampling}, basis, x) = permutedims(basis.uhat(x))
 
-# TODO implement axis
+# TODO: implement axis
 """
     evaluate(sampling, al)
 

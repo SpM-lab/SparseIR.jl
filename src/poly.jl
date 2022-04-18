@@ -15,7 +15,7 @@ Models a function on the interval ``[xmin, xmax]`` as a set of segments on the
 intervals ``S[i] = [a[i], a[i+1]]``, where on each interval the function
 is expanded in scaled Legendre polynomials.
 """
-struct PiecewiseLegendrePoly{T<:AbstractFloat} <: Function
+struct PiecewiseLegendrePoly{T} <: Function
     nsegments::Int
     polyorder::Int
     xmin::T
@@ -107,7 +107,7 @@ function roots(poly::PiecewiseLegendrePoly{T}) where {T}
     xmin = abs(poly.symm) == 1 ? m : poly.xmin
     xmax = poly.xmax
 
-    rts = roots_irf(poly, Interval(xmin, xmax))
+    rts = roots_irf(poly, Interval(xmin, xmax), Newton, 1e-10)
     filter!(isunique, rts)
     rts = map(mid ∘ interval, rts)
 
@@ -155,7 +155,7 @@ Alias for `Array{PiecewiseLegendrePoly{T}, N}`.
 """
 const PiecewiseLegendrePolyArray{T,N} = Array{PiecewiseLegendrePoly{T},N}
 
-# TODO simplify constructors
+# TODO: simplify constructors
 function PiecewiseLegendrePolyArray(data::Array{T,N}, knots::Vector{T}) where {T,N}
     polys = PiecewiseLegendrePolyArray{T,N - 2}(undef, size(data)[3:end]...)
     for i in eachindex(polys)
@@ -226,13 +226,13 @@ Fourier transform of a piecewise Legendre polynomial.
 For a given frequency index `n`, the Fourier transform of the Legendre
 function is defined as:
 
-        p̂(n) == ∫ dx exp(i * π * n * x / (xmax - xmin)) p(x)
+        p̂(n) == ∫ dx exp(im * π * n * x / (xmax - xmin)) p(x)
 
 The polynomial is continued either periodically (`freq=:even`), in which
 case `n` must be even, or antiperiodically (`freq=:odd`), in which case
 `n` must be odd.
 """
-struct PiecewiseLegendreFT{T<:AbstractFloat} <: Function
+struct PiecewiseLegendreFT{T} <: Function
     poly::PiecewiseLegendrePoly{T}
     freq::Symbol
     ζ::Union{Int,Nothing}
@@ -249,15 +249,10 @@ function (polys::PiecewiseLegendreFTArray)(n::Array)
     return reshape(reduce(vcat, polys.(n)), (size(polys)..., size(n)...))
 end
 
-function PiecewiseLegendreFT(poly, freq=:even, n_asymp=nothing)
+function PiecewiseLegendreFT(poly, freq=:even, n_asymp=Inf, l=0)
     (poly.xmin, poly.xmax) == (-1, 1) || error("Only interval [-1, 1] is supported")
     ζ = Dict(:any => nothing, :even => 0, :odd => 1)[freq] # TODO: type stability
-    if isnothing(n_asymp)
-        n_asymp = Inf
-        model = nothing
-    else
-        model = power_model(freq, poly)
-    end
+    model = isinf(n_asymp) ? nothing : power_model(freq, poly, l)
     return PiecewiseLegendreFT(poly, freq, ζ, float(n_asymp), model)
 end
 
@@ -268,14 +263,13 @@ Obtain Fourier transform of polynomial for given frequency index `n`.
 """
 function (polyFT::PiecewiseLegendreFT)(n)
     n = check_reduced_matsubara(n, polyFT.ζ)
-    result = _compute_unl_inner(polyFT.poly, n)
 
-    # TODO this doesn't work right because the derivatives needed for the powermodel are wrong at higher orders
-    if abs(n) ≥ polyFT.n_asymp
-        result = transpose(giw(polyFT.model, n))
+    if abs(n) < polyFT.n_asymp
+        return _compute_unl_inner(polyFT.poly, n)
+    else
+        # TODO: this doesn't work right for some reason
+        return giw(polyFT.model, n)
     end
-
-    return result
 end
 
 """
@@ -283,8 +277,7 @@ end
 
 Return model Green's function for reduced frequencies
 """
-function giw(model::PowerModel, wn)
-    check_reduced_matsubara(wn)
+function giw(model::PowerModel, wn::Integer)
     T_result = promote_type(typeof(im), typeof(wn), eltype(model.moments))
     result = zero(T_result)
     inv_iw = (iszero(wn) ? identity : inv)(im * π / 2 * wn)
@@ -297,8 +290,8 @@ end
 
 Base.firstindex(::PiecewiseLegendreFT) = 1
 
-function hat(poly::PiecewiseLegendrePoly, freq; n_asymp=nothing)
-    return PiecewiseLegendreFT(poly, freq, n_asymp)
+function hat(poly::PiecewiseLegendrePoly, freq, l; n_asymp=Inf)
+    return PiecewiseLegendreFT(poly, freq, n_asymp, l)
 end
 
 function Base.extrema(polyFT::PiecewiseLegendreFT, part=nothing, grid=DEFAULT_GRID)
@@ -384,23 +377,23 @@ end
 
 function derivs(ppoly, x)
     res = [ppoly(x)]
-    for _ in 2:(ppoly.polyorder)
+    for _ in 1:(ppoly.polyorder - 1)
         ppoly = deriv(ppoly)
         push!(res, ppoly(x))
     end
     return res
 end
 
-function power_moments(stat, deriv_x1)
+function power_moments(stat, deriv_x1, l)
     statsign = (stat == :odd) ? -1 : 1
     mmax = length(deriv_x1)
-    coeff_lm = @. ((-1)^(1:mmax) + statsign) * deriv_x1
+    coeff_lm = @. ((-1)^(1:mmax) + statsign * (-1)^l) * deriv_x1
     return -statsign / √2 * coeff_lm
 end
 
-function power_model(stat, poly)
+function power_model(stat, poly, l)
     deriv_x1 = derivs(poly, 1)
-    moments = power_moments(stat, deriv_x1)
+    moments = power_moments(stat, deriv_x1, l)
     return PowerModel(moments)
 end
 
@@ -419,7 +412,7 @@ we expect an odd integer, while for a bosonic frequency (`ζ == 0`),
 we expect an even one.  If `ζ` is omitted, any one is fine.
 """
 check_reduced_matsubara(n::Integer) = n
-check_reduced_matsubara(n::Integer, ζ) = (n & 1 == ζ) ? n : error("n must be even")
+check_reduced_matsubara(n::Integer, ζ) = (n & 1 == ζ) ? n : error("n has the wrong parity")
 
 ########################
 ### Helper Functions ###

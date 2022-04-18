@@ -24,12 +24,12 @@
 
         # Evaluate
         @test u(0.4) == [u[i](0.4) for i in 1:l]
-        @test u.([0.4, -0.2]) == [[u[i](x) for i in 1:l] for x in (0.4, -0.2)] # TODO: idk if this shape is okay
+        @test u.([0.4, -0.2]) == [[u[i](x) for i in 1:l] for x in (0.4, -0.2)]
     end
 
     @testset "matrix_hat" begin
         u, s, v = sve_logistic[42]
-        û = hat.(u, :odd)
+        û = hat.(u, :odd, 0:length(u)-1) # TODO: fix this
 
         n = [1, 3, 5, -1, -3, 5]
         result = û(reshape(n, (3, 2)))
@@ -130,7 +130,7 @@
 
     @testset "eval unique" begin
         u, s, v = sve_logistic[42]
-        û = hat.(u, :odd)
+        û = hat.(u, :odd, 0:length(u)-1) # TODO: fix this
 
         # evaluate
         res1 = û([1, 3, 3, 1])

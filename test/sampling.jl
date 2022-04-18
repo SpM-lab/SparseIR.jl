@@ -23,7 +23,8 @@ using Random, LinearAlgebra
     end
 
     @testset "τ noise" begin
-        for (stat, Λ) in [(boson, 42), (fermion, 42)]
+        for stat in (boson, fermion)
+            Λ = 42
             basis = IRBasis(stat, Λ; sve_result=sve_logistic[Λ])
             smpl = TauSampling(basis)
             Random.seed!(5318008)
@@ -42,7 +43,8 @@ using Random, LinearAlgebra
     end
 
     @testset "wn noise" begin
-        for (stat, Λ) in [(boson, 42), (fermion, 42)]
+        for stat in (boson, fermion)
+            Λ = 42
             basis = IRBasis(stat, Λ; sve_result=sve_logistic[Λ])
             smpl = MatsubaraSampling(basis)
             Random.seed!(1312)

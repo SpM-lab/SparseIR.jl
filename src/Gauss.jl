@@ -15,7 +15,7 @@ Approximation of an integral over `[a, b]` by a sum over discrete points `x` wit
 where we generally have superexponential convergence for smooth ``f(x)`` in 
 the number of quadrature points.
 """
-struct Rule{T<:AbstractFloat}
+struct Rule{T}
     x::Vector{T}
     w::Vector{T}
     a::T

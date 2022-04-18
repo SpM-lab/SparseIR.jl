@@ -10,5 +10,5 @@ include("conftest.jl")
     include("sve.jl")
     include("basis_set.jl")
     include("sampling.jl")
-    # include("matsubara.jl")
+    include("matsubara.jl")
 end

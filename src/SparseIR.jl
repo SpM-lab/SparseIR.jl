@@ -1,3 +1,5 @@
+# TODO: better module docstring
+"Intermediate representation (IR) for many-body propagators"
 module SparseIR
 
 include("svd.jl")

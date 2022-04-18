@@ -76,17 +76,17 @@ Discretization hints for singular value expansion of a given kernel.
 """
 abstract type AbstractSVEHints end
 
-struct SVEHintsLogistic{T,S} <: AbstractSVEHints where {T,S<:AbstractFloat}
+struct SVEHintsLogistic{T,S} <: AbstractSVEHints
     kernel::LogisticKernel{T}
     ε::S
 end
 
-struct SVEHintsRegularizedBose{T,S} <: AbstractSVEHints where {T,S<:AbstractFloat}
+struct SVEHintsRegularizedBose{T,S} <: AbstractSVEHints
     kernel::RegularizedBoseKernel{T}
     ε::S
 end
 
-struct SVEHintsReduced{T} <: AbstractSVEHints where {T<:AbstractSVEHints}
+struct SVEHintsReduced{T<:AbstractSVEHints} <: AbstractSVEHints
     inner_hints::T
 end
 
@@ -126,11 +126,11 @@ integral kernel is a function on ``[-1, 1] × [-1, 1]``:
     K(x, y) = -\frac{\sinh(Λ x y / 2)}{\cosh(Λ y / 2)}
 ```
 """
-struct LogisticKernelOdd{T<:AbstractFloat} <: AbstractReducedKernel
+struct LogisticKernelOdd{T} <: AbstractReducedKernel
     inner::LogisticKernel{T}
     sign::Int
 
-    function LogisticKernelOdd(inner::LogisticKernel{T}, sign) where {T<:AbstractFloat}
+    function LogisticKernelOdd(inner::LogisticKernel{T}, sign) where {T}
         iscentrosymmetric(inner) || error("inner kernel must be centrosymmetric")
         abs(sign) == 1 || error("sign must be -1 or 1")
         return new{T}(inner, sign)
@@ -148,12 +148,12 @@ integral kernel is a function on ``[-1, 1] × [-1, 1]``:
     K(x, y) = -y \frac{\sinh(Λ x y / 2)}{\sinh(Λ y / 2)}
 ```
 """
-struct RegularizedBoseKernelOdd{T} <: AbstractReducedKernel where {T<:AbstractFloat}
+struct RegularizedBoseKernelOdd{T} <: AbstractReducedKernel
     inner::RegularizedBoseKernel{T}
     sign::Int
 
     function RegularizedBoseKernelOdd(inner::RegularizedBoseKernel{T},
-                                      sign) where {T<:AbstractFloat}
+                                      sign) where {T}
         iscentrosymmetric(inner) || error("inner kernel must be centrosymmetric")
         abs(sign) == 1 || error("sign must be -1 or 1")
         return new{T}(inner, sign)
@@ -367,9 +367,9 @@ iscentrosymmetric(::RegularizedBoseKernel) = true
 iscentrosymmetric(::AbstractReducedKernel) = false
 
 """
-    kernel(x, y[, x₊, x₋])
+    (kernel::AbstractKernel)(x, y[, x₊, x₋])
 
-Evaluate `kernel::AbstractKernel` at point (`x`, `y`).
+Evaluate `kernel` at point `(x, y)`.
 
 The parameters `x₊` and `x₋`, if given, shall contain the
 values of `x - xₘᵢₙ` and `xₘₐₓ - x`, respectively.  This is useful
