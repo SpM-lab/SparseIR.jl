@@ -13,6 +13,7 @@ include("conftest.jl")
     include("matsubara.jl")
     include("augment.jl")
     include("bessels.jl")
+    include("composite.jl")
     # Works only if Mathematica and MathLink.jl are available.
     # include("_bessels.jl")
 end

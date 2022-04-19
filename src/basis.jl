@@ -6,6 +6,16 @@ export IRBasis, FiniteTempBasis, finite_temp_bases, fermion, boson
 
 abstract type AbstractBasis end
 
+function Base.getproperty(obj::AbstractBasis, d::Symbol)
+    if d === :size
+        return length(getfield(obj, :u))
+    elseif d === :beta # backward compatibility
+        return getfield(obj, :β)
+    else
+        return getfield(obj, d)
+    end
+end
+
 """
     IRBasis <: AbstractBasis
 
@@ -116,6 +126,7 @@ function Base.getindex(basis::IRBasis, i)
     sve_result = basis.u[i], basis.s[i], basis.v[i]
     return IRBasis(basis.statistics, Λ(basis); kernel=basis.kernel, sve_result)
 end
+
 
 """
     FiniteTempBasis <: AbstractBasis

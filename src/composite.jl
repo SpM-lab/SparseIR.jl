@@ -1,3 +1,4 @@
+export CompositeBasis, CompositeBasisFunction, CompositeBasisFunctionFT
 
 """
 Union of several basis functions in the imaginary-time/real-frequency domain
@@ -33,14 +34,16 @@ function (obj::CompositeBasisFunctionFT)(n::Union{Int64,Vector{Int64}})
     return hcat((p(n) for p in obj.polys))
 end
 
-struct CompositeBasis <: Basis
+struct CompositeBasis <: AbstractBasis
     beta::Float64
     size::Int64
-    bases::Vector{Basis}
+    bases::Vector{AbstractBasis}
     u::Union{CompositeBasisFunction,Nothing}
     v::Union{CompositeBasisFunction,Nothing}
     uhat::Union{CompositeBasisFunctionFT,Nothing}
 end
+
+iswellconditioned(basis::CompositeBasis) = false
 
 function _collect_polys(::Type{T}, polys) where {T}
     if any((p === nothing for p in polys))
@@ -50,7 +53,7 @@ function _collect_polys(::Type{T}, polys) where {T}
     end
 end
 
-function CompositeBasis(bases::Vector{Basis})
+function CompositeBasis(bases::Vector{AbstractBasis})
     size = sum((b.size for b in bases))
     u = CompositeBasisFunction([b.u for b in bases])
     v = _collect_polys(CompositeBasisFunction, [b.v for b in bases])

@@ -9,6 +9,7 @@ include("sve.jl")
 include("poly.jl")
 include("basis.jl")
 include("augment.jl")
+include("composite.jl")
 include("sampling.jl")
 include("basis_set.jl")
 

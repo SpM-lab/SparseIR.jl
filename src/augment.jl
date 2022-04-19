@@ -1,3 +1,5 @@
+export LegendreBasis
+
 @doc raw"""Legendre basis
 
 In the original paper [L. Boehnke et al., PRB 84, 075145 (2011)],
@@ -22,13 +24,13 @@ struct LegendreBasis{T<:AbstractFloat} <: AbstractBasis
     uhat::PiecewiseLegendreFTArray{T}
 end
 
-function LegendreBasis(statistics::Statistics, beta::Float64, size::Int64; cl::Vector{T}=ones(T, size)) where {T <: AbstractFloat}
+function LegendreBasis(statistics::Statistics, beta::Float64, size::Int64; cl::Vector{Float64}=ones(Float64, size))
     beta > 0 || error("inverse temperature beta must be positive! $(beta)")
     size > 0 || error("size of basis must be positive")
 
     # u
-    knots = T[0, beta]
-    data = zeros(T, size, length(knots)-1, size)
+    knots = Float64[0, beta]
+    data = zeros(Float64, size, length(knots)-1, size)
     symm = (-1).^collect(0:(size-1))
     for l in 1:size
         data[l, 1, l] = sqrt(((l-1)+0.5)/beta) * cl[l]
@@ -36,11 +38,23 @@ function LegendreBasis(statistics::Statistics, beta::Float64, size::Int64; cl::V
     u = PiecewiseLegendrePolyArray(data, knots, symm=symm)
 
     # uhat
-    uhat_base = PiecewiseLegendrePolyArray(sqrt(beta) .* data, T[-1,1], symm=symm)
+    uhat_base = PiecewiseLegendrePolyArray(sqrt(beta) .* data, Float64[-1,1], symm=symm)
     even_odd = Dict(fermion => :odd, boson => :even)[statistics]
     uhat = hat.(uhat_base, even_odd, 0:size-1)
 
     return LegendreBasis(statistics, beta, cl, u, uhat)
+end
+
+function Base.getproperty(obj::LegendreBasis, d::Symbol)
+    if d === :size
+        return length(getfield(obj, :u))
+    elseif d === :v
+        return nothing
+    elseif d === :beta # backward compatibility
+        return getfield(obj, :β)
+    else
+        return getfield(obj, d)
+    end
 end
 
 iswellconditioned(basis::LegendreBasis) = true
