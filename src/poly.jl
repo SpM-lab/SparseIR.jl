@@ -1,6 +1,5 @@
 import AssociatedLegendrePolynomials: Plm
-import IntervalRootFinding: roots as roots_irf, Interval, isunique, interval, mid, Newton,
-                            Krawczyk
+import IntervalRootFinding: roots as roots_irf, Interval, isunique, interval, mid, Newton
 import QuadGK: quadgk
 include("_bessels.jl")
 
@@ -156,7 +155,7 @@ Alias for `Array{PiecewiseLegendrePoly{T}, N}`.
 const PiecewiseLegendrePolyArray{T,N} = Array{PiecewiseLegendrePoly{T},N}
 
 # TODO: simplify constructors
-function PiecewiseLegendrePolyArray(data::Array{T,N}, knots::Vector{T}; symm=zeros(Int64, last(size(data)))) where {T,N}
+function PiecewiseLegendrePolyArray(data::Array{T,N}, knots::Vector{T}; symm=zeros(Int, last(size(data)))) where {T,N}
     polys = PiecewiseLegendrePolyArray{T,N - 2}(undef, size(data)[3:end]...)
     for i in eachindex(polys)
         polys[i] = PiecewiseLegendrePoly(data[:, :, i], knots; symm=symm[i])
@@ -267,7 +266,6 @@ function (polyFT::PiecewiseLegendreFT)(n)
     if abs(n) < polyFT.n_asymp
         return _compute_unl_inner(polyFT.poly, n)
     else
-        # TODO: this doesn't work right for some reason
         return giw(polyFT.model, n)
     end
 end

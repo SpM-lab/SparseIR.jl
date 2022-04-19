@@ -29,7 +29,6 @@ const ε = (@isdefined Double64) ? nothing : 1e-15
             # Absolute error
             @test maximum(diff ./ magnitude) < tol
 
-            # TODO this depends on the outer "power model" evaluation which doesn't work yet
             # Relative error
             @test maximum(abs, diff ./ Giwn_ref) < tol
         end

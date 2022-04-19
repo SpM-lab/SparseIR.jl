@@ -11,4 +11,8 @@ include("conftest.jl")
     include("basis_set.jl")
     include("sampling.jl")
     include("matsubara.jl")
+    include("augment.jl")
+
+    # Works only if Mathematica and MathLink.jl are available.
+    # include("_bessels.jl")
 end
