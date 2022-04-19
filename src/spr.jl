@@ -1,3 +1,6 @@
+export SparsePoleRepresentation
+
+import LinearAlgebra: svd, SVD
 struct MatsubaraPoleBasis
     beta::Float64
     poles::Vector{Float64}
@@ -44,35 +47,59 @@ end
 """
 Sparse pole representation
 """
-struct SparsePoleRepresentation <: AbstractBasis
+struct SparsePoleRepresentation{T} <: AbstractBasis
     basis::AbstractBasis
     poles::Vector{T}
-    u::PiecewiseLegendrePolyArray{T,1}
-    uhat::PiecewiseLegendreFTArray{T,1}
+    u::TauPoleBasis
+    uhat::MatsubaraPoleBasis
     statistics::Statistics
+    matrix::SVD
 end
 
 function SparsePoleRepresentation(basis::AbstractBasis,
                                   sampling_points::Union{Vector{T},Nothing}=nothing) where {T<:AbstractFloat}
     poles = isnothing(sampling_points) ? default_omega_sampling_points(basis) :
             sampling_points
-    y_sampling_points = poles ./ basis.wmax
-    u = TauPoleBasis(absis.beta, basis.statistics, poles)
-    return uhat = MatsubaraPoleBasis(basis.beta, poles)
+    y_sampling_points = poles ./ wmax(basis)
+    u = TauPoleBasis(basis.beta, basis.statistics, poles)
+    uhat = MatsubaraPoleBasis(basis.beta, poles)
+    weight = weight_func(basis.kernel, basis.statistics)(y_sampling_points)
+    println(length(poles))
+    println(size(basis.s))
+    println(size(basis.v(poles)))
+    println(size(weight), typeof(weight))
+    fit_mat = -1 .* basis.s[:,newaxis] .* basis.v(poles) .* weight[newaxis,:]
+    println(typeof(fit_mat), size(fit_mat))
+    matrix = svd(fit_mat)
+    return SparsePoleRepresentation(basis, poles, u, uhat, basis.statistics, matrix)
 end
 
-function SparsePoleRepresentation(o::PyObject)
-    return SparsePoleRepresentation(o, o.u, o.uhat,
-                                    o.statistics == "F" ? fermion : boson,
-                                    o.size)
+function Base.getproperty(obj::SparsePoleRepresentation, d::Symbol)
+    if d === :size
+        return length(getfield(obj, :poles))
+    elseif d === :v
+        return nothing
+    elseif d === :wmax
+        return getfield(obj, :u).wmax
+    elseif d === :beta || d === :β
+        return getfield(obj, :basis).beta
+    else
+        return getfield(obj, d)
+    end
 end
 
-function SparsePoleRepresentation(basis::FiniteTempBasis,
-                                  sampling_points::Vector{Float64}=default_omega_sampling_points(basis))
-    return SparsePoleRepresentation(sparse_ir.spr.SparsePoleRepresentation(basis.o,
-                                                                           sampling_points))
+function default_tau_sampling_points(obj::SparsePoleRepresentation)
+    return default_tau_sampling_points(obj.basis)
 end
 
+function default_matsubara_sampling_points(obj::SparsePoleRepresentation)
+    return default_matsubara_sampling_points(obj.basis)
+end
+
+is_well_conditioned(obj::SparsePoleRepresentation) = false
+
+#===
+TODO: implement to_IR/from_IR once axis is implemented in evaluate/fit in sampling.jl
 """
 From IR to SPR
 
@@ -94,3 +121,4 @@ function to_IR(spr::SparsePoleRepresentation,
                g_spr::Array{T,N}, axis::Int64=1)::Array{ComplexF64,N} where {T,N}
     return spr.o.to_IR(g_spr, axis - 1)
 end
+===#

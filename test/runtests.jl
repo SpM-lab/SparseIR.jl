@@ -14,6 +14,7 @@ include("conftest.jl")
     include("augment.jl")
     include("bessels.jl")
     include("composite.jl")
+    include("spr.jl")
     # Works only if Mathematica and MathLink.jl are available.
     # include("_bessels.jl")
 end

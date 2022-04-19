@@ -295,6 +295,14 @@ function default_matsubara_sampling_points(basis::AbstractBasis; mitigate=true)
     return _default_matsubara_sampling_points(basis.uhat, mitigate)
 end
 
+"""
+    default_omega_sampling_points(basis)
+
+Default sampling points on the real-frequency axis.
+"""
+default_omega_sampling_points(basis::AbstractBasis) = _default_sampling_points(basis.v)
+
+
 function _default_sampling_points(u)
     poly = last(u)
     maxima = roots(deriv(poly))

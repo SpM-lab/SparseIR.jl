@@ -509,7 +509,7 @@ function weight_func(kernel::LogisticKernel, statistics)
     if statistics == fermion
         return y -> ones(eltype(y), size(y))
     else
-        return y -> 1 / tanh(0.5 * kernel.Λ * y)
+        return y -> 1 ./ tanh.(0.5 * kernel.Λ * y)
     end
 end
 function weight_func(::RegularizedBoseKernel, statistics)
