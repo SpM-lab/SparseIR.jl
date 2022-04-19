@@ -1,5 +1,5 @@
-import AssociatedLegendrePolynomials: Plm
-import QuadGK: gauss
+using AssociatedLegendrePolynomials: Plm
+using QuadGK: gauss
 
 export legendre, legvander, legendre_collocation, Rule, piecewise, quadrature, reseat
 
@@ -64,11 +64,11 @@ scale(rule, factor) = Rule(rule.x, rule.w * factor, rule.a, rule.b)
 
 Piecewise quadrature with the same quadrature rule, but scaled.
 """
-function piecewise(rule, edges)
-    start = @view edges[begin:(end - 1)]
-    stop = @view edges[(begin + 1):end]
-    all(stop .> start) || error("edges must be monotonically increasing")
-    return joinrules(reseat.(Ref(rule), start, stop))
+function piecewise(rule, edges::Vector)
+    start = edges[begin:(end - 1)]
+    stop = edges[(begin + 1):end]
+    issorted(edges) || error("edges must be monotonically increasing")
+    return joinrules([reseat(rule, a, b) for (a, b) in zip(start, stop)])
 end
 
 """
@@ -76,7 +76,7 @@ end
 
 Join multiple Gauss quadratures together.
 """
-function joinrules(rules)
+function joinrules(rules::AbstractVector{Rule{T}}) where T
     for i in Iterators.drop(eachindex(rules), 1)
         rules[i - 1].b == rules[i].a || error("rules must be contiguous")
     end

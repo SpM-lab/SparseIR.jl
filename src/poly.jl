@@ -1,6 +1,6 @@
-import AssociatedLegendrePolynomials: Plm
-import IntervalRootFinding: roots as roots_irf, Interval, isunique, interval, mid, Newton
-import QuadGK: quadgk
+using AssociatedLegendrePolynomials: Plm
+using IntervalRootFinding: roots as roots_irf, Interval, isunique, interval, mid, Newton
+using QuadGK: quadgk
 include("_bessels.jl")
 
 export PiecewiseLegendrePoly, PiecewiseLegendrePolyArray, roots, hat, overlap, deriv
@@ -41,7 +41,7 @@ struct PiecewiseLegendrePoly{T} <: Function
     end
 end
 
-function PiecewiseLegendrePoly(data, p::PiecewiseLegendrePoly; symm)
+function PiecewiseLegendrePoly(data, p::PiecewiseLegendrePoly; symm=0)
     return PiecewiseLegendrePoly(p.nsegments, p.polyorder, p.xmin, p.xmax, p.knots, p.dx,
                                  data, symm, p.xm, p.inv_xs, p.norm)
 end
@@ -106,9 +106,9 @@ function roots(poly::PiecewiseLegendrePoly{T}) where {T}
     xmin = abs(poly.symm) == 1 ? m : poly.xmin
     xmax = poly.xmax
 
-    rts = roots_irf(poly, Interval(xmin, xmax), Newton, 1e-10)
-    filter!(isunique, rts)
-    rts = map(mid ∘ interval, rts)
+    rts_rootobjects = roots_irf(poly, Interval(xmin, xmax), Newton, 1e-10)
+    filter!(isunique, rts_rootobjects)
+    rts = map(mid ∘ interval, rts_rootobjects)
 
     if abs(poly.symm) == 1
         append!(rts, 2m .- rts)
@@ -163,7 +163,7 @@ function PiecewiseLegendrePolyArray(data::Array{T,N}, knots::Vector{T}; symm=zer
     return polys
 end
 
-function PiecewiseLegendrePolyArray(polys::PiecewiseLegendrePolyArray, knots; dx, symm)
+function PiecewiseLegendrePolyArray(polys::PiecewiseLegendrePolyArray, knots; dx=diff(knots), symm=0)
     size(polys) == size(symm) || error("Sizes of polys and symm don't match")
     polys_new = similar(polys)
     for i in eachindex(polys)
@@ -176,7 +176,7 @@ function PiecewiseLegendrePolyArray(data, polys::PiecewiseLegendrePolyArray)
     size(data)[3:end] == size(polys) || error("Sizes of data and polys don't match")
     polys = similar(polys)
     for i in eachindex(polys)
-        polys[i] = PiecewiseLegendrePoly(data[:, :, i], knots; symm=u.symm[i])
+        polys[i] = PiecewiseLegendrePoly(data[:, :, i], polys.knots; symm=polys.symm[i])
     end
     return polys
 end
@@ -234,7 +234,7 @@ case `n` must be even, or antiperiodically (`freq=:odd`), in which case
 struct PiecewiseLegendreFT{T} <: Function
     poly::PiecewiseLegendrePoly{T}
     freq::Symbol
-    ζ::Union{Int,Nothing}
+    ζ::Int
     n_asymp::AbstractFloat
 
     # internal
@@ -250,7 +250,7 @@ end
 
 function PiecewiseLegendreFT(poly, freq=:even, n_asymp=Inf, l=0)
     (poly.xmin, poly.xmax) == (-1, 1) || error("Only interval [-1, 1] is supported")
-    ζ = Dict(:any => nothing, :even => 0, :odd => 1)[freq] # TODO: type stability
+    ζ = Dict(:even => 0, :odd => 1)[freq]
     model = isinf(n_asymp) ? nothing : power_model(freq, poly, l)
     return PiecewiseLegendreFT(poly, freq, ζ, float(n_asymp), model)
 end

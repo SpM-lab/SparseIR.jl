@@ -1,3 +1,6 @@
+using Test
+using SparseIR
+
 @testset "poly.jl" begin
     @testset "shape" begin
         u, s, v = sve_logistic[42]

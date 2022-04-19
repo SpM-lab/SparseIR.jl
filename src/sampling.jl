@@ -1,4 +1,4 @@
-import LinearAlgebra: svd, SVD
+using LinearAlgebra: svd, SVD
 
 export TauSampling, MatsubaraSampling, evaluate, fit
 
@@ -103,11 +103,11 @@ eval_matrix(::Type{MatsubaraSampling}, basis, x) = permutedims(basis.uhat(x))
 
 Evaluate the basis coefficients at the sparse sampling points.
 """
-evaluate(smpl::AbstractSampling, al, axis=nothing) = smpl.matrixfull * al
+evaluate(smpl::AbstractSampling, al; dims=1) = mapslices(i -> smpl.matrixfull * i, al; dims)
 
 """
     fit(sampling, al)
 
 Fit basis coefficients from the sparse sampling points
 """
-fit(smpl::AbstractSampling, al, axis=nothing) = smpl.matrix \ al
+fit(smpl::AbstractSampling, al; dims=1) = mapslices(i -> smpl.matrix \ i, al; dims)

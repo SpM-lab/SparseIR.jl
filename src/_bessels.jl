@@ -1,4 +1,4 @@
-import SpecialFunctions: sphericalbesselj as sphericalbesselj_sf
+using SpecialFunctions: sphericalbesselj as sphericalbesselj_sf
 # We don't use SpecialFunctions.sphericalbesselj directly because it errors out on large x
 
 function sphericalbesselj(n::Integer, x::T) where {T<:AbstractFloat}

@@ -14,8 +14,8 @@ and associated sparse-sampling objects.
 - beta::Float64: Inverse temperature
 - wmax::Float64: Cut-off frequency
 - tau::Vector{Float64}: Sampling points in the imaginary-time domain
-- wn_f::Vector{Int64}: Sampling fermionic frequencies
-- wn_b::Vector{Int64}: Sampling bosonic frequencies
+- wn_f::Vector{Int}: Sampling fermionic frequencies
+- wn_b::Vector{Int}: Sampling bosonic frequencies
 - smpl_tau_f::TauSampling: Sparse sampling for tau & fermion
 - smpl_tau_b::TauSampling: Sparse sampling for tau & boson
 - smpl_wn_f::MatsubaraSampling: Sparse sampling for Matsubara frequency & fermion
@@ -73,5 +73,5 @@ end
 
 function Base.propertynames(::FiniteTempBasisSet, private::Bool=false)
     return (:beta, :wmax, :tau, :wn_f, :wn_b, :sve_result,
-            fieldnames(FiniteTempBasisSet, private)...)
+            propertynames(FiniteTempBasisSet, private)...)
 end

@@ -1,3 +1,6 @@
+using Test
+using SparseIR
+
 const ε = (@isdefined Double64) ? nothing : 1e-15
 
 @testset "matsubara.jl" begin

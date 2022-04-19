@@ -30,13 +30,13 @@ end
 """
 Evaluate basis function at frequency n
 """
-function (obj::CompositeBasisFunctionFT)(n::Union{Int64,Vector{Int64}})
+function (obj::CompositeBasisFunctionFT)(n::Union{Int,Vector{Int}})
     return hcat((p(n) for p in obj.polys))
 end
 
 struct CompositeBasis <: AbstractBasis
     beta::Float64
-    size::Int64
+    size::Int
     bases::Vector{AbstractBasis}
     u::Union{CompositeBasisFunction,Nothing}
     v::Union{CompositeBasisFunction,Nothing}

@@ -1,3 +1,6 @@
+using Test
+using SparseIR
+
 function _check_smooth(u, s, uscale, fudge_factor)
     ε = eps(eltype(s))
     x = u.knots[(begin + 1):(end - 1)]

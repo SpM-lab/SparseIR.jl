@@ -1,3 +1,5 @@
+using Test
+using SparseIR
 using MathLink
 sphericalbesselj_M(n, x) = weval(W"SphericalBesselJ"(W"n", W"x"); n, x)
 

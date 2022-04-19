@@ -24,23 +24,24 @@ struct LegendreBasis{T<:AbstractFloat} <: AbstractBasis
     uhat::PiecewiseLegendreFTArray{T}
 end
 
-function LegendreBasis(statistics::Statistics, beta::Float64, size::Int64; cl::Vector{Float64}=ones(Float64, size))
+function LegendreBasis(statistics::Statistics, beta::Float64, size::Int;
+                       cl::Vector{Float64}=ones(Float64, size))
     beta > 0 || error("inverse temperature beta must be positive! $(beta)")
     size > 0 || error("size of basis must be positive")
 
     # u
     knots = Float64[0, beta]
-    data = zeros(Float64, size, length(knots)-1, size)
-    symm = (-1).^collect(0:(size-1))
+    data = zeros(Float64, size, length(knots) - 1, size)
+    symm = (-1) .^ collect(0:(size - 1))
     for l in 1:size
-        data[l, 1, l] = sqrt(((l-1)+0.5)/beta) * cl[l]
+        data[l, 1, l] = sqrt(((l - 1) + 0.5) / beta) * cl[l]
     end
-    u = PiecewiseLegendrePolyArray(data, knots, symm=symm)
+    u = PiecewiseLegendrePolyArray(data, knots; symm=symm)
 
     # uhat
-    uhat_base = PiecewiseLegendrePolyArray(sqrt(beta) .* data, Float64[-1,1], symm=symm)
+    uhat_base = PiecewiseLegendrePolyArray(sqrt(beta) .* data, Float64[-1, 1]; symm=symm)
     even_odd = Dict(fermion => :odd, boson => :even)[statistics]
-    uhat = hat.(uhat_base, even_odd, 0:size-1)
+    uhat = hat.(uhat_base, even_odd, 0:(size - 1))
 
     return LegendreBasis(statistics, beta, cl, u, uhat)
 end
@@ -61,26 +62,23 @@ iswellconditioned(basis::LegendreBasis) = true
 
 function default_tau_sampling_points(basis::LegendreBasis)
     x = gauss(length(basis.u))[1]
-    return (basis.β/2) .* (x .+ 1)
+    return (beta(basis) / 2) .* (x .+ 1)
 end
 
 struct _ConstTerm{T<:Number}
     value::T
 end
 
-
-
 """
 Return value for given frequencies
 """
-function (ct::_ConstTerm)(n::Vector{T}) where {T <: Integer}
+function (ct::_ConstTerm)(n::Vector{T}) where {T<:Integer}
     return fill(ct.value, (1, length(n)))
 end
 
-function (ct::_ConstTerm)(n::T) where {T <: Integer}
+function (ct::_ConstTerm)(n::T) where {T<:Integer}
     return ct([n])
 end
-
 
 """
 Constant term in matsubara-frequency domain
@@ -91,11 +89,11 @@ struct MatsubaraConstBasis{T<:AbstractFloat} <: AbstractBasis
     uhat::_ConstTerm{T}
 end
 
-function MatsubaraConstBasis(statistics::Statistics, beta::Float64, value=1) where {T<:AbstractFloat}
+function MatsubaraConstBasis(statistics::Statistics, beta::Float64,
+                             value=1) where {T<:AbstractFloat}
     beta > 0 || error("inverse temperature beta must be positive")
-    MatsubaraConstBasis(statistics, beta, _ConstTerm(value))
+    return MatsubaraConstBasis(statistics, beta, _ConstTerm(value))
 end
-
 
 function Base.getproperty(obj::MatsubaraConstBasis, d::Symbol)
     if d == :size

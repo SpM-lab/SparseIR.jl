@@ -1,5 +1,8 @@
-import LinearAlgebra: I
-import QuadGK: gauss
+using Test
+using SparseIR
+
+using LinearAlgebra: I
+using QuadGK: gauss
 
 function validategauss(rule)
     @test rule.a ≤ rule.b

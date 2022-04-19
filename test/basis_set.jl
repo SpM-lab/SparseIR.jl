@@ -1,3 +1,6 @@
+using Test
+using SparseIR
+
 @testset "basis.jl" begin
     @testset "consistency" begin
         β = 2.0

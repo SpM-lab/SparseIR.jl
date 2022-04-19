@@ -4,7 +4,7 @@ using SparseIR
 include("util.jl")
 
 @testset "bessels.jl" begin
-    @test typestable(SparseIR.sphericalbesselj, [Int64, Float64])
+    @test typestable(SparseIR.sphericalbesselj, [Int, Float64])
 
     @testset "small_x" begin
         n = 11

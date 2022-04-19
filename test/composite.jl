@@ -1,5 +1,5 @@
-using SparseIR
 using Test
+using SparseIR
 
 @testset "composite.jl" begin
     """Augmented bosonic basis"""

@@ -1,5 +1,3 @@
-using SparseIR
-
 export IRBasis, FiniteTempBasis, finite_temp_bases, fermion, boson
 
 @enum Statistics fermion boson
@@ -15,6 +13,9 @@ function Base.getproperty(obj::AbstractBasis, d::Symbol)
         return getfield(obj, d)
     end
 end
+
+Base.size(basis::AbstractBasis) = length(basis.u)
+beta(basis::AbstractBasis) = basis.β
 
 """
     IRBasis <: AbstractBasis
@@ -109,7 +110,7 @@ function IRBasis(statistics, Λ, ε=nothing; kernel=nothing, sve_result=nothing)
     # so for significantly larger frequencies we use the asymptotics,
     # since it has lower relative error.
     even_odd = Dict(fermion => :odd, boson => :even)[statistics]
-    uhat = hat.(u, even_odd, 0:length(u)-1; n_asymp=conv_radius(self_kernel)) # TODO: fix this
+    uhat = hat.(u, even_odd, 0:length(u)-1; n_asymp=conv_radius(self_kernel))
     rts = roots(last(v))
     sampling_points_v = [v.xmin; (rts[begin:(end - 1)] .+ rts[(begin + 1):end]) / 2; v.xmax]
     return IRBasis(self_kernel, u, uhat, s, v, sampling_points_v, statistics)
@@ -257,7 +258,7 @@ iswellconditioned(::FiniteTempBasis) = true
 function Base.getindex(basis::FiniteTempBasis, i)
     u, s, v = basis.sve_result
     sve_result = u[i], s[i], v[i]
-    return FiniteTempBasis(basis.statistics, basis.β, wmax(basis); kernel=basis.kernel,
+    return FiniteTempBasis(basis.statistics, beta(basis), wmax(basis); kernel=basis.kernel,
                            sve_result)
 end
 
@@ -266,7 +267,7 @@ end
 
 Real frequency cutoff.
 """
-wmax(basis::FiniteTempBasis) = basis.kernel.Λ / basis.β
+wmax(basis::FiniteTempBasis) = basis.kernel.Λ / beta(basis)
 
 """
     finite_temp_bases(β, wmax, ε, sve_result=compute(LogisticKernel(β * wmax); ε))

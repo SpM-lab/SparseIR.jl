@@ -1,3 +1,6 @@
+using Test
+using SparseIR
+
 @testset "augment.jl" begin
     @testset "LegendreBasis" begin
         for stat in [fermion, boson]

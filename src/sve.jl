@@ -26,27 +26,27 @@ be reconstructed from the singular vectors `u` and `v` as follows:
 
 [1] P. Hansen, Discrete Inverse Problems, Ch. 3.1
 """
-struct SamplingSVE{K<:AbstractKernel,T} <: AbstractSVE
+struct SamplingSVE{K<:AbstractKernel} <: AbstractSVE
     kernel::K
-    ε::T
+    ε::Float64
     n_gauss::Int
     nsvals_hint::Int
 
     # internal
-    rule::Rule{T}
-    segs_x::Vector{T}
-    segs_y::Vector{T}
-    gauss_x::Rule{T}
-    gauss_y::Rule{T}
-    sqrtw_x::Vector{T}
-    sqrtw_y::Vector{T}
+    rule::Rule{Float64}
+    segs_x::Vector{Float64}
+    segs_y::Vector{Float64}
+    gauss_x::Rule{Float64}
+    gauss_y::Rule{Float64}
+    sqrtw_x::Vector{Float64}
+    sqrtw_y::Vector{Float64}
 end
 
-function SamplingSVE(kernel, ε; n_gauss=nothing, T::Type{<:AbstractFloat}=Float64)
+function SamplingSVE(kernel, ε; n_gauss=nothing, T=Float64)
     sve_hints_ = sve_hints(kernel, ε)
     isnothing(n_gauss) && (n_gauss = ngauss(sve_hints_))
     rule = legendre(n_gauss, T)
-    segs_x, segs_y = T.(segments_x(sve_hints_)), T.(segments_y(sve_hints_))
+    segs_x, segs_y = convert(Vector{T}, segments_x(sve_hints_)), convert(Vector{T}, segments_y(sve_hints_))
     gauss_x, gauss_y = piecewise(rule, segs_x), piecewise(rule, segs_y)
 
     return SamplingSVE(kernel, ε, n_gauss, nsvals(sve_hints_), rule, segs_x, segs_y,
@@ -140,13 +140,14 @@ Return tuple `(u, s, v)`, where:
 function compute(kernel::AbstractKernel; ε=nothing, n_sv=typemax(Int), n_gauss=nothing,
                  T=Float64, Twork=nothing,
                  sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE,
-                 svd_strat=nothing)
+                 svd_strat=:default)
     if isnothing(ε) || isnothing(Twork) || isnothing(svd_strat)
         ε, Twork, default_svd_strat = choose_accuracy(ε, Twork)
     end
-    if isnothing(svd_strat)
+    if svd_strat == :default
         svd_strat = default_svd_strat
     end
+    # return Twork
     sve = sve_strat(kernel, ε; n_gauss, T=Twork)
     svds = [compute(matrix; n_sv_hint=sve.nsvals_hint, strategy=svd_strat)
             for matrix in matrices(sve)]

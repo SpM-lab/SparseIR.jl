@@ -1,6 +1,6 @@
 export SparsePoleRepresentation
 
-import LinearAlgebra: svd, SVD
+using LinearAlgebra: svd, SVD
 struct MatsubaraPoleBasis
     beta::Float64
     poles::Vector{Float64}
@@ -107,7 +107,7 @@ gl:
     Expansion coefficients in IR
 """
 function from_IR(spr::SparsePoleRepresentation,
-                 gl::Array{T,N}, axis::Int64=1)::Array{ComplexF64,N} where {T,N}
+                 gl::Array{T,N}, axis::Int=1)::Array{ComplexF64,N} where {T,N}
     return spr.o.from_IR(gl, axis - 1)
 end
 
@@ -118,7 +118,7 @@ g_spr:
     Expansion coefficients in SPR
 """
 function to_IR(spr::SparsePoleRepresentation,
-               g_spr::Array{T,N}, axis::Int64=1)::Array{ComplexF64,N} where {T,N}
+               g_spr::Array{T,N}, axis::Int=1)::Array{ComplexF64,N} where {T,N}
     return spr.o.to_IR(g_spr, axis - 1)
 end
 ===#

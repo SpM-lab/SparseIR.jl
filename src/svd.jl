@@ -1,5 +1,5 @@
-import LowRankApprox: psvd
-import LinearAlgebra: svd, QRIteration
+using LowRankApprox: psvd
+using LinearAlgebra: svd, QRIteration
 
 const MAX_T = Float64
 const MAX_EPS = eps(MAX_T) # approximately 5e-32

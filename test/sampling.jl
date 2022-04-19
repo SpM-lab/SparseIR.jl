@@ -1,3 +1,6 @@
+using Test
+using SparseIR
+
 using Random, LinearAlgebra
 
 @testset "sampling.jl" begin
