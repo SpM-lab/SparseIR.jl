@@ -150,7 +150,7 @@ function matop(op::AbstractMatrix{T}, arr::AbstractArray{S,N}) where {T,S,N}
 
     rest_dims = size(arr)[2:end]
     arr = reshape(arr, (size(op)[2], prod(rest_dims)))
-    return reshape(op * arr, (size(op)[1], rest_dims...))
+    return reshape(op * arr, (fist(op), rest_dims...))
 end
 
 
