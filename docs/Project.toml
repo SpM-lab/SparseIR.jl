@@ -1,3 +1,3 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
-SparseIR = "fefa8bd7-c5b3-4143-ace4-737a34ae5886"
+SparseIR = "4fe2279e-80f0-4adb-8463-ee114ff56b7d"
