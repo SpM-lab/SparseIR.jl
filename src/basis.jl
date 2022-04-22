@@ -1,4 +1,4 @@
-export IRBasis, FiniteTempBasis, finite_temp_bases, fermion, boson
+export DimensionlessBasis, FiniteTempBasis, finite_temp_bases, fermion, boson
 
 @enum Statistics fermion boson
 
@@ -6,9 +6,14 @@ abstract type AbstractBasis end
 
 Base.size(basis::AbstractBasis) = length(basis.u)
 beta(basis::AbstractBasis) = basis.β
+statistics(basis::AbstractBasis) = basis.statistics
+
+function Base.show(io::IO, a::AbstractBasis)
+    print(io, "$(typeof(a)): beta=$(beta(a)), statistics=$(statistics(a)), size=$(size(a))")
+end
 
 """
-    IRBasis <: AbstractBasis
+    DimensionlessBasis <: AbstractBasis
 
 Intermediate representation (IR) basis in reduced variables.
 
@@ -29,7 +34,7 @@ pole at `x = 0.2`. We first compute an IR basis suitable for fermions and `β*W 
 ```julia-repl
 julia> using SparseIR
 
-julia> basis = IRBasis(fermion, 42);
+julia> basis = DimensionlessBasis(fermion, 42);
 
 julia> gl = basis.s .* basis.v(0.2);
 
@@ -63,7 +68,7 @@ These functions are stored as piecewise Legendre polynomials.
 
 See also [`FiniteTempBasis`](@ref) for a basis directly in time/frequency.
 """
-struct IRBasis{K<:AbstractKernel,T<:AbstractFloat} <: AbstractBasis
+struct DimensionlessBasis{K<:AbstractKernel,T<:AbstractFloat} <: AbstractBasis
     kernel::K
     u::PiecewiseLegendrePolyArray{T}
     uhat::PiecewiseLegendreFTArray{T}
@@ -74,11 +79,11 @@ struct IRBasis{K<:AbstractKernel,T<:AbstractFloat} <: AbstractBasis
 end
 
 """
-    IRBasis(statistics, Λ, ε=nothing; kernel=nothing, sve_result=nothing)
+    DimensionlessBasis(statistics, Λ, ε=nothing; kernel=nothing, sve_result=nothing)
 
 Construct an IR basis suitable for the given `statistics` and cutoff `Λ`.
 """
-function IRBasis(statistics, Λ, ε=nothing; kernel=nothing, sve_result=nothing)
+function DimensionlessBasis(statistics, Λ, ε=nothing; kernel=nothing, sve_result=nothing)
     Λ = float(Λ)
     Λ ≥ 0 || error("Kernel cutoff Λ must be non-negative")
 
@@ -103,7 +108,7 @@ function IRBasis(statistics, Λ, ε=nothing; kernel=nothing, sve_result=nothing)
     uhat = hat.(u, even_odd, 0:length(u)-1; n_asymp=conv_radius(self_kernel))
     rts = roots(last(v))
     sampling_points_v = [v.xmin; (rts[begin:(end - 1)] .+ rts[(begin + 1):end]) / 2; v.xmax]
-    return IRBasis(self_kernel, u, uhat, s, v, sampling_points_v, statistics)
+    return DimensionlessBasis(self_kernel, u, uhat, s, v, sampling_points_v, statistics)
 end
 
 """
@@ -111,11 +116,11 @@ end
 
 Basis cutoff parameter `Λ = β * ωmax`.
 """
-Λ(basis::IRBasis) = basis.kernel.Λ
+Λ(basis::DimensionlessBasis) = basis.kernel.Λ
 
-function Base.getindex(basis::IRBasis, i)
+function Base.getindex(basis::DimensionlessBasis, i)
     sve_result = basis.u[i], basis.s[i], basis.v[i]
-    return IRBasis(basis.statistics, Λ(basis); kernel=basis.kernel, sve_result)
+    return DimensionlessBasis(basis.statistics, Λ(basis); kernel=basis.kernel, sve_result)
 end
 
 
@@ -242,7 +247,7 @@ Base.length(basis::AbstractBasis) = length(basis.s)
 
 Return `true` if the sampling is expected to be well-conditioned.
 """
-iswellconditioned(::IRBasis) = true
+iswellconditioned(::DimensionlessBasis) = true
 iswellconditioned(::FiniteTempBasis) = true
 
 function Base.getindex(basis::FiniteTempBasis, i)

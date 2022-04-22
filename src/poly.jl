@@ -58,6 +58,10 @@ end
 
 Base.size(::PiecewiseLegendrePoly) = ()
 
+function Base.show(io::IO, p::PiecewiseLegendrePoly)
+    print(io, "$(typeof(p)): xmin=$(p.xmin), xmax=$(p.xmax)")
+end
+
 function (poly::PiecewiseLegendrePoly)(x)
     i, x̃ = _split(poly, x)
     return legval(x̃, poly.data[:, i]) * poly.norm[i]
@@ -239,6 +243,10 @@ struct PiecewiseLegendreFT{T} <: Function
 
     # internal
     model::Union{PowerModel,Nothing}
+end
+
+function Base.show(io::IO, p::PiecewiseLegendreFT)
+    print(io, "$(typeof(p))")
 end
 
 const PiecewiseLegendreFTArray{T,N} = Array{PiecewiseLegendreFT{T},N}

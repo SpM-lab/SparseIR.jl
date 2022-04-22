@@ -32,7 +32,7 @@ using Plots, PlutoUI
 using PyCall
 
 # ╔═╡ b8c2c8c7-9a42-4394-a390-aecf9a1c6f34
-#basis = IRBasis(boson, 10)
+#basis = DimensionlessBasis(boson, 10)
 
 # ╔═╡ 19d59ed7-aaea-4e47-9708-606acb03cdbb
 begin

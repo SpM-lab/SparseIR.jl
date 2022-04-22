@@ -14,7 +14,7 @@ using SparseIR
     @testset "slice" begin
         sve_result = sve_logistic[42]
 
-        basis = IRBasis(fermion, 42.0; sve_result)
+        basis = DimensionlessBasis(fermion, 42.0; sve_result)
         @test length(basis[begin:5]) == 5
 
         basis = FiniteTempBasis(fermion, 4.2, 10; sve_result)
