@@ -36,7 +36,6 @@ end
 
 struct CompositeBasis <: AbstractBasis
     beta::Float64
-    size::Int
     bases::Vector{AbstractBasis}
     u::Union{CompositeBasisFunction,Nothing}
     v::Union{CompositeBasisFunction,Nothing}
@@ -54,11 +53,10 @@ function _collect_polys(::Type{T}, polys) where {T}
 end
 
 function CompositeBasis(bases::Vector{AbstractBasis})
-    size = sum((b.size for b in bases))
     u = CompositeBasisFunction([b.u for b in bases])
     v = _collect_polys(CompositeBasisFunction, [b.v for b in bases])
     uhat = _collect_polys(CompositeBasisFunctionFT, [b.uhat for b in bases])
-    return CompositeBasis(bases[1].beta, size, bases, u, v, uhat)
+    return CompositeBasis(beta(bases[1]), bases, u, v, uhat)
 end
 
 function default_tau_sampling_points(basis::CompositeBasis)

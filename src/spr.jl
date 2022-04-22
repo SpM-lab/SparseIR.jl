@@ -62,23 +62,19 @@ function SparsePoleRepresentation(basis::AbstractBasis,
     poles = isnothing(sampling_points) ? default_omega_sampling_points(basis) :
             sampling_points
     y_sampling_points = poles ./ wmax(basis)
-    u = TauPoleBasis(basis.beta, basis.statistics, poles)
-    uhat = MatsubaraPoleBasis(basis.beta, poles)
+    u = TauPoleBasis(beta(basis), basis.statistics, poles)
+    uhat = MatsubaraPoleBasis(beta(basis), poles)
     weight = weight_func(basis.kernel, basis.statistics)(y_sampling_points)
     fitmat = -1 .* basis.s[:,newaxis] .* basis.v(poles) .* weight[newaxis,:]
     matrix = svd(fitmat)
     return SparsePoleRepresentation(basis, poles, u, uhat, basis.statistics, fitmat, matrix)
 end
 
+beta(obj::SparsePoleRepresentation) = beta(obj.basis)
+
 function Base.getproperty(obj::SparsePoleRepresentation, d::Symbol)
-    if d === :size
-        return length(getfield(obj, :poles))
-    elseif d === :v
+    if d === :v
         return nothing
-    elseif d === :wmax
-        return getfield(obj, :u).wmax
-    elseif d === :beta || d === :β
-        return getfield(obj, :basis).beta
     else
         return getfield(obj, d)
     end

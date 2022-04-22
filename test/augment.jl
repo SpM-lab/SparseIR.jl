@@ -8,6 +8,7 @@ using SparseIR
             Nl = 10
             cl = sqrt.(2 * collect(0:(Nl - 1)) .+ 1)
             basis = SparseIR.LegendreBasis(stat, β, Nl; cl=cl)
+            @test size(basis) == Nl
 
             τ = Float64[0, 0.1 * β, 0.4 * β, β]
             uval = basis.u(τ)

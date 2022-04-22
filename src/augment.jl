@@ -47,12 +47,8 @@ function LegendreBasis(statistics::Statistics, beta::Float64, size::Int;
 end
 
 function Base.getproperty(obj::LegendreBasis, d::Symbol)
-    if d === :size
-        return length(getfield(obj, :u))
-    elseif d === :v
+    if d === :v
         return nothing
-    elseif d === :beta # backward compatibility
-        return getfield(obj, :β)
     else
         return getfield(obj, d)
     end
@@ -95,14 +91,4 @@ function MatsubaraConstBasis(statistics::Statistics, beta::Float64,
     return MatsubaraConstBasis(statistics, beta, _ConstTerm(value))
 end
 
-function Base.getproperty(obj::MatsubaraConstBasis, d::Symbol)
-    if d == :size
-        return 1
-    else
-        return getfield(obj, d)
-    end
-end
-
-function Base.propertynames(::MatsubaraConstBasis, private::Bool=false)
-    return (:size, fieldnames(MatsubaraConstBasis, private)...)
-end
+Base.size(obj::MatsubaraConstBasis) = 1
