@@ -1,7 +1,7 @@
 name = "SparseIR"
-uuid = "fefa8bd7-c5b3-4143-ace4-737a34ae5886"
+uuid = "4fe2279e-80f0-4adb-8463-ee114ff56b7d"
 authors = ["Samuel Badr <samuel.badr@gmail.com>"]
-version = "0.1.0"
+version = "0.10.0"
 
 [deps]
 AssociatedLegendrePolynomials = "2119f1ac-fb78-50f5-8cc0-dda848ebdb19"
