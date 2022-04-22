@@ -1,4 +1,4 @@
-export SparsePoleRepresentation
+export SparsePoleRepresentation, to_IR, from_IR
 
 using LinearAlgebra: svd, SVD
 struct MatsubaraPoleBasis
@@ -11,7 +11,7 @@ Evaluate basis functions at given frequency n
 """
 function (basis::MatsubaraPoleBasis)(n::Vector{T}) where {T<:Integer}
     iv = (im * π / basis.beta) .* n
-    return 1 ./ (iv[newaxis, :] - basis.poles[:, newaxis])
+    return 1 ./ (iv[newaxis, :] .- basis.poles[:, newaxis])
 end
 
 struct TauPoleBasis
@@ -30,13 +30,13 @@ end
 Evaluate basis functions at tau
 """
 function (basis::TauPoleBasis)(tau::Vector{T}) where {T<:AbstractFloat}
-    !all(0 .≤ tau .≤ basis.beta) || error("tau must be in [0, beta]!")
+    all(0 .≤ tau .≤ basis.beta) || error("tau must be in [0, beta]!")
 
     x = (2 / basis.beta) .* tau .- 1
     y = basis.poles ./ basis.wmax
     Λ = basis.beta * basis.wmax
     if basis.statistics == fermion
-        res = -LogisticKernel(lambda_)(x[:, newaxis], y[newaxis, :])
+        res = -LogisticKernel(Λ).(x[:, newaxis], y[newaxis, :])
     else
         K = RegularizedBoseKernel(Λ)
         res = -K(x[:, newaxis], y[newaxis, :]) ./ y[newaxis, :]
@@ -47,12 +47,13 @@ end
 """
 Sparse pole representation
 """
-struct SparsePoleRepresentation{T} <: AbstractBasis
+struct SparsePoleRepresentation{T<:AbstractFloat} <: AbstractBasis
     basis::AbstractBasis
     poles::Vector{T}
     u::TauPoleBasis
     uhat::MatsubaraPoleBasis
     statistics::Statistics
+    fitmat::Matrix{Float64}
     matrix::SVD
 end
 
@@ -64,14 +65,9 @@ function SparsePoleRepresentation(basis::AbstractBasis,
     u = TauPoleBasis(basis.beta, basis.statistics, poles)
     uhat = MatsubaraPoleBasis(basis.beta, poles)
     weight = weight_func(basis.kernel, basis.statistics)(y_sampling_points)
-    println(length(poles))
-    println(size(basis.s))
-    println(size(basis.v(poles)))
-    println(size(weight), typeof(weight))
-    fit_mat = -1 .* basis.s[:,newaxis] .* basis.v(poles) .* weight[newaxis,:]
-    println(typeof(fit_mat), size(fit_mat))
-    matrix = svd(fit_mat)
-    return SparsePoleRepresentation(basis, poles, u, uhat, basis.statistics, matrix)
+    fitmat = -1 .* basis.s[:,newaxis] .* basis.v(poles) .* weight[newaxis,:]
+    matrix = svd(fitmat)
+    return SparsePoleRepresentation(basis, poles, u, uhat, basis.statistics, fitmat, matrix)
 end
 
 function Base.getproperty(obj::SparsePoleRepresentation, d::Symbol)
@@ -96,10 +92,8 @@ function default_matsubara_sampling_points(obj::SparsePoleRepresentation)
     return default_matsubara_sampling_points(obj.basis)
 end
 
-is_well_conditioned(obj::SparsePoleRepresentation) = false
+iswellconditioned(obj::SparsePoleRepresentation{T}) where {T<:AbstractFloat} = false
 
-#===
-TODO: implement to_IR/from_IR once axis is implemented in evaluate/fit in sampling.jl
 """
 From IR to SPR
 
@@ -107,8 +101,8 @@ gl:
     Expansion coefficients in IR
 """
 function from_IR(spr::SparsePoleRepresentation,
-                 gl::Array{T,N}, axis::Int=1)::Array{ComplexF64,N} where {T,N}
-    return spr.o.from_IR(gl, axis - 1)
+                 gl::Array{T,N}, dims::Int=1) where {T,N}
+    return mapslices(i -> spr.matrix \ i, gl; dims)
 end
 
 """
@@ -118,7 +112,6 @@ g_spr:
     Expansion coefficients in SPR
 """
 function to_IR(spr::SparsePoleRepresentation,
-               g_spr::Array{T,N}, axis::Int=1)::Array{ComplexF64,N} where {T,N}
-    return spr.o.to_IR(g_spr, axis - 1)
+               g_spr::Array{T,N}, dims::Int=1) where {T,N}
+    return mapslices(i -> spr.fitmat * i, g_spr; dims)
 end
-===#

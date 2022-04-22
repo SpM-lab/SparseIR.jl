@@ -20,7 +20,6 @@ using Random
         coeffs = 2 * rand(num_poles) .- 1
         @assert maximum(abs.(poles)) <= wmax
 
-        #===
         Gl = to_IR(SparsePoleRepresentation(basis, poles), coeffs)
 
         g_spr = from_IR(spr, Gl)
@@ -29,7 +28,7 @@ using Random
         smpl = MatsubaraSampling(basis)
         smpl_for_spr = MatsubaraSampling(spr, smpl.sampling_points)
         giv = evaluate(smpl_for_spr, g_spr)
-        giv_ref = evaluate(smpl, Gl; dims=0)
+        giv_ref = evaluate(smpl, Gl; dims=1)
         @test isapprox(giv, giv_ref; atol=300 * eps, rtol=0)
 
         # Comparison on tau
@@ -39,6 +38,5 @@ using Random
         gtau2 = evaluate(smpl_tau_for_spr, g_spr)
 
         @test isapprox(gtau, gtau2; atol=300 * eps, rtol=0)
-        ===#
     end
 end
