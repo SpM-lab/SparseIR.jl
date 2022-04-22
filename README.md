@@ -1,9 +1,5 @@
 # SparseIR
 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://shinaoka.github.io/SparseIR.jl/stable)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://shinaoka.github.io/SparseIR.jl/dev)
-[![Build Status](https://github.com/shinaoka/SparseIR.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/shinaoka/SparseIR.jl/actions/workflows/CI.yml?query=branch%3Amain)
-
 Pure Julia implementation of sparse-ir (`https://github.com/SpM-lab/sparse-ir`) for the intermediate representation of propagators.
 
 
