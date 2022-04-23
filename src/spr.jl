@@ -6,9 +6,6 @@ struct MatsubaraPoleBasis
     poles::Vector{Float64}
 end
 
-"""
-Evaluate basis functions at given frequency n
-"""
 function (basis::MatsubaraPoleBasis)(n::Vector{T}) where {T<:Integer}
     iv = (im * π / basis.beta) .* n
     return 1 ./ (iv[newaxis, :] .- basis.poles[:, newaxis])
@@ -26,9 +23,6 @@ function TauPoleBasis(beta::Real, statistics::Statistics,
     return TauPoleBasis(beta, poles, statistics, maximum(abs.(poles)))
 end
 
-"""
-Evaluate basis functions at tau
-"""
 function (basis::TauPoleBasis)(tau::Vector{T}) where {T<:AbstractFloat}
     all(0 .≤ tau .≤ basis.beta) || error("tau must be in [0, beta]!")
 

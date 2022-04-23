@@ -1,4 +1,4 @@
-export LegendreBasis
+export LegendreBasis, MatsubaraConstBasis
 
 @doc raw"""Legendre basis
 
@@ -65,9 +65,6 @@ struct _ConstTerm{T<:Number}
     value::T
 end
 
-"""
-Return value for given frequencies
-"""
 function (ct::_ConstTerm)(n::Vector{T}) where {T<:Integer}
     return fill(ct.value, (1, length(n)))
 end
@@ -85,7 +82,7 @@ struct MatsubaraConstBasis{T<:AbstractFloat} <: AbstractBasis
     uhat::_ConstTerm{T}
 end
 
-function MatsubaraConstBasis(statistics::Statistics, beta::Float64,
+function MatsubaraConstBasis(statistics::Statistics, beta::Float64;
                              value=1) where {T<:AbstractFloat}
     beta > 0 || error("inverse temperature beta must be positive")
     return MatsubaraConstBasis(statistics, beta, _ConstTerm(value))
