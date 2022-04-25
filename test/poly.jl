@@ -11,6 +11,12 @@ using SparseIR
         @test size(u[3:5]) == (3,)
     end
 
+    @testset "knots" begin
+        u, s, v = sve_logistic[42]
+        @test first(u[1].knots) == -1.0
+        @test last(u[1].knots) == 1.0
+    end
+
     @testset "slice" begin
         sve_result = sve_logistic[42]
 

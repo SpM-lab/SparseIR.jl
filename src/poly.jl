@@ -79,7 +79,7 @@ Given the function `f`, evaluate the integral::
 using adaptive Gauss-Legendre quadrature.
 """
 function overlap(poly::PiecewiseLegendrePoly, f; rtol=2.3e-16, return_error=false)
-    int_result, int_error = quadgk(x -> poly(x) * f(x), poly.xmin, poly.xmax; rtol)
+    int_result, int_error = quadgk(x -> poly(x) * f(x), poly.knots...; rtol)
     if return_error
         return int_result, int_error
     else
@@ -122,7 +122,7 @@ function roots(poly::PiecewiseLegendrePoly{T}) where {T}
     return rts
 end
 
-function check_domain(poly, x)
+function check_domain(poly, x::Number)
     poly.xmin ≤ x ≤ poly.xmax || throw(DomainError("x is outside the domain"))
     return true
 end
@@ -134,13 +134,17 @@ Split segment.
 
 Find segment of poly's domain that covers `x`.
 """
-function _split(poly, x)
+function _split(poly, x::Number)
     @boundscheck check_domain(poly, x)
 
     i = max(searchsortedlast(poly.knots, x; lt=≤), 1)
     x̃ = x - poly.xm[i]
     x̃ *= poly.inv_xs[i]
     return i, x̃
+end
+
+function (poly::PiecewiseLegendrePoly)(x::Array)
+    return poly.(x)
 end
 
 function scale(poly::PiecewiseLegendrePoly, factor)
