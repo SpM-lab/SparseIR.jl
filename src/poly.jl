@@ -87,6 +87,11 @@ function overlap(poly::PiecewiseLegendrePoly, f; rtol=2.3e-16, return_error=fals
     end
 end
 
+# Backward compatibility
+function overlap(polys::Vector{PiecewiseLegendrePoly}, f; rtol=2.3e-16, return_error=false)
+    return overlap.(polys, f, rtol=rtol, return_error=return_err)
+end
+
 """
     deriv(poly, n=1)
 

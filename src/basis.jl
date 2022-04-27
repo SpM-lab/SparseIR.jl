@@ -236,7 +236,7 @@ function FiniteTempBasis(statistics, β, wmax, ε=nothing; kernel=nothing, sve_r
     even_odd = Dict(fermion => :odd, boson => :even)[statistics]
     uhat = hat.(û_base, even_odd, 0:length(u)-1; n_asymp=conv_radius) # TODO: fix this
 
-    return FiniteTempBasis(kernel, (u, s, v), statistics, β, u_, v_, s_, uhat)
+    return FiniteTempBasis(kernel, (u, s, v), statistics, 1. * β, u_, v_, s_, uhat)
 end
 
 Base.firstindex(::AbstractBasis) = 1
