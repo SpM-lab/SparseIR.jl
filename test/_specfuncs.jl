@@ -3,7 +3,7 @@ using SparseIR
 using MathLink
 sphericalbesselj_M(n, x) = weval(W"SphericalBesselJ"(W"n", W"x"); n, x)
 
-@testset "_bessels.jl" begin
+@testset "_specfuncs.jl" begin
     @testset "domain" begin
         @test_throws DomainError SparseIR.sphericalbesselj(-2, 0.3)
         @test !isnan(SparseIR.sphericalbesselj(4, 1e20))

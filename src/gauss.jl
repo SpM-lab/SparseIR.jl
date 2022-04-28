@@ -1,5 +1,5 @@
-using AssociatedLegendrePolynomials: Plm
 using QuadGK: gauss
+include("_specfuncs.jl")
 
 export legendre, legvander, legendre_collocation, Rule, piecewise, quadrature, reseat
 
@@ -47,7 +47,7 @@ Reseat quadrature rule to new domain.
 """
 function reseat(rule::Rule, a, b)
     scaling = (b - a) / (rule.b - rule.a)
-    x = (rule.x .- (rule.a + rule.b)/2) * scaling .+ (a + b) / 2
+    x = (rule.x .- (rule.a + rule.b) / 2) * scaling .+ (a + b) / 2
     w = rule.w * scaling
     return Rule(x, w, a, b)
 end
@@ -76,7 +76,7 @@ end
 
 Join multiple Gauss quadratures together.
 """
-function joinrules(rules::AbstractVector{Rule{T}}) where T
+function joinrules(rules::AbstractVector{Rule{T}}) where {T}
     for i in Iterators.drop(eachindex(rules), 1)
         rules[i - 1].b == rules[i].a || error("rules must be contiguous")
     end
@@ -96,13 +96,6 @@ Gauss-Legendre quadrature with `n` points.
 """
 legendre(n) = Rule(gauss(n)...)
 legendre(n, T) = Rule(gauss(T, n)...)
-
-"""
-    legvander(x, deg)
-
-Pseudo-Vandermonde matrix of degree `deg`.
-"""
-legvander(x, deg) = Plm(0:deg, 0, x)
 
 """
     legendre_collocation(rule, n=length(rule.x))

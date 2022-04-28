@@ -1,15 +1,16 @@
 using Test
 using SparseIR
+using AssociatedLegendrePolynomials: Plm
 
 @testset "augment.jl" begin
     @testset "MatsubaraConstBasis" begin
         beta = 2.0
         value = 1.1
         for statistics in [fermion, boson]
-           b = MatsubaraConstBasis(statistics, beta, value=value)
-           shift::Int64 = Dict(fermion=>1, boson=>0)[statistics]
-           n = 2 .* collect(1:10) .+ shift
-           @test b.uhat(n) ≈ fill(value, 1, length(n))
+            b = MatsubaraConstBasis(statistics, beta; value=value)
+            shift::Int64 = Dict(fermion => 1, boson => 0)[statistics]
+            n = 2 .* collect(1:10) .+ shift
+            @test b.uhat(n) ≈ fill(value, 1, length(n))
         end
     end
 
@@ -19,7 +20,7 @@ using SparseIR
             Nl = 10
             cl = sqrt.(2 * collect(0:(Nl - 1)) .+ 1)
             basis = SparseIR.LegendreBasis(stat, β, Nl; cl=cl)
-            @test size(basis) == Nl
+            @test size(basis) == (Nl,)
 
             τ = Float64[0, 0.1 * β, 0.4 * β, β]
             uval = basis.u(τ)
@@ -27,7 +28,7 @@ using SparseIR
             ref = Matrix{Float64}(undef, Nl, length(τ))
             for l in 0:(Nl - 1)
                 x = 2τ / β .- 1
-                ref[l + 1, :] .= cl[l + 1] * (√(2l + 1) / β) * SparseIR.legendreP.(l, x)
+                ref[l + 1, :] .= cl[l + 1] * (√(2l + 1) / β) * Plm.(l, 0, x)
             end
             @test uval ≈ ref
 

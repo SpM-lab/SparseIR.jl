@@ -59,7 +59,7 @@ function SparsePoleRepresentation(basis::AbstractBasis,
     u = TauPoleBasis(beta(basis), basis.statistics, poles)
     uhat = MatsubaraPoleBasis(beta(basis), poles)
     weight = weight_func(basis.kernel, basis.statistics)(y_sampling_points)
-    fitmat = -1 .* basis.s[:,newaxis] .* basis.v(poles) .* weight[newaxis,:]
+    fitmat = -1 .* basis.s[:, newaxis] .* basis.v(poles) .* weight[newaxis, :]
     matrix = svd(fitmat)
     return SparsePoleRepresentation(basis, poles, u, uhat, basis.statistics, fitmat, matrix)
 end

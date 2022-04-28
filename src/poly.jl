@@ -1,7 +1,6 @@
-using AssociatedLegendrePolynomials: Plm
 using IntervalRootFinding: roots as roots_irf, Interval, isunique, interval, mid, Newton
 using QuadGK: quadgk
-include("_bessels.jl")
+include("_specfuncs.jl")
 
 export PiecewiseLegendrePoly, PiecewiseLegendrePolyArray, roots, hat, overlap, deriv
 
@@ -59,7 +58,7 @@ end
 Base.size(::PiecewiseLegendrePoly) = ()
 
 function Base.show(io::IO, p::PiecewiseLegendrePoly)
-    print(io, "$(typeof(p)): xmin=$(p.xmin), xmax=$(p.xmax)")
+    return print(io, "$(typeof(p)): xmin=$(p.xmin), xmax=$(p.xmax)")
 end
 
 function (poly::PiecewiseLegendrePoly)(x)
@@ -128,7 +127,7 @@ function roots(poly::PiecewiseLegendrePoly{T}) where {T}
 end
 
 function check_domain(poly, x::Number)
-    poly.xmin ≤ x ≤ poly.xmax || throw(DomainError("x is outside the domain"))
+    poly.xmin ≤ x ≤ poly.xmax || throw(DomainError(x, "x is outside the domain"))
     return true
 end
 
@@ -168,7 +167,8 @@ Alias for `Array{PiecewiseLegendrePoly{T}, N}`.
 const PiecewiseLegendrePolyArray{T,N} = Array{PiecewiseLegendrePoly{T},N}
 
 # TODO: simplify constructors
-function PiecewiseLegendrePolyArray(data::Array{T,N}, knots::Vector{T}; symm=zeros(Int, last(size(data)))) where {T,N}
+function PiecewiseLegendrePolyArray(data::Array{T,N}, knots::Vector{T};
+                                    symm=zeros(Int, last(size(data)))) where {T,N}
     polys = PiecewiseLegendrePolyArray{T,N - 2}(undef, size(data)[3:end]...)
     for i in eachindex(polys)
         polys[i] = PiecewiseLegendrePoly(data[:, :, i], knots; symm=symm[i])
@@ -176,7 +176,8 @@ function PiecewiseLegendrePolyArray(data::Array{T,N}, knots::Vector{T}; symm=zer
     return polys
 end
 
-function PiecewiseLegendrePolyArray(polys::PiecewiseLegendrePolyArray, knots; dx=diff(knots), symm=0)
+function PiecewiseLegendrePolyArray(polys::PiecewiseLegendrePolyArray, knots;
+                                    dx=diff(knots), symm=0)
     size(polys) == size(symm) || error("Sizes of polys and symm don't match")
     polys_new = similar(polys)
     for i in eachindex(polys)
@@ -255,7 +256,7 @@ struct PiecewiseLegendreFT{T} <: Function
 end
 
 function Base.show(io::IO, p::PiecewiseLegendreFT)
-    print(io, "$(typeof(p))")
+    return print(io, "$(typeof(p))")
 end
 
 const PiecewiseLegendreFTArray{T,N} = Array{PiecewiseLegendreFT{T},N}
@@ -507,44 +508,4 @@ function _phase_stable(poly, wn)
     phase_shifted = exp.(im * π / 2 * shift_arg)
     corr = im .^ mod.(wn * (extra_shift .+ 1), 4)
     return corr .* phase_shifted
-end
-
-#######################
-### HERE BE DRAGONS ###
-#######################
-
-legendreP(l, x) = Plm(l, 0, x)
-
-function legval(x, c)
-    x = clamp(x, -1, 1)
-    return sum(c .* legendreP(range(0; length=length(c)), x))
-end
-
-"""
-    legder
-
-Adapted from https://github.com/numpy/numpy/blob/4adc87dff15a247e417d50f10cc4def8e1c17a03/numpy/polynomial/legendre.py#L612-L701
-"""
-legder(cc::AbstractMatrix, cnt=1; dims=1) = mapslices(c -> legder(c, cnt), cc; dims)
-
-function legder(c::AbstractVector{T}, cnt=1) where {T}
-    cnt ≥ 0 || error("The order of derivation must be non-negative")
-    c = copy(c)
-    cnt == 0 && return c
-    n = length(c)
-    if n ≤ cnt
-        c = [zero(T)]
-    else
-        for _ in 1:cnt
-            n -= 1
-            der = Vector{T}(undef, n)
-            for j in n:-1:2
-                der[j] = (2j - 1) * c[j + 1]
-                c[j - 1] += c[j + 1]
-            end
-            der[1] = c[2]
-            c = der
-        end
-    end
-    return c
 end

@@ -298,10 +298,10 @@ Check that `(x, y)` lies within `kernel`'s domain and return it.
 """
 function check_domain(kernel, x, y)
     xmin, xmax = xrange(kernel)
-    xmin ≤ x ≤ xmax || throw(DomainError("x value not in range [$xmin, $xmax]"))
+    xmin ≤ x ≤ xmax || throw(DomainError(x, "x value not in range [$xmin, $xmax]"))
 
     ymin, ymax = yrange(kernel)
-    ymin ≤ y ≤ ymax || throw(DomainError("y value not in range [$ymin, $ymax]"))
+    ymin ≤ y ≤ ymax || throw(DomainError(y, "y value not in range [$ymin, $ymax]"))
 
     return x, y
 end

@@ -128,13 +128,13 @@ function move_axis(arr::AbstractArray{T,N}, src::Int, dst::Int) where {T,N}
     return permutedims(arr, perm)
 end
 
-
 """
 Apply a matrix operator to an array along a given axis
 """
-function matop_along_axis(op::AbstractMatrix{T}, arr::AbstractArray{S,N}, axis::Int64) where {T,S,N}
+function matop_along_axis(op::AbstractMatrix{T}, arr::AbstractArray{S,N},
+                          axis::Int64) where {T,S,N}
     # Move the target axis to the first position
-    (axis < 0 || axis > N) && throw(DomainError("axis must be in [1,N]"))
+    (axis < 0 || axis > N) && throw(DomainError(axis, "axis must be in [1, N]"))
     size(arr)[axis] != size(op)[2] && error("Dimension mismatch!")
 
     arr = move_axis(arr, axis, 1)
@@ -153,8 +153,9 @@ function matop(op::AbstractMatrix{T}, arr::AbstractArray{S,N}) where {T,S,N}
     return reshape(op * arr, (fist(op), rest_dims...))
 end
 
-
 """
 BLAS version of evaluate
 """
-evaluate_opt(smpl::AbstractSampling, al; dims::Int=1) = matop_along_axis(smpl.matrixfull, al, dims)
+function evaluate_opt(smpl::AbstractSampling, al; dims::Int=1)
+    return matop_along_axis(smpl.matrixfull, al, dims)
+end

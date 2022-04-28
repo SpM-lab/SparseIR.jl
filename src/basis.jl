@@ -4,12 +4,13 @@ export DimensionlessBasis, FiniteTempBasis, finite_temp_bases, fermion, boson
 
 abstract type AbstractBasis end
 
-Base.size(basis::AbstractBasis) = length(basis.u)
+Base.size(basis::AbstractBasis) = size(basis.u)
 beta(basis::AbstractBasis) = basis.β
 statistics(basis::AbstractBasis) = basis.statistics
 
 function Base.show(io::IO, a::AbstractBasis)
-    print(io, "$(typeof(a)): beta=$(beta(a)), statistics=$(statistics(a)), size=$(size(a))")
+    return print(io,
+                 "$(typeof(a)): beta=$(beta(a)), statistics=$(statistics(a)), size=$(size(a))")
 end
 
 """
@@ -105,7 +106,7 @@ function DimensionlessBasis(statistics, Λ, ε=nothing; kernel=nothing, sve_resu
     # so for significantly larger frequencies we use the asymptotics,
     # since it has lower relative error.
     even_odd = Dict(fermion => :odd, boson => :even)[statistics]
-    uhat = hat.(u, even_odd, 0:length(u)-1; n_asymp=conv_radius(self_kernel))
+    uhat = hat.(u, even_odd, 0:(length(u) - 1); n_asymp=conv_radius(self_kernel))
     rts = roots(last(v))
     sampling_points_v = [v.xmin; (rts[begin:(end - 1)] .+ rts[(begin + 1):end]) / 2; v.xmax]
     return DimensionlessBasis(self_kernel, u, uhat, s, v, sampling_points_v, statistics)
@@ -122,7 +123,6 @@ function Base.getindex(basis::DimensionlessBasis, i)
     sve_result = basis.u[i], basis.s[i], basis.v[i]
     return DimensionlessBasis(basis.statistics, Λ(basis); kernel=basis.kernel, sve_result)
 end
-
 
 """
     FiniteTempBasis <: AbstractBasis
@@ -234,9 +234,9 @@ function FiniteTempBasis(statistics, β, wmax, ε=nothing; kernel=nothing, sve_r
 
     conv_radius = 40 * kernel.Λ
     even_odd = Dict(fermion => :odd, boson => :even)[statistics]
-    uhat = hat.(û_base, even_odd, 0:length(u)-1; n_asymp=conv_radius) # TODO: fix this
+    uhat = hat.(û_base, even_odd, 0:(length(u) - 1); n_asymp=conv_radius) # TODO: fix this
 
-    return FiniteTempBasis(kernel, (u, s, v), statistics, 1. * β, u_, v_, s_, uhat)
+    return FiniteTempBasis(kernel, (u, s, v), statistics, 1.0 * β, u_, v_, s_, uhat)
 end
 
 Base.firstindex(::AbstractBasis) = 1
@@ -297,7 +297,6 @@ end
 Default sampling points on the real-frequency axis.
 """
 default_omega_sampling_points(basis::AbstractBasis) = _default_sampling_points(basis.v)
-
 
 function _default_sampling_points(u)
     poly = last(u)

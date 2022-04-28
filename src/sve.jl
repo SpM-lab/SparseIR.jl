@@ -46,7 +46,8 @@ function SamplingSVE(kernel, ε; n_gauss=nothing, T=Float64)
     sve_hints_ = sve_hints(kernel, ε)
     isnothing(n_gauss) && (n_gauss = ngauss(sve_hints_))
     rule = legendre(n_gauss, T)
-    segs_x, segs_y = convert(Vector{T}, segments_x(sve_hints_)), convert(Vector{T}, segments_y(sve_hints_))
+    segs_x, segs_y = convert(Vector{T}, segments_x(sve_hints_)),
+                     convert(Vector{T}, segments_y(sve_hints_))
     gauss_x, gauss_y = piecewise(rule, segs_x), piecewise(rule, segs_y)
 
     return SamplingSVE(kernel, ε, n_gauss, nsvals(sve_hints_), rule, segs_x, segs_y,
