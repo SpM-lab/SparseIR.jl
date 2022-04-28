@@ -8,15 +8,6 @@ Base.size(basis::AbstractBasis) = size(basis.u)
 beta(basis::AbstractBasis) = basis.β
 statistics(basis::AbstractBasis) = basis.statistics
 
-function Base.show(io::IO, a::DimensionlessBasis)
-    return print(io,
-                 "$(typeof(a)): statistics=$(statistics(a)), size=$(size(a))")
-end
-function Base.show(io::IO, a::FiniteTempBasis)
-    return print(io,
-                 "$(typeof(a)): beta=$(beta(a)), statistics=$(statistics(a)), size=$(size(a))")
-end
-
 """
     DimensionlessBasis <: AbstractBasis
 
@@ -81,6 +72,11 @@ struct DimensionlessBasis{K<:AbstractKernel,T<:AbstractFloat} <: AbstractBasis
     v::PiecewiseLegendrePolyArray{T}
     sampling_points_v::Vector{T}
     statistics::Statistics
+end
+
+function Base.show(io::IO, a::DimensionlessBasis)
+    return print(io,
+                 "DimensionlessBasis: statistics=$(statistics(a)), size=$(size(a))")
 end
 
 """
@@ -194,6 +190,11 @@ struct FiniteTempBasis{K,T} <: AbstractBasis
     v::PiecewiseLegendrePolyArray{T}
     s::Vector{T}
     uhat::PiecewiseLegendreFTArray{T}
+end
+
+function Base.show(io::IO, a::FiniteTempBasis)
+    return print(io,
+                 "FiniteTempBasis: beta=$(beta(a)), statistics=$(statistics(a)), size=$(size(a))")
 end
 
 """
