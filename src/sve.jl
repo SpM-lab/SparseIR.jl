@@ -147,7 +147,6 @@ function compute(kernel::AbstractKernel; ε=nothing, n_sv=typemax(Int), n_gauss=
     if svd_strat == :default
         svd_strat = default_svd_strat
     end
-    println("Twork", Twork)
     # return Twork
     sve = sve_strat(kernel, ε; n_gauss, T=Twork)
     svds = [compute(matrix; n_sv_hint=sve.nsvals_hint, strategy=svd_strat)
