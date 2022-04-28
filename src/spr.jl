@@ -90,8 +90,7 @@ From IR to SPR
 gl:
     Expansion coefficients in IR
 """
-function from_IR(spr::SparsePoleRepresentation,
-                 gl::Array{T,N}, dims::Int=1) where {T,N}
+function from_IR(spr::SparsePoleRepresentation, gl::AbstractArray, dims=1)
     return mapslices(i -> spr.matrix \ i, gl; dims)
 end
 
@@ -101,7 +100,6 @@ From SPR to IR
 g_spr:
     Expansion coefficients in SPR
 """
-function to_IR(spr::SparsePoleRepresentation,
-               g_spr::Array{T,N}, dims::Int=1) where {T,N}
+function to_IR(spr::SparsePoleRepresentation, g_spr::AbstractArray, dims=1)
     return mapslices(i -> spr.fitmat * i, g_spr; dims)
 end

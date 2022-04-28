@@ -8,7 +8,11 @@ Base.size(basis::AbstractBasis) = size(basis.u)
 beta(basis::AbstractBasis) = basis.β
 statistics(basis::AbstractBasis) = basis.statistics
 
-function Base.show(io::IO, a::AbstractBasis)
+function Base.show(io::IO, a::DimensionlessBasis)
+    return print(io,
+                 "$(typeof(a)): statistics=$(statistics(a)), size=$(size(a))")
+end
+function Base.show(io::IO, a::FiniteTempBasis)
     return print(io,
                  "$(typeof(a)): beta=$(beta(a)), statistics=$(statistics(a)), size=$(size(a))")
 end

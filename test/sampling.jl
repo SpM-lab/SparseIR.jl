@@ -38,7 +38,6 @@ using Random, LinearAlgebra
             Gℓ = basis.s .* ρℓ
             Gℓ_magn = norm(Gℓ)
             Gτ = evaluate(smpl, Gℓ)
-            @test evaluate_opt(smpl, Gℓ) ≈ Gτ
 
             noise = 1e-5
             Gτ_n = Gτ + noise * norm(Gτ) * randn(size(Gτ)...)

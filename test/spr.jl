@@ -28,7 +28,7 @@ using Random
         smpl = MatsubaraSampling(basis)
         smpl_for_spr = MatsubaraSampling(spr, smpl.sampling_points)
         giv = evaluate(smpl_for_spr, g_spr)
-        giv_ref = evaluate(smpl, Gl; dims=1)
+        giv_ref = evaluate(smpl, Gl; dim=1)
         @test isapprox(giv, giv_ref; atol=300 * eps, rtol=0)
 
         # Comparison on tau

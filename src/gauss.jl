@@ -1,8 +1,6 @@
 using QuadGK: gauss
 using ._SpecFuncs: legvander
 
-@show methods(legvander)
-
 export legendre, legendre_collocation, Rule, piecewise, quadrature, reseat
 
 @doc raw"""

@@ -1,7 +1,6 @@
 using LinearAlgebra: svd, SVD
 
 export TauSampling, MatsubaraSampling, evaluate, fit
-export evaluate_opt
 
 """
     AbstractSampling
@@ -103,7 +102,11 @@ eval_matrix(::Type{MatsubaraSampling}, basis, x) = permutedims(basis.uhat(x))
 
 Evaluate the basis coefficients at the sparse sampling points.
 """
-evaluate(smpl::AbstractSampling, al; dims=1) = mapslices(i -> smpl.matrixfull * i, al; dims)
+function evaluate(smpl::AbstractSampling, al; dim::Integer=1)
+    return matop_along_dim(smpl.matrixfull, al, dim)
+end
+# More elegant but slower:
+# evaluate(smpl::AbstractSampling, al; dims=1) = mapslices(i -> smpl.matrixfull * i, al; dims)
 
 """
     fit(sampling, al)
@@ -113,12 +116,13 @@ Fit basis coefficients from the sparse sampling points
 fit(smpl::AbstractSampling, al; dims=1) = mapslices(i -> smpl.matrix \ i, al; dims)
 
 """
-Move the axis at src to dst with keeping the order of the rest axes unchanged.
+    movedim(arr::AbstractArray, src => dst)
 
-src=1, dst=2, N=4, perm=[2, 1, 3, 4]
-src=2, dst=4, N=4, perm=[1, 3, 4, 2]
+Move `arr`'s dimension at `src` to `dst` while keeping the order of the remaining 
+dimensions unchanged.
 """
-function move_axis(arr::AbstractArray{T,N}, src::Int, dst::Int) where {T,N}
+function movedim(arr::AbstractArray{T,N}, dims::Pair) where {T,N}
+    src, dst = dims
     src == dst && return arr
 
     perm = collect(1:N)
@@ -128,33 +132,29 @@ function move_axis(arr::AbstractArray{T,N}, src::Int, dst::Int) where {T,N}
 end
 
 """
-Apply a matrix operator to an array along a given axis
-"""
-function matop_along_axis(op::AbstractMatrix{T}, arr::AbstractArray{S,N},
-                          axis::Int) where {T,S,N}
-    # Move the target axis to the first position
-    (axis < 0 || axis > N) && throw(DomainError(axis, "axis must be in [1, N]"))
-    size(arr)[axis] != size(op)[2] && error("Dimension mismatch!")
+    matop_along_dim(op::AbstractMatrix, arr::AbstractArray, dim::Integer)
 
-    arr = move_axis(arr, axis, 1)
-    return move_axis(matop(op, arr), 1, axis)
+Apply the matrix operator `op` to the array `arr` along the dimension `dim`.
+"""
+function matop_along_dim(op::AbstractMatrix, arr::AbstractArray{T,N},
+                          dim::Integer) where {T,N}
+    # Move the target dim to the first position
+    1 ≤ dim ≤ N || throw(DomainError(dim, "Dimension must be in [1, $N]"))
+    size(arr, dim) == size(op, 2) || error("Dimension mismatch!")
+
+    arr = movedim(arr, dim => 1)
+    return movedim(matop(op, arr), 1 => dim)
 end
 
 """
-Apply op to the first axis of an array
+    matop(op::AbstractMatrix, arr::AbstractArray)
+
+Apply `op` to the first dimension of `arr`.
 """
-function matop(op::AbstractMatrix{T}, arr::AbstractArray{S,N}) where {T,S,N}
-    (size(arr)[1] != size(op)[2]) && error("Dimension mismatch!")
+function matop(op::AbstractMatrix, arr::AbstractArray{T,N}) where {T,N}
+    size(op, 2) == size(arr, 1) || error("Dimension mismatch!")
     N == 1 && return op * arr
 
-    rest_dims = size(arr)[2:end]
-    arr = reshape(arr, (size(op)[2], prod(rest_dims)))
-    return reshape(op * arr, (fist(op), rest_dims...))
-end
-
-"""
-BLAS version of evaluate
-"""
-function evaluate_opt(smpl::AbstractSampling, al; dims::Int=1)
-    return matop_along_axis(smpl.matrixfull, al, dims)
+    flatarr = reshape(arr, (size(arr, 1), :))
+    return reshape(op * flatarr, (:, size(arr)[2:end]...))
 end
