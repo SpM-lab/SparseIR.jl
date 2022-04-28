@@ -2,7 +2,7 @@ using IntervalRootFinding: roots as roots_irf, Interval, isunique, interval, mid
 using QuadGK: quadgk
 using ._SpecFuncs: sphericalbesselj, legval, legder
 
-export PiecewiseLegendrePoly, PiecewiseLegendrePolyArray, roots, hat, overlap, deriv
+export PiecewiseLegendrePoly, PiecewiseLegendrePolyArray, roots, hat, overlap, deriv, findextrema
 
 """
     PiecewiseLegendrePoly <: Function
@@ -114,7 +114,7 @@ function roots(poly::PiecewiseLegendrePoly{T}) where {T}
     xmin = abs(poly.symm) == 1 ? m : poly.xmin
     xmax = poly.xmax
 
-    rts_rootobjects = roots_irf(poly, Interval(xmin, xmax), Newton, 1e-10)
+    rts_rootobjects = roots_irf(poly, Interval(xmin, xmax), Newton, 1e-15)
     filter!(isunique, rts_rootobjects)
     rts = map(mid ∘ interval, rts_rootobjects)
 
@@ -310,7 +310,12 @@ function hat(poly::PiecewiseLegendrePoly, freq, l; n_asymp=Inf)
     return PiecewiseLegendreFT(poly, freq, n_asymp, l)
 end
 
-function Base.extrema(polyFT::PiecewiseLegendreFT, part=nothing, grid=DEFAULT_GRID)
+"""
+    findextrema(polyFT::PiecewiseLegendreFT, part=nothing, grid=DEFAULT_GRID)
+
+Obtain extrema of fourier-transformed polynomial.
+"""
+function findextrema(polyFT::PiecewiseLegendreFT, part=nothing, grid=DEFAULT_GRID)
     f = _func_for_part(polyFT, part)
     x₀ = _discrete_extrema(f, grid)
     x₀ .= 2x₀ .+ polyFT.ζ

@@ -39,7 +39,7 @@ end
         for stat in [fermion, boson], Λ in [10, 42, 10_000]
             basis = DimensionlessBasis(stat, Λ; sve_result=sve_logistic[Λ])
             for i in [1, 2, 8, 11]
-                x₀ = extrema(basis.uhat[i])
+                x₀ = findextrema(basis.uhat[i])
                 @test i ≤ length(x₀) ≤ i + 1
             end
         end

@@ -316,7 +316,7 @@ function _default_matsubara_sampling_points(uhat, mitigate=true)
     # function in Matsubara.  This turns out to be close to optimal with
     # respect to conditioning for this size (within a few percent).
     polyhat = last(uhat)
-    wn = extrema(polyhat)
+    wn = findextrema(polyhat)
 
     # While the condition number for sparse sampling in tau saturates at a
     # modest level, the conditioning in Matsubara steadily deteriorates due
