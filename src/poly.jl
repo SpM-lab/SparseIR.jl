@@ -1,6 +1,6 @@
 using IntervalRootFinding: roots as roots_irf, Interval, isunique, interval, mid, Newton
 using QuadGK: quadgk
-include("_specfuncs.jl")
+using ._SpecFuncs: sphericalbesselj, legval, legder
 
 export PiecewiseLegendrePoly, PiecewiseLegendrePolyArray, roots, hat, overlap, deriv
 

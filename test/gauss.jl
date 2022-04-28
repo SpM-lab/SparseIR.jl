@@ -1,5 +1,6 @@
 using Test
 using SparseIR
+using SparseIR._SpecFuncs: legvander
 
 using LinearAlgebra: I
 using QuadGK: gauss

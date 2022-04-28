@@ -1,7 +1,9 @@
 using QuadGK: gauss
-include("_specfuncs.jl")
+using ._SpecFuncs: legvander
 
-export legendre, legvander, legendre_collocation, Rule, piecewise, quadrature, reseat
+@show methods(legvander)
+
+export legendre, legendre_collocation, Rule, piecewise, quadrature, reseat
 
 @doc raw"""
     Rule{T<:AbstractFloat}

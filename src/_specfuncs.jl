@@ -1,3 +1,7 @@
+module _SpecFuncs
+
+export sphericalbesselj, legval, legvander, legder
+
 using SpecialFunctions: sphericalbesselj as sphericalbesselj_sf
 # We don't use SpecialFunctions.sphericalbesselj directly because it errors out on large x
 
@@ -137,3 +141,5 @@ function legder(c::AbstractVector{T}, cnt=1) where {T}
     end
     return c
 end
+
+end #module

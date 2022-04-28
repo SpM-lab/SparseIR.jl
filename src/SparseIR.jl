@@ -2,6 +2,8 @@
 "Intermediate representation (IR) for many-body propagators"
 module SparseIR
 
+include("_specfuncs.jl")
+
 include("util.jl")
 include("svd.jl")
 include("gauss.jl")

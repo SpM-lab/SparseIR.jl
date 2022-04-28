@@ -8,7 +8,7 @@ using AssociatedLegendrePolynomials: Plm
         value = 1.1
         for statistics in [fermion, boson]
             b = MatsubaraConstBasis(statistics, beta; value=value)
-            shift::Int64 = Dict(fermion => 1, boson => 0)[statistics]
+            shift::Int = Dict(fermion => 1, boson => 0)[statistics]
             n = 2 .* collect(1:10) .+ shift
             @test b.uhat(n) ≈ fill(value, 1, length(n))
         end

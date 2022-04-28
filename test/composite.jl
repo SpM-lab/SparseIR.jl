@@ -6,7 +6,7 @@ using SparseIR
     wmax = 2
     beta = 1e+3
     #startt = time_ns()
-    walltimes = Tuple{String,Int64}[]
+    walltimes = Tuple{String,Int}[]
     #push!(walltimes, ("A", time_ns()))
     basis = FiniteTempBasis(boson, beta, wmax, 1e-6)
     #push!(walltimes, ("A.1", time_ns()))

@@ -98,7 +98,6 @@ Return evaluation matrix from coefficients to sampling points. `T <: AbstractSam
 eval_matrix(::Type{TauSampling}, basis, x) = permutedims(basis.u(x))
 eval_matrix(::Type{MatsubaraSampling}, basis, x) = permutedims(basis.uhat(x))
 
-# TODO: implement axis
 """
     evaluate(sampling, al)
 
@@ -132,7 +131,7 @@ end
 Apply a matrix operator to an array along a given axis
 """
 function matop_along_axis(op::AbstractMatrix{T}, arr::AbstractArray{S,N},
-                          axis::Int64) where {T,S,N}
+                          axis::Int) where {T,S,N}
     # Move the target axis to the first position
     (axis < 0 || axis > N) && throw(DomainError(axis, "axis must be in [1, N]"))
     size(arr)[axis] != size(op)[2] && error("Dimension mismatch!")
