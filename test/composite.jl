@@ -31,10 +31,10 @@ using SparseIR
     #push!(walltimes, ("H", time_ns()))
 
     gtau_reconst = evaluate(tau_smpl, gl_from_tau)
-    @test isapprox(gtau, gtau_reconst; atol=1e-14 * maximum(abs.(gtau)), rtol=0)
+    @test isapprox(gtau, gtau_reconst; atol=1e-14 * maximum(abs, gtau), rtol=0)
     #push!(walltimes, ("I", time_ns()))
 
-    #for t in walltimes
-    #println(t[1], "      :    ", (t[2]-startt) * 1e-9)
-    #end
+    # for t in walltimes
+    #     println(t[1], "      :    ", (t[2] - startt) * 1e-9)
+    # end
 end

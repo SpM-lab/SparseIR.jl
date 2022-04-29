@@ -4,12 +4,13 @@ using SparseIR
 using Random
 
 @testset "spr.transform" begin
-    #for stat in [fermion, boson]
+    # for stat in (fermion, boson)
     # TODO: fix boson
-    for stat in [fermion]
-        beta = 1e+4
+    for stat in (fermion,)
+    # for stat in (boson,)
+        beta = 1e4
         wmax = 1.0
-        eps = 2e-8
+        eps = 2e-8 # TODO: should be 1e-12, fix once extended precision works
         basis = FiniteTempBasis(stat, beta, wmax, eps)
         spr = SparsePoleRepresentation(basis)
 
@@ -18,7 +19,7 @@ using Random
         num_poles = 10
         poles = wmax * (2 * rand(num_poles) .- 1)
         coeffs = 2 * rand(num_poles) .- 1
-        @assert maximum(abs.(poles)) <= wmax
+        @assert maximum(abs, poles) <= wmax
 
         Gl = to_IR(SparsePoleRepresentation(basis, poles), coeffs)
 

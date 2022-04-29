@@ -26,7 +26,7 @@ struct Rule{T}
         all(≤(b), x) || error("x must be ≤ b")
         all(≥(a), x) || error("x must be ≥ a")
         issorted(x) || error("x must be strictly increasing")
-        length(x) == length(w) || error("x and w must have the same length")
+        length(x) == length(w) || throw(DimensionMismatch("x and w must have the same length"))
         return new{eltype(x)}(x, w, a, b)
     end
 end

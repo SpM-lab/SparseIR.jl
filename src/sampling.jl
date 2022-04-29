@@ -102,18 +102,14 @@ eval_matrix(::Type{MatsubaraSampling}, basis, x) = permutedims(basis.uhat(x))
 
 Evaluate the basis coefficients at the sparse sampling points.
 """
-function evaluate(smpl::AbstractSampling, al; dim::Integer=1)
-    return matop_along_dim(smpl.matrixfull, al, dim)
-end
-# More elegant but slower:
-# evaluate(smpl::AbstractSampling, al; dims=1) = mapslices(i -> smpl.matrixfull * i, al; dims)
+evaluate(smpl::AbstractSampling, al; dim=1) = matop_along_dim(smpl.matrixfull, al, dim)
 
 """
     fit(sampling, al)
 
 Fit basis coefficients from the sparse sampling points
 """
-fit(smpl::AbstractSampling, al; dims=1) = mapslices(i -> smpl.matrix \ i, al; dims)
+fit(smpl::AbstractSampling, al; dim=1) = matop_along_dim(smpl.matrixfull, al, dim; op=\)
 
 """
     movedim(arr::AbstractArray, src => dst)
@@ -132,29 +128,27 @@ function movedim(arr::AbstractArray{T,N}, dims::Pair) where {T,N}
 end
 
 """
-    matop_along_dim(op::AbstractMatrix, arr::AbstractArray, dim::Integer)
+    matop_along_dim(mat::AbstractMatrix, arr::AbstractArray, dim::Integer; op=*)
 
-Apply the matrix operator `op` to the array `arr` along the dimension `dim`.
+Apply the operator `op` to the matrix `mat` and to the array `arr` along the dimension `dim`.
 """
-function matop_along_dim(op::AbstractMatrix, arr::AbstractArray{T,N},
-                          dim::Integer) where {T,N}
+function matop_along_dim(mat::AbstractMatrix, arr::AbstractArray{T,N}, dim=1;
+                         op=*) where {T,N}
     # Move the target dim to the first position
     1 ≤ dim ≤ N || throw(DomainError(dim, "Dimension must be in [1, $N]"))
-    size(arr, dim) == size(op, 2) || error("Dimension mismatch!")
 
     arr = movedim(arr, dim => 1)
-    return movedim(matop(op, arr), 1 => dim)
+    return movedim(matop(mat, arr; op), 1 => dim)
 end
 
 """
-    matop(op::AbstractMatrix, arr::AbstractArray)
+    matop(mat::AbstractMatrix, arr::AbstractArray; op=*)
 
-Apply `op` to the first dimension of `arr`.
+Apply the operator `op` to the matrix `mat` and to the array `arr` along the first dimension.
 """
-function matop(op::AbstractMatrix, arr::AbstractArray{T,N}) where {T,N}
-    size(op, 2) == size(arr, 1) || error("Dimension mismatch!")
-    N == 1 && return op * arr
+function matop(mat::AbstractMatrix, arr::AbstractArray{T,N}; op=*) where {T,N}
+    N == 1 && return op(mat, arr)
 
     flatarr = reshape(arr, (size(arr, 1), :))
-    return reshape(op * flatarr, (:, size(arr)[2:end]...))
+    return reshape(op(mat, flatarr), (:, size(arr)[2:end]...))
 end

@@ -121,7 +121,7 @@ end
 legder(cc::AbstractMatrix, cnt=1; dims=1) = mapslices(c -> legder(c, cnt), cc; dims)
 
 function legder(c::AbstractVector{T}, cnt=1) where {T}
-    cnt ≥ 0 || error("The order of derivation must be non-negative")
+    cnt ≥ 0 || throw(DomainError(cnt, "The order of derivation must be non-negative"))
     c = copy(c)
     cnt == 0 && return c
     n = length(c)

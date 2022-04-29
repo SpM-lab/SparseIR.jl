@@ -2,7 +2,8 @@ using IntervalRootFinding: roots as roots_irf, Interval, isunique, interval, mid
 using QuadGK: quadgk
 using ._SpecFuncs: sphericalbesselj, legval, legder
 
-export PiecewiseLegendrePoly, PiecewiseLegendrePolyArray, roots, hat, overlap, deriv, findextrema
+export PiecewiseLegendrePoly, PiecewiseLegendrePolyArray, roots, hat, overlap, deriv,
+       findextrema
 
 """
     PiecewiseLegendrePoly <: Function
@@ -107,22 +108,33 @@ end
 """
     roots(poly)
 
-Find all roots of the piecewise polynomial.
+Find all roots of the piecewise polynomial `poly`.
 """
-function roots(poly::PiecewiseLegendrePoly{T}) where {T}
+function roots(poly::PiecewiseLegendrePoly{T}; tol=1e-11) where {T}
     m = (poly.xmin + poly.xmax) / 2
-    xmin = abs(poly.symm) == 1 ? m : poly.xmin
+    xmin = abs(poly.symm) == 1 ? m : poly.xmin # Exploit symmetry.
     xmax = poly.xmax
 
-    rts_rootobjects = roots_irf(poly, Interval(xmin, xmax), Newton, 1e-15)
+    rts_rootobjects = roots_irf(poly, Interval(xmin, xmax), Newton, tol)
     filter!(isunique, rts_rootobjects)
     rts = map(mid ∘ interval, rts_rootobjects)
 
     if abs(poly.symm) == 1
+        # Reflect roots about the midpoint m.
         append!(rts, 2m .- rts)
+        # If the polynomial is antisymmetric, it has an additional root at m.
         poly.symm == -1 && push!(rts, m)
     end
     sort!(rts)
+
+    # TODO: Maybe there's a better way than this.
+    duplicates = Int[]
+    for i in 2:length(rts)
+        isapprox(rts[i], rts[i - 1]; atol=10tol, rtol=0) && push!(duplicates, i)
+    end
+    deleteat!(rts, duplicates)
+    !isempty(duplicates) && @warn "Duplicate roots found, removing them..."
+
     return rts
 end
 
@@ -178,7 +190,8 @@ end
 
 function PiecewiseLegendrePolyArray(polys::PiecewiseLegendrePolyArray, knots;
                                     dx=diff(knots), symm=0)
-    size(polys) == size(symm) || error("Sizes of polys and symm don't match")
+    size(polys) == size(symm) ||
+        throw(DimensionMismatch("Sizes of polys and symm don't match"))
     polys_new = similar(polys)
     for i in eachindex(polys)
         polys_new[i] = PiecewiseLegendrePoly(polys[i].data, knots; dx, symm=symm[i])
@@ -187,7 +200,8 @@ function PiecewiseLegendrePolyArray(polys::PiecewiseLegendrePolyArray, knots;
 end
 
 function PiecewiseLegendrePolyArray(data, polys::PiecewiseLegendrePolyArray)
-    size(data)[3:end] == size(polys) || error("Sizes of data and polys don't match")
+    size(data)[3:end] == size(polys) ||
+        throw(DimensionMismatch("Sizes of data and polys don't match"))
     polys = similar(polys)
     for i in eachindex(polys)
         polys[i] = PiecewiseLegendrePoly(data[:, :, i], polys.knots; symm=polys.symm[i])
@@ -433,7 +447,9 @@ we expect an odd integer, while for a bosonic frequency (`ζ == 0`),
 we expect an even one.  If `ζ` is omitted, any one is fine.
 """
 check_reduced_matsubara(n::Integer) = n
-check_reduced_matsubara(n::Integer, ζ) = (n & 1 == ζ) ? n : error("n has the wrong parity")
+function check_reduced_matsubara(n::Integer, ζ)
+    return (n & 1 == ζ) ? n : throw(DomainError(n, "n has the wrong parity"))
+end
 
 ########################
 ### Helper Functions ###

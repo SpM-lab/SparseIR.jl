@@ -26,8 +26,8 @@ end
 
 function LegendreBasis(statistics::Statistics, beta::Float64, size::Int;
                        cl::Vector{Float64}=ones(Float64, size))
-    beta > 0 || error("inverse temperature beta must be positive! $(beta)")
-    size > 0 || error("size of basis must be positive")
+    beta > 0 || throw(DomainError(beta, "inverse temperature beta must be positive"))
+    size > 0 || throw(DomainError(size, "size of basis must be positive"))
 
     # u
     knots = Float64[0, beta]
@@ -84,7 +84,7 @@ end
 
 function MatsubaraConstBasis(statistics::Statistics, beta::Float64;
                              value=1) where {T<:AbstractFloat}
-    beta > 0 || error("inverse temperature beta must be positive")
+    beta > 0 || throw(DomainError(beta, "inverse temperature beta must be positive"))
     return MatsubaraConstBasis(statistics, beta, _ConstTerm(value))
 end
 

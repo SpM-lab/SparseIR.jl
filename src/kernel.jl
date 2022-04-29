@@ -132,7 +132,7 @@ struct LogisticKernelOdd{T} <: AbstractReducedKernel
 
     function LogisticKernelOdd(inner::LogisticKernel{T}, sign) where {T}
         iscentrosymmetric(inner) || error("inner kernel must be centrosymmetric")
-        abs(sign) == 1 || error("sign must be -1 or 1")
+        abs(sign) == 1 || throw(DomainError(sign, "sign must be -1 or 1"))
         return new{T}(inner, sign)
     end
 end
@@ -155,7 +155,7 @@ struct RegularizedBoseKernelOdd{T} <: AbstractReducedKernel
     function RegularizedBoseKernelOdd(inner::RegularizedBoseKernel{T},
                                       sign) where {T}
         iscentrosymmetric(inner) || error("inner kernel must be centrosymmetric")
-        abs(sign) == 1 || error("sign must be -1 or 1")
+        abs(sign) == 1 || throw(DomainError(sign, "sign must be -1 or 1"))
         return new{T}(inner, sign)
     end
 end
@@ -498,14 +498,10 @@ conv_radius(kernel::AbstractReducedKernel) = conv_radius(kernel.inner)
 
 Return the weight function for the given statistics.
 """
-function weight_func(::AbstractKernel, statistics)
-    statistics ∈ (fermion, boson) ||
-        error("statistics must be fermion for fermions or boson for bosons")
+function weight_func(::AbstractKernel, ::Statistics)
     return x -> ones(eltype(x), size(x))
 end
-function weight_func(kernel::LogisticKernel, statistics)
-    statistics ∈ (fermion, boson) ||
-        error("statistics must be fermion for fermions or boson for bosons")
+function weight_func(kernel::LogisticKernel, statistics::Statistics)
     if statistics == fermion
         return y -> ones(eltype(y), size(y))
     else

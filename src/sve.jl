@@ -316,10 +316,10 @@ Truncate singular value expansion.
 """
 function truncate(u, s, v, rtol=0, lmax=nothing)
     if !isnothing(lmax)
-        lmax ≥ 0 || error("lmax must be non-negative")
+        lmax ≥ 0 || throw(DomainError(lmax, "lmax must be non-negative"))
         lmax isa Integer || error("lmax must be an integer")
     end
-    0 ≤ rtol ≤ 1 || error("rtol must be in [0, 1]")
+    0 ≤ rtol ≤ 1 || throw(DomainError(rtol, "rtol must be in [0, 1]"))
 
     sall = vcat(s...)
 

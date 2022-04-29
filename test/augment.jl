@@ -6,7 +6,7 @@ using AssociatedLegendrePolynomials: Plm
     @testset "MatsubaraConstBasis" begin
         beta = 2.0
         value = 1.1
-        for statistics in [fermion, boson]
+        for statistics in (fermion, boson)
             b = MatsubaraConstBasis(statistics, beta; value=value)
             shift::Int = Dict(fermion => 1, boson => 0)[statistics]
             n = 2 .* collect(1:10) .+ shift
@@ -15,7 +15,7 @@ using AssociatedLegendrePolynomials: Plm
     end
 
     @testset "LegendreBasis" begin
-        for stat in [fermion, boson]
+        for stat in (fermion, boson)
             β = 1.0
             Nl = 10
             cl = sqrt.(2 * collect(0:(Nl - 1)) .+ 1)

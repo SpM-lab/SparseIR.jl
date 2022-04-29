@@ -1,6 +1,4 @@
-export DimensionlessBasis, FiniteTempBasis, finite_temp_bases, fermion, boson
-
-@enum Statistics fermion boson
+export DimensionlessBasis, FiniteTempBasis, finite_temp_bases
 
 abstract type AbstractBasis end
 
@@ -84,16 +82,18 @@ end
 
 Construct an IR basis suitable for the given `statistics` and cutoff `Λ`.
 """
-function DimensionlessBasis(statistics, Λ, ε=nothing; kernel=nothing, sve_result=nothing)
+function DimensionlessBasis(statistics::Statistics, Λ, ε=nothing; kernel=nothing,
+                            sve_result=nothing)
     Λ = float(Λ)
-    Λ ≥ 0 || error("Kernel cutoff Λ must be non-negative")
+    Λ ≥ 0 || throw(DomainError(Λ, "Kernel cutoff Λ must be non-negative"))
 
-    self_kernel = _get_kernel(statistics, Λ, kernel)
+    self_kernel = _get_kernel(Λ, kernel)
     if isnothing(sve_result)
         u, s, v = compute(self_kernel; ε)
     else
         u, s, v = sve_result
-        size(u) == size(s) == size(v) || error("Mismatched shapes in SVE")
+        size(u) == size(s) == size(v) ||
+            throw(DimensionMismatch("Mismatched shapes in SVE"))
     end
 
     if isnothing(ε) && isnothing(sve_result) && !HAVE_XPREC
@@ -202,16 +202,18 @@ end
 
 Construct a finite temperature basis suitable for the given `statistics` and cutoffs `β` and `wmax`.
 """
-function FiniteTempBasis(statistics, β, wmax, ε=nothing; kernel=nothing, sve_result=nothing)
-    β > 0 || error("Inverse temperature β must be positive")
-    wmax ≥ 0 || error("Frequency cutoff wmax must be non-negative")
+function FiniteTempBasis(statistics::Statistics, β, wmax, ε=nothing; kernel=nothing,
+                         sve_result=nothing)
+    β > 0 || throw(DomainError(β, "Inverse temperature β must be positive"))
+    wmax ≥ 0 || throw(DomainError(wmax, "Frequency cutoff wmax must be non-negative"))
 
-    kernel = _get_kernel(statistics, β * wmax, kernel)
+    kernel = _get_kernel(β * wmax, kernel)
     if isnothing(sve_result)
         u, s, v = compute(kernel; ε)
     else
         u, s, v = sve_result
-        size(u) == size(s) == size(v) || error("Mismatched shapes in SVE")
+        size(u) == size(s) == size(v) ||
+            throw(DimensionMismatch("Mismatched shapes in SVE"))
     end
 
     if isnothing(ε) && isnothing(sve_result) && !HAVE_XPREC
@@ -341,9 +343,7 @@ function _default_matsubara_sampling_points(uhat, mitigate=true)
     return wn
 end
 
-function _get_kernel(statistics, Λ, kernel)
-    statistics ∈ (fermion, boson) ||
-        error("""statistics must be either boson (for fermionic basis) or fermion (for bosonic basis)""")
+function _get_kernel(Λ, kernel)
     if isnothing(kernel)
         kernel = LogisticKernel(Λ)
     else

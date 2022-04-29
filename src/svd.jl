@@ -16,7 +16,7 @@ function compute(a_matrix::AbstractMatrix{MAX_T}; n_sv_hint=nothing, strategy=:f
     elseif strategy == :accurate
         u, s, v = svd(a_matrix; alg=QRIteration())
     else
-        error("unknown strategy: $strategy")
+        throw(DomainError(strategy, "unknown strategy"))
     end
 
     return u, s, v
