@@ -62,9 +62,15 @@ function Base.show(io::IO, p::PiecewiseLegendrePoly)
     return print(io, "$(typeof(p)): xmin=$(p.xmin), xmax=$(p.xmax)")
 end
 
-function (poly::PiecewiseLegendrePoly)(x)
-    i, x̃ = _split(poly, x)
-    return legval(x̃, poly.data[:, i]) * poly.norm[i]
+(poly::PiecewiseLegendrePoly)(x) = _evaluate(poly, x)
+
+function _evaluate(poly::PiecewiseLegendrePoly, x::Number)
+    i, tildex= _split(poly, x)
+    return legval(tildex, view(poly.data,:, i)) * poly.norm[i]
+end
+
+function _evaluate(poly::PiecewiseLegendrePoly, xs::Vector{T}) where T <: Real
+    return poly.(xs)
 end
 
 """
@@ -138,8 +144,8 @@ function roots(poly::PiecewiseLegendrePoly{T}; tol=1e-11) where {T}
     return rts
 end
 
-function check_domain(poly, x::Number)
-    poly.xmin ≤ x ≤ poly.xmax || throw(DomainError(x, "x is outside the domain"))
+function check_domain(poly, x::Union{Number,Array})
+    all(poly.xmin ≤ x ≤ poly.xmax) || throw(DomainError(x, "x is outside the domain"))
     return true
 end
 
@@ -154,13 +160,9 @@ function _split(poly, x::Number)
     @boundscheck check_domain(poly, x)
 
     i = max(searchsortedlast(poly.knots, x; lt=≤), 1)
-    x̃ = x - poly.xm[i]
-    x̃ *= poly.inv_xs[i]
-    return i, x̃
-end
-
-function (poly::PiecewiseLegendrePoly)(x::Array)
-    return poly.(x)
+    tildex = x - poly.xm[i]
+    tildex *= poly.inv_xs[i]
+    return i, tildex
 end
 
 function scale(poly::PiecewiseLegendrePoly, factor)

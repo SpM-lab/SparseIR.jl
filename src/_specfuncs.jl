@@ -64,7 +64,7 @@ end
 # end
 
 # Adapted from https://github.com/numpy/numpy/blob/4adc87dff15a247e417d50f10cc4def8e1c17a03/numpy/polynomial/legendre.py#L832-L914
-function legval(x, c::Vector)
+function legval(x, c::AbstractVector)
     # Pad the coefficient array if it contains only one (i.e. the constant 
     # polynomial's) coefficient.
     length(c) ≥ 2 || (c = [c; zero(c)])

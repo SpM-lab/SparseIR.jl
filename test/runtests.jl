@@ -2,6 +2,7 @@ using Test
 using SparseIR
 
 include("conftest.jl")
+include("_util.jl")
 
 @testset "SparseIR.jl" begin
     include("gauss.jl")

@@ -1,7 +1,7 @@
 using Test
 using SparseIR
 
-include("util.jl")
+include("_util.jl")
 
 @testset "bessels.jl" begin
     @test typestable(SparseIR.sphericalbesselj, [Int, Float64])

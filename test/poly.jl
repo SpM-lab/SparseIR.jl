@@ -2,6 +2,11 @@ using Test
 using SparseIR
 
 @testset "poly.jl" begin
+    @testset "typestability" begin
+        @test typestable(SparseIR._evaluate, [PiecewiseLegendrePoly{Float64}, Float64], checkonlyany=true)
+        @test typestable(SparseIR._evaluate, [PiecewiseLegendrePoly{Float64}, Vector{Float64}], checkonlyany=true)
+    end
+ 
     @testset "shape" begin
         u, s, v = sve_logistic[42]
         l = length(s)
