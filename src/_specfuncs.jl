@@ -69,9 +69,9 @@ function legval(x, c::AbstractVector)
     # polynomial's) coefficient.
     length(c) ≥ 2 || (c = [c; zero(c)])
     nd = length(c)
-    
+
     c0, c1 = c[nd - 1], c[nd]
-    @inbounds for j in (nd-2):-1:1
+    @inbounds for j in (nd - 2):-1:1
         k = j / (j + 1)
         c0, c1 = c[j] - c1 * k, c0 + c1 * x * (k + 1)
     end
@@ -86,7 +86,7 @@ Pseudo-Vandermonde matrix of degree `deg`.
 """
 function legvander(x::Array{T,N}, deg::Integer) where {T,N}
     deg ≥ 0 || throw(DomainError(deg, "legvander needs a non-negative degree"))
-    
+
     # leading dimensions
     l = ntuple(_ -> :, N)
 

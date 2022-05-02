@@ -88,4 +88,4 @@ function MatsubaraConstBasis(statistics::Statistics, beta::Float64;
     return MatsubaraConstBasis(statistics, beta, _ConstTerm(value))
 end
 
-Base.size(::MatsubaraConstBasis) = (1, )
+Base.size(::MatsubaraConstBasis) = (1,)

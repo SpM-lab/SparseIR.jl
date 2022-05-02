@@ -54,7 +54,8 @@ struct SparsePoleRepresentation{T<:AbstractFloat} <: AbstractBasis
     matrix::SVD
 end
 
-function SparsePoleRepresentation(basis::AbstractBasis, poles=default_omega_sampling_points(basis))
+function SparsePoleRepresentation(basis::AbstractBasis,
+                                  poles=default_omega_sampling_points(basis))
     y_sampling_points = poles ./ wmax(basis)
     u = TauPoleBasis(beta(basis), basis.statistics, poles)
     uhat = MatsubaraPoleBasis(beta(basis), poles)

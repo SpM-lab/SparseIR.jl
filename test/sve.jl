@@ -33,6 +33,7 @@ end
 
     @testset "num roots û with stat = $stat, Λ = $Λ" for stat in (fermion, boson),
                                                           Λ in (10, 42, 10_000)
+
         basis = DimensionlessBasis(stat, Λ; sve_result=sve_logistic[Λ])
         for i in [1, 2, 8, 11]
             x₀ = findextrema(basis.uhat[i])

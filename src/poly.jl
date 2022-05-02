@@ -85,7 +85,8 @@ Given the function `f`, evaluate the integral::
 using adaptive Gauss-Legendre quadrature.
 """
 function overlap(poly::PiecewiseLegendrePoly, f; rtol=2.3e-16, return_error=false)
-    int_result, int_error = quadgk(x -> poly(x) * f(x), poly.knots...; rtol, order=10, maxevals=10^4)
+    int_result, int_error = quadgk(x -> poly(x) * f(x), poly.knots...; rtol, order=10,
+                                   maxevals=10^4)
     if return_error
         return int_result, int_error
     else
@@ -294,7 +295,7 @@ end
 
 Obtain Fourier transform of polynomial for given frequency index `n`.
 """
-function (polyFT::PiecewiseLegendreFT)(n)
+function (polyFT::PiecewiseLegendreFT)(n::Int)
     n = check_reduced_matsubara(n, polyFT.ζ)
 
     if abs(n) < polyFT.n_asymp
@@ -303,6 +304,9 @@ function (polyFT::PiecewiseLegendreFT)(n)
         return giw(polyFT.model, n)
     end
 end
+
+# FIXME: This is slow, should be vectorized internally.
+(polyFT::PiecewiseLegendreFT)(n::Array) = polyFT.(n)
 
 """
     giw(model::PowerModel, wn)
