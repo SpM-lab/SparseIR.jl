@@ -1,6 +1,4 @@
-export compute
-
-const HAVE_XPREC = false # TODO:
+const _HAVE_XPREC = false # TODO:
 
 abstract type AbstractSVE end
 
@@ -47,11 +45,22 @@ function SamplingSVE(kernel, ε; n_gauss=nothing, T=Float64)
     isnothing(n_gauss) && (n_gauss = ngauss(sve_hints_))
     rule = legendre(n_gauss, T)
     segs_x, segs_y = convert(Vector{T}, segments_x(sve_hints_)),
-                     convert(Vector{T}, segments_y(sve_hints_))
+    convert(Vector{T}, segments_y(sve_hints_))
     gauss_x, gauss_y = piecewise(rule, segs_x), piecewise(rule, segs_y)
 
-    return SamplingSVE(kernel, ε, n_gauss, nsvals(sve_hints_), rule, segs_x, segs_y,
-                       gauss_x, gauss_y, sqrt.(gauss_x.w), sqrt.(gauss_y.w))
+    return SamplingSVE(
+        kernel,
+        ε,
+        n_gauss,
+        nsvals(sve_hints_),
+        rule,
+        segs_x,
+        segs_y,
+        gauss_x,
+        gauss_y,
+        sqrt.(gauss_x.w),
+        sqrt.(gauss_y.w),
+    )
 end
 
 """
@@ -95,7 +104,7 @@ function CentrosymmSVE(kernel, ε; InnerSVE=SamplingSVE, inner_args...)
 end
 
 """
-    compute(kernel; 
+    compute_sve(kernel; 
         ε=nothing, n_sv=typemax(Int), n_gauss=nothing, T=Float64, Twork=nothing,
         sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE,
         svd_strat=nothing)
@@ -138,20 +147,28 @@ Return tuple `(u, s, v)`, where:
 - `s::Vector`: singular values
 - `v::PiecewiseLegendrePoly`: the right singular functions
 """
-function compute(kernel::AbstractKernel; ε=nothing, n_sv=typemax(Int), n_gauss=nothing,
-                 T=Float64, Twork=nothing,
-                 sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE,
-                 svd_strat=:default)
+function compute_sve(
+    kernel::AbstractKernel;
+    ε=nothing,
+    n_sv=typemax(Int),
+    n_gauss=nothing,
+    T=Float64,
+    Twork=nothing,
+    sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE,
+    svd_strat=:default,
+)::Tuple{PiecewiseLegendrePolyArray{T,1},Vector{T},PiecewiseLegendrePolyArray{T,1}}
     if isnothing(ε) || isnothing(Twork) || isnothing(svd_strat)
-        ε, Twork, default_svd_strat = choose_accuracy(ε, Twork)
+        ε, Twork, default_svd_strat = _choose_accuracy(ε, Twork)
     end
     if svd_strat == :default
         svd_strat = default_svd_strat
     end
-    # return Twork
+
     sve = sve_strat(kernel, ε; n_gauss, T=Twork)
-    svds = [compute(matrix; n_sv_hint=sve.nsvals_hint, strategy=svd_strat)
-            for matrix in matrices(sve)]
+    svds = [
+        compute_svd(matrix; n_sv_hint=sve.nsvals_hint, strategy=svd_strat) for
+        matrix in matrices(sve)
+    ]
     u, s, v = zip(svds...)
     u, s, v = truncate(u, s, v, ε, n_sv)
     return postprocess(sve, u, s, v, T)
@@ -184,16 +201,22 @@ function postprocess(sve::SamplingSVE, u, s, v, T=nothing)
 
     # TODO: Surely this can be done much more elegantly.
     # As is it feels prety much unmaintenable
-    u_x = permutedims(reshape(permutedims(u_x),
-                              (length(s), sve.n_gauss, length(sve.segs_x) - 1)), (2, 3, 1))
-    v_y = permutedims(reshape(permutedims(v_y),
-                              (length(s), sve.n_gauss, length(sve.segs_y) - 1)), (2, 3, 1))
+    u_x = permutedims(
+        reshape(permutedims(u_x), (length(s), sve.n_gauss, length(sve.segs_x) - 1)),
+        (2, 3, 1),
+    )
+    v_y = permutedims(
+        reshape(permutedims(v_y), (length(s), sve.n_gauss, length(sve.segs_y) - 1)),
+        (2, 3, 1),
+    )
 
     cmat = legendre_collocation(sve.rule)
-    u_data = reshape(cmat * reshape(u_x, (size(u_x, 1), :)),
-                     (:, size(u_x, 2), size(u_x, 3)))
-    v_data = reshape(cmat * reshape(v_y, (size(v_y, 1), :)),
-                     (:, size(v_y, 2), size(v_y, 3)))
+    u_data = reshape(
+        cmat * reshape(u_x, (size(u_x, 1), :)), (:, size(u_x, 2), size(u_x, 3))
+    )
+    v_data = reshape(
+        cmat * reshape(v_y, (size(v_y, 1), :)), (:, size(v_y, 2), size(v_y, 3))
+    )
 
     dsegs_x = diff(sve.segs_x)
     dsegs_y = diff(sve.segs_y)
@@ -254,20 +277,16 @@ end
 
 Choose work type and accuracy based on specs and defaults
 """
-function choose_accuracy(ε, Twork)
+function _choose_accuracy(ε, Twork)
     if isnothing(ε)
-        if isnothing(Twork)
-            return sqrt(MAX_EPS), MAX_T, :fast  # TODO: adjust for extended precision
-        end
-        safe_ε = sqrt(eps(Twork))
-        return safe_ε, Twork, :fast
+        # TODO: adjust for extended precision
+        isnothing(Twork) && return sqrt(_EPS_MAX), _T_MAX, :fast
+        return sqrt(eps(Twork)), Twork, :fast
     end
 
     if isnothing(Twork)
-        if ε ≥ sqrt(eps(Float64))
-            return ε, Float64, :fast
-        end
-        Twork = MAX_T
+        ε ≥ sqrt(eps(Float64)) && return ε, Float64, :fast
+        Twork = _T_MAX
     end
 
     safe_ε = sqrt(eps(Twork))

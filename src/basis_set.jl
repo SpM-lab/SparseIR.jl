@@ -1,5 +1,3 @@
-export FiniteTempBasisSet
-
 """
     FiniteTempBasisSet
 
@@ -48,9 +46,14 @@ function FiniteTempBasisSet(beta, wmax, eps; sve_result=nothing)
         basis_b = FiniteTempBasis(boson, beta, wmax, eps; sve_result)
     end
 
-    return FiniteTempBasisSet(basis_f, basis_b,
-                              TauSampling(basis_f), TauSampling(basis_b),
-                              MatsubaraSampling(basis_f), MatsubaraSampling(basis_b))
+    return FiniteTempBasisSet(
+        basis_f,
+        basis_b,
+        TauSampling(basis_f),
+        TauSampling(basis_b),
+        MatsubaraSampling(basis_f),
+        MatsubaraSampling(basis_b),
+    )
 end
 
 function Base.getproperty(bset::FiniteTempBasisSet, d::Symbol)
@@ -72,6 +75,13 @@ function Base.getproperty(bset::FiniteTempBasisSet, d::Symbol)
 end
 
 function Base.propertynames(::FiniteTempBasisSet, private::Bool=false)
-    return (:beta, :wmax, :tau, :wn_f, :wn_b, :sve_result,
-            propertynames(FiniteTempBasisSet, private)...)
+    return (
+        :beta,
+        :wmax,
+        :tau,
+        :wn_f,
+        :wn_b,
+        :sve_result,
+        propertynames(FiniteTempBasisSet, private)...,
+    )
 end

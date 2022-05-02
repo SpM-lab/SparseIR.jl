@@ -3,7 +3,7 @@ using SparseIR
 
 @testset "matsubara.jl" begin
     @testset "single pole with stat = $stat, Λ = $Λ" for stat in (fermion, boson),
-                                                         Λ in (1e1, 1e4)
+        Λ in (1e1, 1e4)
 
         ε = (@isdefined Double64) ? nothing : 1e-15
         wmax = 1.0

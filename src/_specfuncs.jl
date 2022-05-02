@@ -1,9 +1,3 @@
-module _SpecFuncs
-
-export sphericalbesselj, legval, legvander, legder
-
-using SpecialFunctions: sphericalbesselj as sphericalbesselj_sf
-# We don't use SpecialFunctions.sphericalbesselj directly because it errors out on large x
 
 # Minimally adapted from https://github.com/scipy/scipy/blob/b5d8bab88af61d61de09641243848df63380a67f/scipy/special/_spherical_bessel.pxd#L74
 function sphericalbesselj(n::Integer, x::T) where {T<:AbstractFloat}
@@ -13,6 +7,7 @@ function sphericalbesselj(n::Integer, x::T) where {T<:AbstractFloat}
     iszero(x) && return iszero(n) ? one(T) : zero(T)
 
     if n > 0 && n ≥ x
+        # We don't use SpecialFunctions.sphericalbesselj directly because it errors out on large x
         return T(sphericalbesselj_sf(n, x))
     end
 
@@ -38,40 +33,15 @@ function _sphericalbesselj(n::Integer, x::T) where {T<:AbstractFloat}
     return sn
 end
 
-# # Adapted from https://github.com/numpy/numpy/blob/4adc87dff15a247e417d50f10cc4def8e1c17a03/numpy/polynomial/legendre.py#L832-L914
-# function legval(x, c::Array{T,N}) where {T,N}
-#     # trailing dimensions
-#     t = ntuple(_ -> :, N - 1)
-
-#     # Pad the coefficient array if it contains only one (i.e. the constant 
-#     # polynomial's) coefficient.
-#     size(c, 1) ≥ 2 || (c = [c; zero(c)])
-
-#     c0 = c[end - 1, t...]
-#     c1 = c[end, t...]
-#     tmp = similar(c0)
-
-#     nd = size(c, 1)
-#     @inbounds @views for i in 2:(size(c, 1) - 1)
-#         nd -= 1
-#         invnd = inv(nd)
-#         @. tmp = c0
-#         @. c0 = c[end - i, t...] - c1 * (1 - invnd)
-#         @. c1 = tmp + c1 * x * (2 - invnd)
-#     end
-
-#     return c0 .+ c1 .* x
-# end
-
 # Adapted from https://github.com/numpy/numpy/blob/4adc87dff15a247e417d50f10cc4def8e1c17a03/numpy/polynomial/legendre.py#L832-L914
 function legval(x, c::AbstractVector)
     # Pad the coefficient vector if it contains only one (i.e. the constant 
     # polynomial's) coefficient.
     length(c) ≥ 2 || (c = [c; zero(c)])
     nd = length(c)
-    
+
     c0, c1 = c[nd - 1], c[nd]
-    @inbounds for j in (nd-2):-1:1
+    @inbounds for j in (nd - 2):-1:1
         k = j / (j + 1)
         c0, c1 = c[j] - c1 * k, c0 + c1 * x * (k + 1)
     end
@@ -86,7 +56,7 @@ Pseudo-Vandermonde matrix of degree `deg`.
 """
 function legvander(x::Array{T,N}, deg::Integer) where {T,N}
     deg ≥ 0 || throw(DomainError(deg, "legvander needs a non-negative degree"))
-    
+
     # leading dimensions
     l = ntuple(_ -> :, N)
 
@@ -134,5 +104,3 @@ function legder(c::AbstractVector{T}, cnt=1) where {T}
     end
     return c
 end
-
-end #module

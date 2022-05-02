@@ -1,10 +1,3 @@
-using IntervalRootFinding: roots as roots_irf, Interval, isunique, interval, mid, Newton
-using QuadGK: quadgk
-using ._SpecFuncs: sphericalbesselj, legval, legder
-
-export PiecewiseLegendrePoly, PiecewiseLegendrePolyArray, roots, hat, overlap, deriv,
-       findextrema
-
 """
     PiecewiseLegendrePoly <: Function
 
@@ -30,20 +23,33 @@ struct PiecewiseLegendrePoly{T} <: Function
     inv_xs::Vector{T}
     norm::Vector{T}
 
-    function PiecewiseLegendrePoly(nsegments, polyorder, xmin, xmax, knots, dx, data,
-                                   symm, xm, inv_xs, norm)
+    function PiecewiseLegendrePoly(
+        nsegments, polyorder, xmin, xmax, knots, dx, data, symm, xm, inv_xs, norm
+    )
         !any(isnan, data) || error("data contains NaN")
         size(knots) == (nsegments + 1,) || error("Invalid knots array")
         issorted(knots) || error("knots must be monotonically increasing")
         dx ≈ diff(knots) || error("dx must work with knots")
-        return new{eltype(knots)}(nsegments, polyorder, xmin, xmax, knots, dx, data, symm,
-                                  xm, inv_xs, norm)
+        return new{eltype(knots)}(
+            nsegments, polyorder, xmin, xmax, knots, dx, data, symm, xm, inv_xs, norm
+        )
     end
 end
 
 function PiecewiseLegendrePoly(data, p::PiecewiseLegendrePoly; symm=0)
-    return PiecewiseLegendrePoly(p.nsegments, p.polyorder, p.xmin, p.xmax, p.knots, p.dx,
-                                 data, symm, p.xm, p.inv_xs, p.norm)
+    return PiecewiseLegendrePoly(
+        p.nsegments,
+        p.polyorder,
+        p.xmin,
+        p.xmax,
+        p.knots,
+        p.dx,
+        data,
+        symm,
+        p.xm,
+        p.inv_xs,
+        p.norm,
+    )
 end
 
 function PiecewiseLegendrePoly(data::Matrix, knots::Vector; dx=diff(knots), symm=0)
@@ -52,8 +58,19 @@ function PiecewiseLegendrePoly(data::Matrix, knots::Vector; dx=diff(knots), symm
     inv_xs = 2 ./ dx
     norm = sqrt.(inv_xs)
 
-    return PiecewiseLegendrePoly(nsegments, polyorder, first(knots), last(knots), knots,
-                                 dx, data, symm, xm, inv_xs, norm)
+    return PiecewiseLegendrePoly(
+        nsegments,
+        polyorder,
+        first(knots),
+        last(knots),
+        knots,
+        dx,
+        data,
+        symm,
+        xm,
+        inv_xs,
+        norm,
+    )
 end
 
 Base.size(::PiecewiseLegendrePoly) = ()
@@ -85,7 +102,9 @@ Given the function `f`, evaluate the integral::
 using adaptive Gauss-Legendre quadrature.
 """
 function overlap(poly::PiecewiseLegendrePoly, f; rtol=2.3e-16, return_error=false)
-    int_result, int_error = quadgk(x -> poly(x) * f(x), poly.knots...; rtol, order=10, maxevals=10^4)
+    int_result, int_error = quadgk(
+        x -> poly(x) * f(x), poly.knots...; rtol, order=10, maxevals=10^4
+    )
     if return_error
         return int_result, int_error
     else
@@ -181,8 +200,9 @@ Alias for `Array{PiecewiseLegendrePoly{T}, N}`.
 const PiecewiseLegendrePolyArray{T,N} = Array{PiecewiseLegendrePoly{T},N}
 
 # TODO: simplify constructors
-function PiecewiseLegendrePolyArray(data::Array{T,N}, knots::Vector{T};
-                                    symm=zeros(Int, last(size(data)))) where {T,N}
+function PiecewiseLegendrePolyArray(
+    data::Array{T,N}, knots::Vector{T}; symm=zeros(Int, last(size(data)))
+) where {T,N}
     polys = PiecewiseLegendrePolyArray{T,N - 2}(undef, size(data)[3:end]...)
     for i in eachindex(polys)
         polys[i] = PiecewiseLegendrePoly(data[:, :, i], knots; symm=symm[i])
@@ -190,8 +210,9 @@ function PiecewiseLegendrePolyArray(data::Array{T,N}, knots::Vector{T};
     return polys
 end
 
-function PiecewiseLegendrePolyArray(polys::PiecewiseLegendrePolyArray, knots;
-                                    dx=diff(knots), symm=0)
+function PiecewiseLegendrePolyArray(
+    polys::PiecewiseLegendrePolyArray, knots; dx=diff(knots), symm=0
+)
     size(polys) == size(symm) ||
         throw(DimensionMismatch("Sizes of polys and symm don't match"))
     polys_new = similar(polys)
@@ -244,8 +265,10 @@ struct PowerModel{T<:AbstractFloat}
     moments::Vector{T}
 end
 
-const DEFAULT_GRID = [range(0; length=2^6);
-                      trunc.(Int, exp2.(range(6, 25; length=16 * (25 - 6) + 1)))]
+const _DEFAULT_GRID = [
+    range(0; length=2^6)
+    trunc.(Int, exp2.(range(6, 25; length=16 * (25 - 6) + 1)))
+]
 
 """
     PiecewiseLegendreFT <: Function
@@ -265,10 +288,10 @@ struct PiecewiseLegendreFT{T} <: Function
     poly::PiecewiseLegendrePoly{T}
     freq::Symbol
     ζ::Int
-    n_asymp::AbstractFloat
+    n_asymp::T
 
     # internal
-    model::Union{PowerModel,Nothing}
+    model::PowerModel{T}
 end
 
 function Base.show(io::IO, p::PiecewiseLegendreFT)
@@ -285,7 +308,7 @@ end
 function PiecewiseLegendreFT(poly, freq=:even, n_asymp=Inf, l=0)
     (poly.xmin, poly.xmax) == (-1, 1) || error("Only interval [-1, 1] is supported")
     ζ = Dict(:even => 0, :odd => 1)[freq]
-    model = isinf(n_asymp) ? nothing : power_model(freq, poly, l)
+    model = power_model(freq, poly, l)
     return PiecewiseLegendreFT(poly, freq, ζ, float(n_asymp), model)
 end
 
@@ -302,6 +325,13 @@ function (polyFT::PiecewiseLegendreFT)(n)
     else
         return giw(polyFT.model, n)
     end
+end
+function (polyFT::PiecewiseLegendreFT)(ns::AbstractArray)
+    ns = check_reduced_matsubara.(ns, polyFT.ζ)
+
+    inner = map(n -> abs(n) < polyFT.n_asymp, ns)
+    _compute_unl_inner.(polyFT.poly, ns[inner])
+    giw.(polyFT.model, ns[.!inner])
 end
 
 """
@@ -327,11 +357,11 @@ function hat(poly::PiecewiseLegendrePoly, freq, l; n_asymp=Inf)
 end
 
 """
-    findextrema(polyFT::PiecewiseLegendreFT, part=nothing, grid=DEFAULT_GRID)
+    findextrema(polyFT::PiecewiseLegendreFT, part=nothing, grid=_DEFAULT_GRID)
 
 Obtain extrema of fourier-transformed polynomial.
 """
-function findextrema(polyFT::PiecewiseLegendreFT, part=nothing, grid=DEFAULT_GRID)
+function findextrema(polyFT::PiecewiseLegendreFT, part=nothing, grid=_DEFAULT_GRID)
     f = _func_for_part(polyFT, part)
     x₀ = _discrete_extrema(f, grid)
     x₀ .= 2x₀ .+ polyFT.ζ
@@ -463,7 +493,7 @@ end
 Compute piecewise Legendre to Matsubara transform.
 """
 function _compute_unl_inner(poly, wn)
-    data_sc = poly.data ./ reshape(√2 * poly.norm, (1, :))
+    data_sc = poly.data ./ transpose(√2 * poly.norm)
 
     p = range(0; length=poly.polyorder)
     wred = π / 2 * wn

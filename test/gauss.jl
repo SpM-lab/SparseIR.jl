@@ -1,6 +1,5 @@
 using Test
 using SparseIR
-using SparseIR._SpecFuncs: legvander
 
 using LinearAlgebra: I
 using QuadGK: gauss
@@ -17,7 +16,7 @@ end
     @testset "collocate" begin
         r = legendre(20)
         cmat = legendre_collocation(r)
-        emat = legvander(r.x, length(r.x) - 1)
+        emat = SparseIR.legvander(r.x, length(r.x) - 1)
         @test emat * cmat ≈ I(20)
     end
 

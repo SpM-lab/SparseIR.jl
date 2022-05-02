@@ -15,7 +15,7 @@ using Random
     num_poles = 10
     poles = wmax * (2 * rand(num_poles) .- 1)
     coeffs = 2 * rand(num_poles) .- 1
-    @assert maximum(abs, poles) <= wmax
+    @test maximum(abs, poles) <= wmax
 
     Gl = to_IR(SparsePoleRepresentation(basis, poles), coeffs)
 

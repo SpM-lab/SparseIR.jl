@@ -1,7 +1,3 @@
-using LinearAlgebra: svd, SVD
-
-export TauSampling, MatsubaraSampling, evaluate, fit
-
 """
     AbstractSampling
 
@@ -132,8 +128,9 @@ end
 
 Apply the operator `op` to the matrix `mat` and to the array `arr` along the dimension `dim`.
 """
-function matop_along_dim(mat::AbstractMatrix, arr::AbstractArray{T,N}, dim=1;
-                         op=*) where {T,N}
+function matop_along_dim(
+    mat::AbstractMatrix, arr::AbstractArray{T,N}, dim=1; op=*
+) where {T,N}
     # Move the target dim to the first position
     1 ≤ dim ≤ N || throw(DomainError(dim, "Dimension must be in [1, $N]"))
 

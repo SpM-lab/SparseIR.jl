@@ -1,6 +1,3 @@
-export LogisticKernel, RegularizedBoseKernel, sve_hints, segments_x, segments_y,
-       matrix_from_gauss, get_symmetrized, nsvals, ngauss, ypower, conv_radius, weight_func
-
 @doc raw"""
     AbstractKernel
 
@@ -51,6 +48,11 @@ where the weight function is given by
 """
 struct LogisticKernel{T<:AbstractFloat} <: AbstractKernel
     Λ::T
+end
+
+function LogisticKernel(Λ)
+    Λ ≥ 0 || throw(DomainError(Λ, "Kernel cutoff Λ must be non-negative"))
+    LogisticKernel(float(Λ))
 end
 
 @doc raw"""
@@ -152,8 +154,7 @@ struct RegularizedBoseKernelOdd{T} <: AbstractReducedKernel
     inner::RegularizedBoseKernel{T}
     sign::Int
 
-    function RegularizedBoseKernelOdd(inner::RegularizedBoseKernel{T},
-                                      sign) where {T}
+    function RegularizedBoseKernelOdd(inner::RegularizedBoseKernel{T}, sign) where {T}
         iscentrosymmetric(inner) || error("inner kernel must be centrosymmetric")
         abs(sign) == 1 || throw(DomainError(sign, "sign must be -1 or 1"))
         return new{T}(inner, sign)
@@ -247,9 +248,28 @@ function segments_y(hints::SVEHintsLogistic)
     nzeros = max(round(Int, 20 * log10(hints.kernel.Λ)), 2)
 
     # Zeros around -1 and 1 are distributed asymptotically identically
-    leading_diffs = [0.01523, 0.03314, 0.04848, 0.05987, 0.06703, 0.07028, 0.07030, 0.06791,
-                     0.06391, 0.05896, 0.05358, 0.04814, 0.04288, 0.03795, 0.03342, 0.02932,
-                     0.02565, 0.02239, 0.01951, 0.01699][begin:min(nzeros, 20)]
+    leading_diffs = [
+        0.01523,
+        0.03314,
+        0.04848,
+        0.05987,
+        0.06703,
+        0.07028,
+        0.07030,
+        0.06791,
+        0.06391,
+        0.05896,
+        0.05358,
+        0.04814,
+        0.04288,
+        0.03795,
+        0.03342,
+        0.02932,
+        0.02565,
+        0.02239,
+        0.01951,
+        0.01699,
+    ][begin:min(nzeros, 20)]
 
     diffs = [leading_diffs; 0.25 ./ exp.(0.141 * (20:(nzeros - 1)))]
 
@@ -287,8 +307,9 @@ function matrix_from_gauss(kernel, gauss_x, gauss_y)
     # (1 ± x) is problematic around x = -1 and x = 1, where the quadrature
     # nodes are clustered most tightly.  Thus we have the need for the
     # matrix method.
-    return kernel.(gauss_x.x, permutedims(gauss_y.x), gauss_x.x .- gauss_x.a,
-                   gauss_x.b .- gauss_x.x)
+    return kernel.(
+        gauss_x.x, permutedims(gauss_y.x), gauss_x.x .- gauss_x.a, gauss_x.b .- gauss_x.x
+    )
 end
 
 """
@@ -375,17 +396,17 @@ The parameters `x₊` and `x₋`, if given, shall contain the
 values of `x - xₘᵢₙ` and `xₘₐₓ - x`, respectively.  This is useful
 if either difference is to be formed and cancellation expected.
 """
-function (kernel::AbstractKernel)(x, y,
-                                  x₊=x - first(xrange(kernel)),
-                                  x₋=last(xrange(kernel)) - x)
+function (kernel::AbstractKernel)(
+    x, y, x₊=x - first(xrange(kernel)), x₋=last(xrange(kernel)) - x
+)
     x, y = check_domain(kernel, x, y)
     u₊, u₋, v = compute_uv(kernel.Λ, x, y, x₊, x₋)
     return compute(kernel, u₊, u₋, v)
 end
 
-function (kernel::LogisticKernelOdd)(x, y,
-                                     x₊=x - first(xrange(kernel)),
-                                     x₋=last(xrange(kernel)) - x)
+function (kernel::LogisticKernelOdd)(
+    x, y, x₊=x - first(xrange(kernel)), x₋=last(xrange(kernel)) - x
+)
     result = callreduced(kernel, x, y, x₊, x₋)
 
     # For x * y around 0, antisymmetrization introduces cancellation, which
@@ -397,9 +418,9 @@ function (kernel::LogisticKernelOdd)(x, y,
     return xy_small && cosh_finite ? -sinh(v_half * x) / cosh(v_half) : result
 end
 
-function (kernel::RegularizedBoseKernelOdd)(x, y,
-                                            x₊=x - first(xrange(kernel)),
-                                            x₋=last(xrange(kernel)) - x)
+function (kernel::RegularizedBoseKernelOdd)(
+    x, y, x₊=x - first(xrange(kernel)), x₋=last(xrange(kernel)) - x
+)
     result = callreduced(kernel, x, y, x₊, x₋)
 
     # For x * y around 0, antisymmetrization introduces cancellation, which

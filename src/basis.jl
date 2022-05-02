@@ -1,5 +1,3 @@
-export DimensionlessBasis, FiniteTempBasis, finite_temp_bases
-
 abstract type AbstractBasis end
 
 Base.size(basis::AbstractBasis) = size(basis.u)
@@ -73,8 +71,7 @@ struct DimensionlessBasis{K<:AbstractKernel,T<:AbstractFloat} <: AbstractBasis
 end
 
 function Base.show(io::IO, a::DimensionlessBasis)
-    return print(io,
-                 "DimensionlessBasis: statistics=$(statistics(a)), size=$(size(a))")
+    return print(io, "DimensionlessBasis: statistics=$(statistics(a)), size=$(size(a))")
 end
 
 """
@@ -82,34 +79,30 @@ end
 
 Construct an IR basis suitable for the given `statistics` and cutoff `Λ`.
 """
-function DimensionlessBasis(statistics::Statistics, Λ, ε=nothing; kernel=nothing,
-                            sve_result=nothing)
-    Λ = float(Λ)
-    Λ ≥ 0 || throw(DomainError(Λ, "Kernel cutoff Λ must be non-negative"))
-
-    self_kernel = _get_kernel(Λ, kernel)
-    if isnothing(sve_result)
-        u, s, v = compute(self_kernel; ε)
-    else
-        u, s, v = sve_result
-        size(u) == size(s) == size(v) ||
-            throw(DimensionMismatch("Mismatched shapes in SVE"))
-    end
-
+function DimensionlessBasis(
+    statistics::Statistics,
+    Λ,
+    ε=nothing;
+    kernel=LogisticKernel(Λ),
+    sve_result=compute_sve(kernel; ε),
+)
     if isnothing(ε) && isnothing(sve_result) && !HAVE_XPREC
         @warn """No extended precision is being used.
         Expect single precision (1.5e-8) only as both cutoff
         and accuracy of the basis functions."""
     end
 
+    u, s, v = sve_result
+    size(u) == size(s) == size(v) || throw(DimensionMismatch("Mismatched shapes in SVE"))
+
     # The radius of convergence of the asymptotic expansion is Λ/2,
     # so for significantly larger frequencies we use the asymptotics,
     # since it has lower relative error.
     even_odd = Dict(fermion => :odd, boson => :even)[statistics]
-    uhat = hat.(u, even_odd, 0:(length(u) - 1); n_asymp=conv_radius(self_kernel))
+    û = hat.(u, even_odd, 0:(length(u) - 1); n_asymp=conv_radius(kernel))
     rts = roots(last(v))
     sampling_points_v = [v.xmin; (rts[begin:(end - 1)] .+ rts[(begin + 1):end]) / 2; v.xmax]
-    return DimensionlessBasis(self_kernel, u, uhat, s, v, sampling_points_v, statistics)
+    return DimensionlessBasis(kernel, u, û, s, v, sampling_points_v, statistics)
 end
 
 """
@@ -193,8 +186,9 @@ struct FiniteTempBasis{K,T} <: AbstractBasis
 end
 
 function Base.show(io::IO, a::FiniteTempBasis)
-    return print(io,
-                 "FiniteTempBasis: beta=$(beta(a)), statistics=$(statistics(a)), size=$(size(a))")
+    return print(
+        io, "FiniteTempBasis: beta=$(beta(a)), statistics=$(statistics(a)), size=$(size(a))"
+    )
 end
 
 """
@@ -202,25 +196,24 @@ end
 
 Construct a finite temperature basis suitable for the given `statistics` and cutoffs `β` and `wmax`.
 """
-function FiniteTempBasis(statistics::Statistics, β, wmax, ε=nothing; kernel=nothing,
-                         sve_result=nothing)
-    β > 0 || throw(DomainError(β, "Inverse temperature β must be positive"))
-    wmax ≥ 0 || throw(DomainError(wmax, "Frequency cutoff wmax must be non-negative"))
+function FiniteTempBasis(
+    statistics::Statistics,
+    β::T,
+    wmax,
+    ε=nothing;
+    kernel=LogisticKernel(β * wmax),
+    sve_result=compute_sve(kernel; ε),
+) where {T}
+    # β > 0 || throw(DomainError(β, "Inverse temperature β must be positive"))
+    # wmax ≥ 0 || throw(DomainError(wmax, "Frequency cutoff wmax must be non-negative"))
+    # if isnothing(ε) && isnothing(sve_result) && !_HAVE_XPREC
+    #     @warn """No extended precision is being used.
+    #     Expect single precision (1.5e-8) only as both cutoff
+    #     and accuracy of the basis functions."""
+    # end
 
-    kernel = _get_kernel(β * wmax, kernel)
-    if isnothing(sve_result)
-        u, s, v = compute(kernel; ε)
-    else
-        u, s, v = sve_result
-        size(u) == size(s) == size(v) ||
-            throw(DimensionMismatch("Mismatched shapes in SVE"))
-    end
-
-    if isnothing(ε) && isnothing(sve_result) && !HAVE_XPREC
-        @warn """No extended precision is being used.
-        Expect single precision (1.5e-8) only as both cutoff
-        and accuracy of the basis functions."""
-    end
+    u, s, v = sve_result
+    # size(u) == size(s) == size(v) || throw(DimensionMismatch("Mismatched shapes in SVE"))
 
     # The polynomials are scaled to the new variables by transforming the
     # knots according to: tau = beta/2 * (x + 1), w = wmax * y.  Scaling
@@ -241,9 +234,9 @@ function FiniteTempBasis(statistics::Statistics, β, wmax, ε=nothing; kernel=no
 
     conv_radius = 40 * kernel.Λ
     even_odd = Dict(fermion => :odd, boson => :even)[statistics]
-    uhat = hat.(û_base, even_odd, 0:(length(u) - 1); n_asymp=conv_radius) # TODO: fix this
+    û = hat.(û_base, even_odd, 0:(length(u) - 1); n_asymp=conv_radius)
 
-    return FiniteTempBasis(kernel, (u, s, v), statistics, 1.0 * β, u_, v_, s_, uhat)
+    return FiniteTempBasis(kernel, sve_result, statistics, β, u_, v_, s_, û)
 end
 
 Base.firstindex(::AbstractBasis) = 1
@@ -260,8 +253,9 @@ iswellconditioned(::FiniteTempBasis) = true
 function Base.getindex(basis::FiniteTempBasis, i)
     u, s, v = basis.sve_result
     sve_result = u[i], s[i], v[i]
-    return FiniteTempBasis(basis.statistics, beta(basis), wmax(basis); kernel=basis.kernel,
-                           sve_result)
+    return FiniteTempBasis(
+        basis.statistics, beta(basis), wmax(basis); kernel=basis.kernel, sve_result
+    )
 end
 
 """
@@ -272,11 +266,11 @@ Real frequency cutoff.
 wmax(basis::FiniteTempBasis) = basis.kernel.Λ / beta(basis)
 
 """
-    finite_temp_bases(β, wmax, ε, sve_result=compute(LogisticKernel(β * wmax); ε))
+    finite_temp_bases(β, wmax, ε, sve_result=compute_sve(LogisticKernel(β * wmax); ε))
 
 Construct FiniteTempBasis objects for fermion and bosons using the same LogisticKernel instance.
 """
-function finite_temp_bases(β, wmax, ε, sve_result=compute(LogisticKernel(β * wmax); ε))
+function finite_temp_bases(β, wmax, ε, sve_result=compute_sve(LogisticKernel(β * wmax); ε))
     basis_f = FiniteTempBasis(fermion, β, wmax, ε; sve_result)
     basis_b = FiniteTempBasis(boson, β, wmax, ε; sve_result)
     return basis_f, basis_b
@@ -346,8 +340,8 @@ end
 function _get_kernel(Λ, kernel)
     if isnothing(kernel)
         kernel = LogisticKernel(Λ)
-    else
-        @assert kernel.Λ ≈ Λ
+    elseif kernel.Λ ≉ Λ
+        error("kernel.Λ ≉ Λ")
     end
     return kernel
 end

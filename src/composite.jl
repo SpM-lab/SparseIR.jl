@@ -1,5 +1,3 @@
-export CompositeBasis, CompositeBasisFunction, CompositeBasisFunctionFT
-
 """
 Union of several basis functions in the imaginary-time/real-frequency domain
 domains
@@ -64,6 +62,14 @@ function default_tau_sampling_points(basis::CompositeBasis)
 end
 
 function default_matsubara_sampling_points(basis::CompositeBasis; mitigate=true)
-    return sort(unique(vcat((default_matsubara_sampling_points(b; mitigate=mitigate) for b in
-                                                                                         basis.bases)...)))
+    return sort(
+        unique(
+            vcat(
+                (
+                    default_matsubara_sampling_points(b; mitigate=mitigate) for
+                    b in basis.bases
+                )...,
+            ),
+        ),
+    )
 end

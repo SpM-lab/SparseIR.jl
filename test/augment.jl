@@ -47,7 +47,8 @@ using AssociatedLegendrePolynomials: Plm
         #println(maximum(abs.(gl_from_τ)))
         #println("gl_from_τ", gl_from_τ[1:4])
         #println("gl_from_matsu", gl_from_matsu[1:4])
-        @test isapprox(gl_from_τ, gl_from_matsu;
-                       atol=1e-10 * maximum(abs, gl_from_matsu), rtol=0)
+        @test isapprox(
+            gl_from_τ, gl_from_matsu; atol=1e-10 * maximum(abs, gl_from_matsu), rtol=0
+        )
     end
 end

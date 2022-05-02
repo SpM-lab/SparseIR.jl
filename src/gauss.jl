@@ -1,8 +1,3 @@
-using QuadGK: gauss, kronrod
-using ._SpecFuncs: legvander
-
-export legendre, legendre_collocation, Rule, piecewise, quadrature, reseat
-
 @doc raw"""
     Rule{T<:AbstractFloat}
 

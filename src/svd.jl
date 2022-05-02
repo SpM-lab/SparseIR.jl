@@ -1,10 +1,7 @@
-using LowRankApprox: psvd
-using LinearAlgebra: svd, QRIteration
+const _T_MAX = Float64
+const _EPS_MAX = eps(_T_MAX)
 
-const MAX_T = Float64
-const MAX_EPS = eps(MAX_T) # approximately 5e-32
-
-function compute(a_matrix::AbstractMatrix{MAX_T}; n_sv_hint=nothing, strategy=:fast)
+function compute_svd(a_matrix::AbstractMatrix{_T_MAX}; n_sv_hint=nothing, strategy=:fast)
     m, n = size(a_matrix)
     isnothing(n_sv_hint) && (n_sv_hint = min(m, n))
     n_sv_hint = min(m, n, n_sv_hint)

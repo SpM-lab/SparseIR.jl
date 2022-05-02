@@ -1,5 +1,3 @@
-export LegendreBasis, MatsubaraConstBasis
-
 @doc raw"""Legendre basis
 
 In the original paper [L. Boehnke et al., PRB 84, 075145 (2011)],
@@ -24,8 +22,12 @@ struct LegendreBasis{T<:AbstractFloat} <: AbstractBasis
     uhat::PiecewiseLegendreFTArray{T}
 end
 
-function LegendreBasis(statistics::Statistics, beta::Float64, size::Int;
-                       cl::Vector{Float64}=ones(Float64, size))
+function LegendreBasis(
+    statistics::Statistics,
+    beta::Float64,
+    size::Int;
+    cl::Vector{Float64}=ones(Float64, size),
+)
     beta > 0 || throw(DomainError(beta, "inverse temperature beta must be positive"))
     size > 0 || throw(DomainError(size, "size of basis must be positive"))
 
@@ -36,10 +38,10 @@ function LegendreBasis(statistics::Statistics, beta::Float64, size::Int;
     for l in 1:size
         data[l, 1, l] = sqrt(((l - 1) + 0.5) / beta) * cl[l]
     end
-    u = PiecewiseLegendrePolyArray(data, knots; symm=symm)
+    u = PiecewiseLegendrePolyArray(data, knots; symm)
 
     # uhat
-    uhat_base = PiecewiseLegendrePolyArray(sqrt(beta) .* data, Float64[-1, 1]; symm=symm)
+    uhat_base = PiecewiseLegendrePolyArray(sqrt(beta) .* data, Float64[-1, 1]; symm)
     even_odd = Dict(fermion => :odd, boson => :even)[statistics]
     uhat = hat.(uhat_base, even_odd, 0:(size - 1))
 
@@ -65,13 +67,8 @@ struct _ConstTerm{T<:Number}
     value::T
 end
 
-function (ct::_ConstTerm)(n::Vector{T}) where {T<:Integer}
-    return fill(ct.value, (1, length(n)))
-end
-
-function (ct::_ConstTerm)(n::T) where {T<:Integer}
-    return ct([n])
-end
+(ct::_ConstTerm)(n::Vector{<:Integer}) = fill(ct.value, (1, length(n)))
+(ct::_ConstTerm)(n::Integer) = ct([n])
 
 """
 Constant term in matsubara-frequency domain
@@ -82,10 +79,9 @@ struct MatsubaraConstBasis{T<:AbstractFloat} <: AbstractBasis
     uhat::_ConstTerm{T}
 end
 
-function MatsubaraConstBasis(statistics::Statistics, beta::Float64;
-                             value=1) where {T<:AbstractFloat}
+function MatsubaraConstBasis(statistics::Statistics, beta::Float64; value=1)
     beta > 0 || throw(DomainError(beta, "inverse temperature beta must be positive"))
     return MatsubaraConstBasis(statistics, beta, _ConstTerm(value))
 end
 
-Base.size(::MatsubaraConstBasis) = (1, )
+Base.size(::MatsubaraConstBasis) = (1,)
