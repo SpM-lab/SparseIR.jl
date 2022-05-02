@@ -7,7 +7,12 @@ using InteractiveUtils
 # This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
 macro bind(def, element)
     quote
-        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+        local iv = try
+            Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"),
+                                           "AbstractPlutoDingetjes")].Bonds.initial_value
+        catch
+            b -> missing
+        end
         local el = $(esc(element))
         global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
         el
@@ -16,10 +21,10 @@ end
 
 # ╔═╡ 842c7aec-b17a-11ec-127b-3f91b4687627
 begin
-	using Revise
-	using Pkg
-	Pkg.activate(".")
-	using SparseIR
+    using Revise
+    using Pkg
+    Pkg.activate(".")
+    using SparseIR
 end
 
 # ╔═╡ c92e8377-29e9-4b29-ae11-e0423459722d
@@ -36,13 +41,13 @@ using PyCall
 
 # ╔═╡ 19d59ed7-aaea-4e47-9708-606acb03cdbb
 begin
-	ε = 1e-15
-	stat = boson
+    ε = 1e-15
+    stat = boson
 
-	Λ = 1e4
-	wmax = 1.0
-	pole = 0.1 * wmax
-	β = Λ / wmax
+    Λ = 1e4
+    wmax = 1.0
+    pole = 0.1 * wmax
+    β = Λ / wmax
 end
 
 # ╔═╡ 1cb616f4-7957-4f9d-8942-c881b87b94bc
@@ -88,7 +93,7 @@ basis_py = pyimport("sparse_ir").FiniteTempBasis("B", β, wmax, ε)
 
 # ╔═╡ 00bb8304-c307-4a2b-b5dc-9fb4991116a0
 for i in 1:104
-	#basis.uhat[i].model.moments .= basis_py.uhat[i-1]._model.moments
+    #basis.uhat[i].model.moments .= basis_py.uhat[i-1]._model.moments
 end
 
 # ╔═╡ 6fa0439c-198f-4802-9e81-e25ac6fc580b
@@ -98,22 +103,22 @@ basis.uhat[2].model.moments
 basis_py.uhat.__getitem__(0:1)._model.moments
 
 # ╔═╡ 53b9baba-4651-4d96-adf5-6122bdb41e97
-basis_py.uhat[0]._model.moments |> vec
+vec(basis_py.uhat[0]._model.moments)
 
 # ╔═╡ d7e3a562-8f93-4791-9ab8-d57d6bb6bc6a
 begin
-	stat_shift = (stat == fermion) ? 1 : 0
-	weight = (stat == fermion) ? 1 : 1 / tanh(0.5 * Λ * pole / wmax)
-	gl = -basis.s .* basis.v(pole) * weight
-	func_G(n) = 1 / (im * (2n + stat_shift) * π / β - pole)
+    stat_shift = (stat == fermion) ? 1 : 0
+    weight = (stat == fermion) ? 1 : 1 / tanh(0.5 * Λ * pole / wmax)
+    gl = -basis.s .* basis.v(pole) * weight
+    func_G(n) = 1 / (im * (2n + stat_shift) * π / β - pole)
 end
 
 # ╔═╡ af735714-2fff-41de-aa2e-51c563313bb5
 begin
-	# Compute G(iwn) using unl
-	matsu_test = Int[-1, 0, 1, 1e2, 1e4, 1e6, 1e8, 1e10, 1e12]
-	prj_w = transpose(basis.uhat(2matsu_test .+ stat_shift))
-	Giwn_t = prj_w * gl
+    # Compute G(iwn) using unl
+    matsu_test = Int[-1, 0, 1, 1e2, 1e4, 1e6, 1e8, 1e10, 1e12]
+    prj_w = transpose(basis.uhat(2matsu_test .+ stat_shift))
+    Giwn_t = prj_w * gl
 end
 
 # ╔═╡ e7c4cc78-57d8-4a9a-8282-051779375abe

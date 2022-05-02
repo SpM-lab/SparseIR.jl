@@ -317,7 +317,7 @@ end
 
 Obtain Fourier transform of polynomial for given frequency index `n`.
 """
-function (polyFT::PiecewiseLegendreFT)(n)
+function (polyFT::PiecewiseLegendreFT)(n::Int)
     n = check_reduced_matsubara(n, polyFT.ζ)
 
     if abs(n) < polyFT.n_asymp
@@ -333,6 +333,9 @@ function (polyFT::PiecewiseLegendreFT)(ns::AbstractArray)
     _compute_unl_inner.(polyFT.poly, ns[inner])
     giw.(polyFT.model, ns[.!inner])
 end
+
+# FIXME: This is slow, should be vectorized internally.
+(polyFT::PiecewiseLegendreFT)(n::Array) = polyFT.(n)
 
 """
     giw(model::PowerModel, wn)

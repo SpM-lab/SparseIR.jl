@@ -49,11 +49,13 @@ using SparseIR
 
     @testset "matrix_hat" begin
         u, s, v = sve_logistic[42]
-        û = hat.(u, :odd, 0:(length(u) - 1)) # TODO: fix this
+        uhat = hat.(u, :odd, 0:(length(u) - 1)) # TODO: fix this
 
         n = [1, 3, 5, -1, -3, 5]
-        result = û(reshape(n, (3, 2)))
-        result_iter = reshape(û(n), (:, 3, 2))
+        result1 = uhat[1](n)
+        result = uhat(reshape(n, (3, 2)))
+        result_iter = reshape(uhat(n), (:, 3, 2))
+        @test size(result1) == (length(n),)
         @test size(result) == size(result_iter)
         @test result == result_iter
     end
