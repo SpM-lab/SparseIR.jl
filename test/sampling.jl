@@ -27,43 +27,39 @@ using Random, LinearAlgebra
         @test A \ y ≈ Ad \ y atol = 1e-14 * norm_A rtol = 0
     end
 
-    @testset "τ noise" begin
-        for stat in (boson, fermion)
-            Λ = 42
-            basis = DimensionlessBasis(stat, Λ; sve_result=sve_logistic[Λ])
-            smpl = TauSampling(basis)
-            Random.seed!(5318008)
+    @testset "τ noise with stat = $stat" for stat in (boson, fermion)
+        Λ = 42
+        basis = DimensionlessBasis(stat, Λ; sve_result=sve_logistic[Λ])
+        smpl = TauSampling(basis)
+        Random.seed!(5318008)
 
-            ρℓ = basis.v([-0.999, -0.01, 0.5]) * [0.8, -0.2, 0.5]
-            Gℓ = basis.s .* ρℓ
-            Gℓ_magn = norm(Gℓ)
-            Gτ = evaluate(smpl, Gℓ)
+        ρℓ = basis.v([-0.999, -0.01, 0.5]) * [0.8, -0.2, 0.5]
+        Gℓ = basis.s .* ρℓ
+        Gℓ_magn = norm(Gℓ)
+        Gτ = evaluate(smpl, Gℓ)
 
-            noise = 1e-5
-            Gτ_n = Gτ + noise * norm(Gτ) * randn(size(Gτ)...)
-            Gℓ_n = fit(smpl, Gτ_n)
+        noise = 1e-5
+        Gτ_n = Gτ + noise * norm(Gτ) * randn(size(Gτ)...)
+        Gℓ_n = fit(smpl, Gτ_n)
 
-            @test Gℓ ≈ Gℓ_n atol = 12 * noise * Gℓ_magn rtol = 0
-        end
+        @test Gℓ ≈ Gℓ_n atol = 12 * noise * Gℓ_magn rtol = 0
     end
 
-    @testset "wn noise" begin
-        for stat in (boson, fermion)
-            Λ = 42
-            basis = DimensionlessBasis(stat, Λ; sve_result=sve_logistic[Λ])
-            smpl = MatsubaraSampling(basis)
-            Random.seed!(1312)
+    @testset "wn noise with stat = $stat" for stat in (boson, fermion)
+        Λ = 42
+        basis = DimensionlessBasis(stat, Λ; sve_result=sve_logistic[Λ])
+        smpl = MatsubaraSampling(basis)
+        Random.seed!(1312)
 
-            ρℓ = basis.v([-0.999, -0.01, 0.5]) * [0.8, -0.2, 0.5]
-            Gℓ = basis.s .* ρℓ
-            Gℓ_magn = norm(Gℓ)
-            Giw = evaluate(smpl, Gℓ)
+        ρℓ = basis.v([-0.999, -0.01, 0.5]) * [0.8, -0.2, 0.5]
+        Gℓ = basis.s .* ρℓ
+        Gℓ_magn = norm(Gℓ)
+        Giw = evaluate(smpl, Gℓ)
 
-            noise = 1e-5
-            Gwn_n = Giw + noise * norm(Giw) * randn(size(Giw)...)
-            Gℓ_n = fit(smpl, Gwn_n)
+        noise = 1e-5
+        Gwn_n = Giw + noise * norm(Giw) * randn(size(Giw)...)
+        Gℓ_n = fit(smpl, Gwn_n)
 
-            @test Gℓ ≈ Gℓ_n atol = 12 * noise * Gℓ_magn rtol = 0
-        end
+        @test Gℓ ≈ Gℓ_n atol = 12 * noise * Gℓ_magn rtol = 0
     end
 end

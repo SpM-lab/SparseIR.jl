@@ -1,4 +1,4 @@
-using QuadGK: gauss
+using QuadGK: gauss, kronrod
 using ._SpecFuncs: legvander
 
 export legendre, legendre_collocation, Rule, piecewise, quadrature, reseat
@@ -26,7 +26,8 @@ struct Rule{T}
         all(≤(b), x) || error("x must be ≤ b")
         all(≥(a), x) || error("x must be ≥ a")
         issorted(x) || error("x must be strictly increasing")
-        length(x) == length(w) || throw(DimensionMismatch("x and w must have the same length"))
+        length(x) == length(w) ||
+            throw(DimensionMismatch("x and w must have the same length"))
         return new{eltype(x)}(x, w, a, b)
     end
 end
@@ -111,4 +112,28 @@ end
 
 function Base.convert(::Type{Rule{T}}, rule::Rule{S}) where {T,S<:AbstractFloat}
     return Rule(T.(rule.x), T.(rule.w), T(rule.a), T(rule.b))
+end
+
+"""
+    NestedRule{T}
+
+Nested quadrature rule.
+"""
+struct NestedRule{T}
+    rule::Rule{T}
+    v::Vector{T}
+end
+
+function reseat(nrule::NestedRule, a, b)
+    newrule = reseat(nrule.rule, a, b)
+    newv = (b - a) / (rule.b - rule.a) * nrule.v
+    return NestedRule(newrule, newv)
+end
+
+function kronrod_21()
+    x, w, v = kronrod(10)
+    append!(x, -reverse(x)[2:end])
+    append!(w, reverse(w)[2:end])
+    append!(v, reverse(v))
+    return NestedRule(Rule(x, w), v)
 end

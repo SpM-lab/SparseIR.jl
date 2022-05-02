@@ -65,11 +65,11 @@ end
 (poly::PiecewiseLegendrePoly)(x) = _evaluate(poly, x)
 
 function _evaluate(poly::PiecewiseLegendrePoly, x::Number)
-    i, tildex= _split(poly, x)
-    return legval(tildex, view(poly.data,:, i)) * poly.norm[i]
+    i, tildex = _split(poly, x)
+    return legval(tildex, view(poly.data, :, i)) * poly.norm[i]
 end
 
-function _evaluate(poly::PiecewiseLegendrePoly, xs::Vector{T}) where T <: Real
+function _evaluate(poly::PiecewiseLegendrePoly, xs::AbstractVector)
     return poly.(xs)
 end
 
@@ -85,7 +85,7 @@ Given the function `f`, evaluate the integral::
 using adaptive Gauss-Legendre quadrature.
 """
 function overlap(poly::PiecewiseLegendrePoly, f; rtol=2.3e-16, return_error=false)
-    int_result, int_error = quadgk(x -> poly(x) * f(x), poly.knots...; rtol)
+    int_result, int_error = quadgk(x -> poly(x) * f(x), poly.knots...; rtol, order=10, maxevals=10^4)
     if return_error
         return int_result, int_error
     else
@@ -144,8 +144,8 @@ function roots(poly::PiecewiseLegendrePoly{T}; tol=1e-11) where {T}
     return rts
 end
 
-function check_domain(poly, x::Union{Number,Array})
-    all(poly.xmin ≤ x ≤ poly.xmax) || throw(DomainError(x, "x is outside the domain"))
+function check_domain(poly::PiecewiseLegendrePoly, x)
+    poly.xmin ≤ x ≤ poly.xmax || throw(DomainError(x, "x is outside the domain"))
     return true
 end
 

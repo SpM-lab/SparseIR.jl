@@ -9,12 +9,10 @@ sphericalbesselj_M(n, x) = weval(W"SphericalBesselJ"(W"n", W"x"); n, x)
         @test !isnan(SparseIR.sphericalbesselj(4, 1e20))
     end
 
-    @testset "accuracy" begin
-        for pn in 0:7, px in 0:25
-            n = 2^pn
-            x = float(2^px)
-            @test SparseIR.sphericalbesselj(n, x) ≈ sphericalbesselj_M(n, x)
-            @test SparseIR.sphericalbesselj(n + 1, x) ≈ sphericalbesselj_M(n + 1, x)
-        end
+    @testset "accuracy (with pn = $pn, px = $px)" for pn in 0:7, px in 0:25
+        n = 2^pn
+        x = float(2^px)
+        @test SparseIR.sphericalbesselj(n, x) ≈ sphericalbesselj_M(n, x)
+        @test SparseIR.sphericalbesselj(n + 1, x) ≈ sphericalbesselj_M(n + 1, x)
     end
 end

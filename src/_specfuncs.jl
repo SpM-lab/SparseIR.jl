@@ -65,35 +65,28 @@ end
 
 # Adapted from https://github.com/numpy/numpy/blob/4adc87dff15a247e417d50f10cc4def8e1c17a03/numpy/polynomial/legendre.py#L832-L914
 function legval(x, c::AbstractVector)
-    # Pad the coefficient array if it contains only one (i.e. the constant 
+    # Pad the coefficient vector if it contains only one (i.e. the constant 
     # polynomial's) coefficient.
     length(c) ≥ 2 || (c = [c; zero(c)])
-
-    c0 = c[end - 1]
-    c1 = c[end]
-    tmp = copy(c0)
-
     nd = length(c)
-    @inbounds for i in 2:(length(c) - 1)
-        nd -= 1
-        invnd = inv(nd)
-        tmp = c0
-        c0 = c[end - i] - c1 * (1 - invnd)
-        c1 = tmp + c1 * x * (2 - invnd)
+    
+    c0, c1 = c[nd - 1], c[nd]
+    @inbounds for j in (nd-2):-1:1
+        k = j / (j + 1)
+        c0, c1 = c[j] - c1 * k, c0 + c1 * x * (k + 1)
     end
-
     return c0 + c1 * x
 end
 
 # Adapted from https://github.com/numpy/numpy/blob/4adc87dff15a247e417d50f10cc4def8e1c17a03/numpy/polynomial/legendre.py#L1126-L1176
 """
-    legvander(x, deg)
+legvander(x, deg)
 
 Pseudo-Vandermonde matrix of degree `deg`.
 """
 function legvander(x::Array{T,N}, deg::Integer) where {T,N}
     deg ≥ 0 || throw(DomainError(deg, "legvander needs a non-negative degree"))
-
+    
     # leading dimensions
     l = ntuple(_ -> :, N)
 
