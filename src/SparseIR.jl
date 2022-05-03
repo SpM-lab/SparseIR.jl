@@ -34,4 +34,16 @@ include("sampling.jl")
 include("spr.jl")
 include("basis_set.jl")
 
+# Precompile
+precompile(FiniteTempBasis, (Statistics, Float64, Float64, Float64))
+for cls in [:TauSampling, :MatsubaraSampling]
+    for func in [:fit, :evaluate]
+        for vartype in [:Float64, :ComplexF64]
+            for dim in [:1, :2, :3, :4, :5, :6, :7]
+                @eval precompile($(func), ($(cls), Array{$(vartype),$(dim)}))
+            end
+        end
+    end
+end
+
 end # module
