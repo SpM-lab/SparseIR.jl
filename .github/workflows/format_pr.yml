@@ -1,4 +1,4 @@
-name: format-pr
+name: format-pr2
 
 on:
   schedule:
