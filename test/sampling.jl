@@ -36,10 +36,14 @@ using Random, LinearAlgebra
         ρℓ = basis.v([-0.999, -0.01, 0.5]) * [0.8, -0.2, 0.5]
         Gℓ = basis.s .* ρℓ
         Gℓ_magn = norm(Gℓ)
+        @inferred evaluate(smpl, Gℓ)
+        @inferred evaluate(smpl, Gℓ, dim=1)
         Gτ = evaluate(smpl, Gℓ)
 
         noise = 1e-5
         Gτ_n = Gτ + noise * norm(Gτ) * randn(size(Gτ)...)
+        @inferred fit(smpl, Gτ_n)
+        @inferred fit(smpl, Gτ_n, dim=1)
         Gℓ_n = fit(smpl, Gτ_n)
 
         @test Gℓ ≈ Gℓ_n atol = 12 * noise * Gℓ_magn rtol = 0
@@ -51,15 +55,19 @@ using Random, LinearAlgebra
         smpl = MatsubaraSampling(basis)
         Random.seed!(1312)
 
-        ρℓ = basis.v([-0.999, -0.01, 0.5]) * [0.8, -0.2, 0.5]
-        Gℓ = basis.s .* ρℓ
-        Gℓ_magn = norm(Gℓ)
-        Giw = evaluate(smpl, Gℓ)
+        ρl = basis.v([-0.999, -0.01, 0.5]) * [0.8, -0.2, 0.5]
+        Gl = basis.s .* ρl
+        Gl_magn = norm(Gl)
+        @inferred evaluate(smpl, Gl)
+        @inferred evaluate(smpl, Gl, dim=1)
+        Giw = evaluate(smpl, Gl)
 
         noise = 1e-5
         Gwn_n = Giw + noise * norm(Giw) * randn(size(Giw)...)
-        Gℓ_n = fit(smpl, Gwn_n)
+        @inferred fit(smpl, Gwn_n)
+        @inferred fit(smpl, Gwn_n, dim=1)
+        Gl_n = fit(smpl, Gwn_n)
 
-        @test Gℓ ≈ Gℓ_n atol = 12 * noise * Gℓ_magn rtol = 0
+        @test Gl ≈ Gl_n atol = 12 * noise * Gl_magn rtol = 0
     end
 end
