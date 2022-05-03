@@ -233,7 +233,7 @@ function PiecewiseLegendrePolyArray(data, polys::PiecewiseLegendrePolyArray)
 end
 
 (polys::PiecewiseLegendrePolyArray)(x) = map(poly -> poly(x), polys)
-function (polys::PiecewiseLegendrePolyArray)(x::Array)
+function (polys::PiecewiseLegendrePolyArray)(x::AbstractArray)
     return reshape(reduce(vcat, polys.(x)), (size(polys)..., size(x)...))
 end
 
@@ -242,6 +242,8 @@ function Base.getproperty(polys::PiecewiseLegendrePolyArray, sym::Symbol)
         return getproperty(first(polys), sym)
     elseif sym == :symm
         return map(poly -> poly.symm, polys)
+        # elseif sym == :data
+        #     return cat((poly.data for poly in polys)...; dims=3)
     else
         error("Unknown property $sym")
     end
@@ -290,7 +292,6 @@ struct PiecewiseLegendreFT{T} <: Function
     ζ::Int
     n_asymp::T
 
-    # internal
     model::PowerModel{T}
 end
 
@@ -300,9 +301,19 @@ end
 
 const PiecewiseLegendreFTArray{T,N} = Array{PiecewiseLegendreFT{T},N}
 
-(polys::PiecewiseLegendreFTArray)(n) = map(poly -> poly(n), polys)
-function (polys::PiecewiseLegendreFTArray)(n::Array)
-    return reshape(reduce(vcat, polys.(n)), (size(polys)..., size(n)...))
+function Base.getproperty(polyFTs::PiecewiseLegendreFTArray, sym::Symbol)
+    if sym ∈ (:freq, :ζ, :n_asymp)
+        return getproperty(first(polyFTs), sym)
+    elseif sym == :poly
+        return map(poly -> poly.poly, polyFTs)
+    else
+        error("Unknown property $sym")
+    end
+end
+
+# (polyFTs::PiecewiseLegendreFTArray)(n) = map(poly -> poly(n), polyFTs)
+function (polyFTs::PiecewiseLegendreFTArray)(n::AbstractArray)
+    return reshape(reduce(vcat, polyFTs.(n)), (size(polyFTs)..., size(n)...))
 end
 
 function PiecewiseLegendreFT(poly, freq=:even, n_asymp=Inf, l=0)
@@ -317,40 +328,34 @@ end
 
 Obtain Fourier transform of polynomial for given frequency index `n`.
 """
-function (polyFT::PiecewiseLegendreFT)(n::Int)
+function (polyFT::Union{PiecewiseLegendreFT,PiecewiseLegendreFTArray})(n::Integer)
     n = check_reduced_matsubara(n, polyFT.ζ)
 
     if abs(n) < polyFT.n_asymp
         return _compute_unl_inner(polyFT.poly, n)
     else
-        return giw(polyFT.model, n)
+        return giw(polyFT, n)
     end
 end
-function (polyFT::PiecewiseLegendreFT)(ns::AbstractArray)
-    ns = check_reduced_matsubara.(ns, polyFT.ζ)
 
-    inner = map(n -> abs(n) < polyFT.n_asymp, ns)
-    _compute_unl_inner.(polyFT.poly, ns[inner])
-    giw.(polyFT.model, ns[.!inner])
-end
-
-# FIXME: This is slow, should be vectorized internally.
-(polyFT::PiecewiseLegendreFT)(n::Array) = polyFT.(n)
+(polyFT::PiecewiseLegendreFT)(n::AbstractArray) = polyFT.(n)
 
 """
-    giw(model::PowerModel, wn)
+    giw(polyFT, wn)
 
 Return model Green's function for reduced frequencies
 """
-function giw(model::PowerModel, wn::Integer)
-    T_result = promote_type(typeof(im), typeof(wn), eltype(model.moments))
-    result = zero(T_result)
-    inv_iw = (iszero(wn) ? identity : inv)(im * π / 2 * wn)
-    for mom in reverse(model.moments)
-        result += mom
-        result *= inv_iw
-    end
-    return result
+function giw(polyFT, wn::Integer)
+    iw = im * π / 2 * wn
+    iszero(wn) && return zero(inv_iw)
+    inv_iw = 1 / iw
+    return inv_iw * evalpoly(inv_iw, moments(polyFT))
+end
+
+moments(polyFT::PiecewiseLegendreFT) = polyFT.model.moments
+function moments(polyFTs::SparseIR.PiecewiseLegendreFTArray)
+    n = length(first(polyFTs).model.moments)
+    return [[p.model.moments[i] for p in polyFTs] for i in 1:n]
 end
 
 Base.firstindex(::PiecewiseLegendreFT) = 1
@@ -495,15 +500,20 @@ end
 
 Compute piecewise Legendre to Matsubara transform.
 """
-function _compute_unl_inner(poly, wn)
-    data_sc = poly.data ./ transpose(√2 * poly.norm)
+function _compute_unl_inner(poly::PiecewiseLegendrePoly, wn)
+    t_pin = _Pqn(poly, wn)
+    return dot(poly.data, transpose(t_pin))
+end
+function _compute_unl_inner(polys::PiecewiseLegendrePolyArray, wn)
+    t_pin = _Pqn(polys, wn)
+    return map(p -> dot(p.data, transpose(t_pin)), polys)
+end
 
-    p = range(0; length=poly.polyorder)
+function _Pqn(poly, wn)
+    p = transpose(range(0; length=poly.polyorder))
     wred = π / 2 * wn
     phase_wi = _phase_stable(poly, wn)
-    t_pin = _get_tnl.(p', wred * poly.dx / 2) .* phase_wi
-
-    return sum(transpose(t_pin) .* data_sc)
+    return _get_tnl.(p, wred .* poly.dx ./ 2) .* phase_wi ./ (√2 .* poly.norm)
 end
 
 """

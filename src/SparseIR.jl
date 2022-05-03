@@ -2,7 +2,7 @@
 module SparseIR
 
 using IntervalRootFinding: roots as roots_irf, Interval, isunique, interval, mid, Newton
-using LinearAlgebra: svd, SVD, QRIteration
+using LinearAlgebra: dot, svd, SVD, QRIteration
 using LowRankApprox: psvd
 using QuadGK: gauss, kronrod, quadgk
 using SpecialFunctions: sphericalbesselj as sphericalbesselj_sf

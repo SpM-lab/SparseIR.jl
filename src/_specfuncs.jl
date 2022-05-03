@@ -54,7 +54,7 @@ legvander(x, deg)
 
 Pseudo-Vandermonde matrix of degree `deg`.
 """
-function legvander(x::Array{T,N}, deg::Integer) where {T,N}
+function legvander(x::AbstractArray{T,N}, deg::Integer) where {T,N}
     deg ≥ 0 || throw(DomainError(deg, "legvander needs a non-negative degree"))
 
     # leading dimensions

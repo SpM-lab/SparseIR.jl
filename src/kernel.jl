@@ -52,7 +52,7 @@ end
 
 function LogisticKernel(Λ)
     Λ ≥ 0 || throw(DomainError(Λ, "Kernel cutoff Λ must be non-negative"))
-    LogisticKernel(float(Λ))
+    return LogisticKernel(float(Λ))
 end
 
 @doc raw"""
