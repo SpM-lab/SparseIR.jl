@@ -185,6 +185,8 @@ struct FiniteTempBasis{K,T} <: AbstractBasis
     uhat::PiecewiseLegendreFTArray{T}
 end
 
+const _DEFAULT_FINITE_TEMP_BASIS = FiniteTempBasis{LogisticKernel{Float64},Float64}
+
 function Base.show(io::IO, a::FiniteTempBasis)
     return print(
         io, "FiniteTempBasis: beta=$(beta(a)), statistics=$(statistics(a)), size=$(size(a))"

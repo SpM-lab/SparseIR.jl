@@ -6,6 +6,17 @@ using SparseIR
         β = 2.0
         wmax = 5.0
         ε = 1e-5
+        basis_f, basis_b = finite_temp_bases(β, wmax, ε)
+        bs = FiniteTempBasisSet(β, wmax, ε)
+
+        @test length(bs.basis_f) == length(basis_f)
+        @test length(bs.basis_b) == length(basis_b)
+    end
+
+    @testset "consistency2" begin
+        β = 2.0
+        wmax = 5.0
+        ε = 1e-5
 
         sve_result = sve_logistic[β * wmax]
         basis_f, basis_b = finite_temp_bases(β, wmax, ε, sve_result)

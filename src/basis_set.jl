@@ -21,12 +21,12 @@ and associated sparse-sampling objects.
 - sve_result::Tuple{PiecewiseLegendrePoly,Vector{Float64},PiecewiseLegendrePoly}: Results of SVE
 """
 struct FiniteTempBasisSet
-    basis_f::FiniteTempBasis
-    basis_b::FiniteTempBasis
-    smpl_tau_f::TauSampling
-    smpl_tau_b::TauSampling
-    smpl_wn_f::MatsubaraSampling
-    smpl_wn_b::MatsubaraSampling
+    basis_f::_DEFAULT_FINITE_TEMP_BASIS
+    basis_b::_DEFAULT_FINITE_TEMP_BASIS
+    smpl_tau_f::TauSampling{Float64,_DEFAULT_FINITE_TEMP_BASIS,Float64,Float64}
+    smpl_tau_b::TauSampling{Float64,_DEFAULT_FINITE_TEMP_BASIS,Float64,Float64}
+    smpl_wn_f::MatsubaraSampling{Int64,_DEFAULT_FINITE_TEMP_BASIS,ComplexF64,Float64}
+    smpl_wn_b::MatsubaraSampling{Int64,_DEFAULT_FINITE_TEMP_BASIS,ComplexF64,Float64}
 end
 
 """
@@ -56,12 +56,11 @@ function FiniteTempBasisSet(beta, wmax, eps; sve_result=nothing)
     )
 end
 
+beta(bset::FiniteTempBasisSet) = beta(bset.basis_f)
+wmax(bset::FiniteTempBasisSet) = wmax(bset.basis_f)
+
 function Base.getproperty(bset::FiniteTempBasisSet, d::Symbol)
-    if d === :beta
-        return getfield(bset, :basis_f).beta
-    elseif d === :wmax
-        return getfield(bset, :basis_f).wmax
-    elseif d === :tau
+    if d === :tau
         return getfield(bset, :smpl_tau_f).sampling_points
     elseif d === :wn_f
         return getfield(bset, :smpl_wn_f).sampling_points
@@ -76,12 +75,14 @@ end
 
 function Base.propertynames(::FiniteTempBasisSet, private::Bool=false)
     return (
-        :beta,
-        :wmax,
         :tau,
         :wn_f,
         :wn_b,
         :sve_result,
         propertynames(FiniteTempBasisSet, private)...,
     )
+end
+
+function Base.show(io::IO, b::FiniteTempBasisSet)
+    return print(io, "FiniteTempBasisSet: beta=$(beta(b)), wmax=$(wmax(b))")
 end
