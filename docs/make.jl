@@ -12,3 +12,8 @@ makedocs(;
                                 prettyurls=get(ENV, "CI", "false") == "true",
                                 assets=String[]),
          pages=["Home" => "index.md"])
+
+deploydocs(
+    repo = "github.com/SpM-lab/SparseIR.jl.git"
+)
+
