@@ -206,16 +206,16 @@ function FiniteTempBasis(
     kernel=LogisticKernel(β * wmax),
     sve_result=compute_sve(kernel; ε),
 ) where {T}
-    # β > 0 || throw(DomainError(β, "Inverse temperature β must be positive"))
-    # wmax ≥ 0 || throw(DomainError(wmax, "Frequency cutoff wmax must be non-negative"))
-    # if isnothing(ε) && isnothing(sve_result) && !_HAVE_XPREC
-    #     @warn """No extended precision is being used.
-    #     Expect single precision (1.5e-8) only as both cutoff
-    #     and accuracy of the basis functions."""
-    # end
+    β > 0 || throw(DomainError(β, "Inverse temperature β must be positive"))
+    wmax ≥ 0 || throw(DomainError(wmax, "Frequency cutoff wmax must be non-negative"))
+    if isnothing(ε) && isnothing(sve_result) && !_HAVE_XPREC
+        @warn """No extended precision is being used.
+        Expect single precision (1.5e-8) only as both cutoff
+        and accuracy of the basis functions."""
+    end
 
     u, s, v = sve_result
-    # size(u) == size(s) == size(v) || throw(DimensionMismatch("Mismatched shapes in SVE"))
+    size(u) == size(s) == size(v) || throw(DimensionMismatch("Mismatched shapes in SVE"))
 
     # The polynomials are scaled to the new variables by transforming the
     # knots according to: tau = beta/2 * (x + 1), w = wmax * y.  Scaling

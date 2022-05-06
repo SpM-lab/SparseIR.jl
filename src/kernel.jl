@@ -415,7 +415,7 @@ function (kernel::LogisticKernelOdd)(
     v_half = kernel.inner.Λ / 2 * y
     xy_small = x * v_half < 1
     cosh_finite = v_half < 85
-    return xy_small && cosh_finite ? -sinh(v_half * x) / cosh(v_half) : result
+    return (xy_small && cosh_finite) ? -sinh(v_half * x) / cosh(v_half) : result
 end
 
 function (kernel::RegularizedBoseKernelOdd)(
@@ -485,7 +485,6 @@ end
 
 Gauss-Legendre order to use to guarantee accuracy.
 """
-function ngauss end
 ngauss(hints::SVEHintsLogistic) = hints.ε ≥ 1e-8 ? 10 : 16
 ngauss(hints::SVEHintsRegularizedBose) = hints.ε ≥ 1e-8 ? 10 : 16
 ngauss(hints::SVEHintsReduced) = ngauss(hints.inner_hints)
@@ -506,10 +505,10 @@ Convergence radius of the Matsubara basis asymptotic model.
 
 For improved relative numerical accuracy, the IR basis functions on the
 Matsubara axis `uhat(basis, n)` can be evaluated from an asymptotic
-expression for `abs(n) > conv_radius`.  If `isnothing(conv_radius)`, then 
+expression for `abs(n) > conv_radius`.  If `isinf(conv_radius)`, then 
 the asymptotics are unused (the default).
 """
-conv_radius(::AbstractKernel) = nothing
+conv_radius(::AbstractKernel) = Inf
 conv_radius(kernel::LogisticKernel) = 40 * kernel.Λ
 conv_radius(kernel::RegularizedBoseKernel) = 40 * kernel.Λ
 conv_radius(kernel::AbstractReducedKernel) = conv_radius(kernel.inner)

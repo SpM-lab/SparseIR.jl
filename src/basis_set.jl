@@ -25,8 +25,8 @@ struct FiniteTempBasisSet
     basis_b::_DEFAULT_FINITE_TEMP_BASIS
     smpl_tau_f::TauSampling{Float64,_DEFAULT_FINITE_TEMP_BASIS,Float64,Float64}
     smpl_tau_b::TauSampling{Float64,_DEFAULT_FINITE_TEMP_BASIS,Float64,Float64}
-    smpl_wn_f::MatsubaraSampling{Int64,_DEFAULT_FINITE_TEMP_BASIS,ComplexF64,Float64}
-    smpl_wn_b::MatsubaraSampling{Int64,_DEFAULT_FINITE_TEMP_BASIS,ComplexF64,Float64}
+    smpl_wn_f::MatsubaraSampling{Int,_DEFAULT_FINITE_TEMP_BASIS,ComplexF64,Float64}
+    smpl_wn_b::MatsubaraSampling{Int,_DEFAULT_FINITE_TEMP_BASIS,ComplexF64,Float64}
 end
 
 """
@@ -74,13 +74,7 @@ function Base.getproperty(bset::FiniteTempBasisSet, d::Symbol)
 end
 
 function Base.propertynames(::FiniteTempBasisSet, private::Bool=false)
-    return (
-        :tau,
-        :wn_f,
-        :wn_b,
-        :sve_result,
-        propertynames(FiniteTempBasisSet, private)...,
-    )
+    return (:tau, :wn_f, :wn_b, :sve_result, propertynames(FiniteTempBasisSet, private)...)
 end
 
 function Base.show(io::IO, b::FiniteTempBasisSet)

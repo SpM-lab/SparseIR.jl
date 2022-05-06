@@ -18,7 +18,6 @@ struct PiecewiseLegendrePoly{T} <: Function
     data::Matrix{T}
     symm::Int
 
-    # internal
     xm::Vector{T}
     inv_xs::Vector{T}
     norm::Vector{T}
@@ -158,7 +157,7 @@ function roots(poly::PiecewiseLegendrePoly{T}; tol=1e-11) where {T}
         isapprox(rts[i], rts[i - 1]; atol=10tol, rtol=0) && push!(duplicates, i)
     end
     deleteat!(rts, duplicates)
-    !isempty(duplicates) && @warn "Duplicate roots found, removing them..."
+    !isempty(duplicates) && @warn "Duplicate roots found, consolidating them..."
 
     return rts
 end
@@ -299,6 +298,13 @@ function Base.show(io::IO, p::PiecewiseLegendreFT)
     return print(io, "$(typeof(p))")
 end
 
+function PiecewiseLegendreFT(poly, freq=:even, n_asymp=Inf, l=0)
+    (poly.xmin, poly.xmax) == (-1, 1) || error("Only interval [-1, 1] is supported")
+    ζ = Dict(:even => 0, :odd => 1)[freq]
+    model = power_model(freq, poly, l)
+    return PiecewiseLegendreFT(poly, freq, ζ, float(n_asymp), model)
+end
+
 const PiecewiseLegendreFTArray{T,N} = Array{PiecewiseLegendreFT{T},N}
 
 function Base.getproperty(polyFTs::PiecewiseLegendreFTArray, sym::Symbol)
@@ -309,18 +315,6 @@ function Base.getproperty(polyFTs::PiecewiseLegendreFTArray, sym::Symbol)
     else
         error("Unknown property $sym")
     end
-end
-
-# (polyFTs::PiecewiseLegendreFTArray)(n) = map(poly -> poly(n), polyFTs)
-function (polyFTs::PiecewiseLegendreFTArray)(n::AbstractArray)
-    return reshape(reduce(vcat, polyFTs.(n)), (size(polyFTs)..., size(n)...))
-end
-
-function PiecewiseLegendreFT(poly, freq=:even, n_asymp=Inf, l=0)
-    (poly.xmin, poly.xmax) == (-1, 1) || error("Only interval [-1, 1] is supported")
-    ζ = Dict(:even => 0, :odd => 1)[freq]
-    model = power_model(freq, poly, l)
-    return PiecewiseLegendreFT(poly, freq, ζ, float(n_asymp), model)
 end
 
 """
@@ -339,6 +333,9 @@ function (polyFT::Union{PiecewiseLegendreFT,PiecewiseLegendreFTArray})(n::Intege
 end
 
 (polyFT::PiecewiseLegendreFT)(n::AbstractArray) = polyFT.(n)
+function (polyFTs::PiecewiseLegendreFTArray)(n::AbstractArray)
+    return reshape(reduce(vcat, polyFTs.(n)), (size(polyFTs)..., size(n)...))
+end
 
 """
     giw(polyFT, wn)
@@ -353,7 +350,7 @@ function giw(polyFT, wn::Integer)
 end
 
 moments(polyFT::PiecewiseLegendreFT) = polyFT.model.moments
-function moments(polyFTs::SparseIR.PiecewiseLegendreFTArray)
+function moments(polyFTs::PiecewiseLegendreFTArray)
     n = length(first(polyFTs).model.moments)
     return [[p.model.moments[i] for p in polyFTs] for i in 1:n]
 end

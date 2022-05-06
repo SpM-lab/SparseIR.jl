@@ -9,9 +9,9 @@ function sphericalbesselj(n::Integer, x::T) where {T<:AbstractFloat}
     if n > 0 && n ≥ x
         # We don't use SpecialFunctions.sphericalbesselj directly because it errors out on large x
         return T(sphericalbesselj_sf(n, x))
+    else
+        return _sphericalbesselj(n, x)
     end
-
-    return _sphericalbesselj(n, x)
 end
 
 function _sphericalbesselj(n::Integer, x::T) where {T<:AbstractFloat}
@@ -27,8 +27,6 @@ function _sphericalbesselj(n::Integer, x::T) where {T<:AbstractFloat}
         sn = (2idx - 1) * invx * s1 - s0
         s0 = s1
         s1 = sn
-        # Overflow occurred already: terminate recurrence.
-        isnan(sn) && return sn
     end
     return sn
 end

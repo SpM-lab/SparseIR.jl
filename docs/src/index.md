@@ -4,7 +4,7 @@ CurrentModule = SparseIR
 
 # SparseIR
 
-Documentation for [SparseIR](https://github.com/Samuel3008/SparseIR.jl).
+Documentation for [SparseIR](https://github.com/SpM-lab/SparseIR.jl).
 
 ```@index
 ```

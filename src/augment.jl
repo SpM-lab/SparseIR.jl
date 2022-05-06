@@ -67,7 +67,7 @@ struct _ConstTerm{T<:Number}
     value::T
 end
 
-(ct::_ConstTerm)(n::Vector{<:Integer}) = fill(ct.value, (1, length(n)))
+(ct::_ConstTerm)(n::AbstractVector{<:Integer}) = fill(ct.value, (1, length(n)))
 (ct::_ConstTerm)(n::Integer) = ct([n])
 
 """

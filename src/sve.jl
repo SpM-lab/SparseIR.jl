@@ -30,7 +30,6 @@ struct SamplingSVE{K<:AbstractKernel} <: AbstractSVE
     n_gauss::Int
     nsvals_hint::Int
 
-    # internal
     rule::Rule{Float64}
     segs_x::Vector{Float64}
     segs_y::Vector{Float64}
@@ -40,12 +39,11 @@ struct SamplingSVE{K<:AbstractKernel} <: AbstractSVE
     sqrtw_y::Vector{Float64}
 end
 
-function SamplingSVE(kernel, ε; n_gauss=nothing, T=Float64)
+function SamplingSVE(kernel, ε; n_gauss=-1, T=Float64)
     sve_hints_ = sve_hints(kernel, ε)
-    isnothing(n_gauss) && (n_gauss = ngauss(sve_hints_))
+    n_gauss = (n_gauss < 0) ? ngauss(sve_hints_) : n_gauss
     rule = legendre(n_gauss, T)
-    segs_x, segs_y = convert(Vector{T}, segments_x(sve_hints_)),
-    convert(Vector{T}, segments_y(sve_hints_))
+    segs_x, segs_y = T.(segments_x(sve_hints_)), T.(segments_y(sve_hints_))
     gauss_x, gauss_y = piecewise(rule, segs_x), piecewise(rule, segs_y)
 
     return SamplingSVE(
@@ -151,27 +149,25 @@ function compute_sve(
     kernel::AbstractKernel;
     ε=nothing,
     n_sv=typemax(Int),
-    n_gauss=nothing,
-    T=Float64,
+    n_gauss=-1,
+    T::Type{X}=Float64,
     Twork=nothing,
-    sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE,
-    svd_strat=:default,
-)::Tuple{PiecewiseLegendrePolyArray{T,1},Vector{T},PiecewiseLegendrePolyArray{T,1}}
+    sve_strat::Type{Y}=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE,
+    svd_strat::Symbol=:default,
+)::Tuple{
+    PiecewiseLegendrePolyArray{X,1},Vector{X},PiecewiseLegendrePolyArray{X,1}
+} where {X,Y}
+    #
     if isnothing(ε) || isnothing(Twork) || isnothing(svd_strat)
         ε, Twork, default_svd_strat = _choose_accuracy(ε, Twork)
     end
-    if svd_strat == :default
-        svd_strat = default_svd_strat
-    end
+    svd_strat = (svd_strat == :default) ? default_svd_strat : svd_strat
 
     sve = sve_strat(kernel, ε; n_gauss, T=Twork)
-    svds = [
-        compute_svd(matrix; n_sv_hint=sve.nsvals_hint, strategy=svd_strat) for
-        matrix in matrices(sve)
-    ]
-    u, s, v = zip(svds...)
-    u, s, v = truncate(u, s, v, ε, n_sv)
-    return postprocess(sve, u, s, v, T)
+    svds = compute_svd.(matrices(sve); n_sv_hint=sve.nsvals_hint, strategy=svd_strat)
+    u_, s_, v_ = zip(svds...)
+    u, s, v = truncate(u_, s_, v_, ε, n_sv)
+    return postprocess(sve, u, s, v, X)
 end
 
 """
@@ -192,7 +188,7 @@ matrices(sve::CentrosymmSVE) = (only(matrices(sve.even)), only(matrices(sve.odd)
 
 Construct the SVE result from the SVD.
 """
-function postprocess(sve::SamplingSVE, u, s, v, T=nothing)
+function postprocess(sve::SamplingSVE, u, s, v, T::Union{Type{X},Nothing}=nothing) where {X}
     isnothing(T) && (T = promote_type(eltype(u), eltype(s), eltype(v)))
 
     s = T.(s)
@@ -200,7 +196,7 @@ function postprocess(sve::SamplingSVE, u, s, v, T=nothing)
     v_y = v ./ sve.sqrtw_y
 
     # TODO: Surely this can be done much more elegantly.
-    # As is it feels prety much unmaintenable
+    # As is it feels pretty much unmaintainable
     u_x = permutedims(
         reshape(permutedims(u_x), (length(s), sve.n_gauss, length(sve.segs_x) - 1)),
         (2, 3, 1),
@@ -230,7 +226,7 @@ function postprocess(sve::SamplingSVE, u, s, v, T=nothing)
     return ulx, s, vly
 end
 
-function postprocess(sve::CentrosymmSVE, u, s, v, T)
+function postprocess(sve::CentrosymmSVE, u, s, v, ::Type{T}) where {T}
     u_even, s_even, v_even = postprocess(sve.even, u[1], s[1], v[1], T)
     u_odd, s_odd, v_odd = postprocess(sve.odd, u[2], s[2], v[2], T)
 
