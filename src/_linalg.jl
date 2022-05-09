@@ -1,0 +1,192 @@
+module _LinAlg
+
+import LinearAlgebra
+export svd2x2, svd_jacobi, svd_jacobi!
+
+"""
+Compute Givens rotation `R` matrix that satisfies:
+
+    [  c  s ] [ f ]     [ r ]
+    [ -s  c ] [ g ]  =  [ 0 ]
+"""
+function givens_params(f::T, g::T) where T <: AbstractFloat
+    # ACM Trans. Math. Softw. 28(2), 206, Alg 1
+    if iszero(g)
+        c, s = one(T), zero(T)
+        r = f
+    elseif iszero(f)
+        c, s = zero(T), T(signbit(g))
+        r = abs(g)
+    else
+        r = copysign(hypot(f, g), f)
+        c = f / r
+        s = g / r
+    end
+    return (c, s), r
+end
+
+"""
+Apply Givens rotation to vector:
+
+      [ a ]  =  [  c   s ] [ x ]
+      [ b ]     [ -s   c ] [ y ]
+"""
+function givens_lmul((c, s)::Tuple{T, T}, (x, y)) where T
+    a = c * x + s * y
+    b = c * y - s * x
+    return a, b
+end
+
+"""
+Perform the SVD of upper triangular two-by-two matrix:
+
+      [ f    g   ]  =  [  cu  -su ] [ smax     0 ] [  cv   sv ]
+      [ 0    h   ]     [  su   cu ] [    0  smin ] [ -sv   cv ]
+
+Note that smax and smin can be negative.
+"""
+function svd2x2(f::T, g::T, h::T) where T <: AbstractFloat
+    # Code taken from LAPACK xSLAV2:
+    fa = abs(f)
+    ga = abs(g)
+    ha = abs(h)
+    if fa < ha
+        # switch h <-> f, cu <-> sv, cv <-> su
+        (sv, cv), (smax, smin), (su, cu) = svd2x2(h, g, f)
+    elseif iszero(ga)
+        # already diagonal, fa > ha
+        smax, smin = fa, ha
+        cv, sv = cu, su = one(T), zero(T)
+    elseif fa < eps(T) * ga
+        # ga is very large
+        smax = ga
+        if ha > one(T)
+            smin = fa / (ga / ha)
+        else
+            smin = (fa / ga) * ha
+        end
+        cv, sv = one(T), f / g
+        cu, su = one(T), h / g
+    else
+        # normal case
+        fmh = fa - ha
+        d = fmh / fa
+        q = g / f
+        s = T(2) - d
+        spq = hypot(q, s)
+        dpq = hypot(d, q)
+        a = (spq + dpq) / T(2)
+        smax, smin = abs(fa * a), abs(ha / a)
+        
+        tmp = (q / (spq + s) + q / (dpq + d)) * (one(T) + a)
+        tt = hypot(tmp, T(2))
+        cv = T(2) / tt
+        sv = tmp / tt
+        cu = (cv + sv * q) / a
+        su = ((h / f) * sv) / a
+    end
+    return (cu, su), (smax, smin), (cv, sv)    
+end
+
+"""
+Perform the SVD of an arbitrary two-by-two matrix:
+
+      [ a11  a12 ]  =  [  cu  -su ] [ smax     0 ] [  cv   sv ]
+      [ a21  a22 ]     [  su   cu ] [    0  smin ] [ -sv   cv ]
+
+Note that smax and smin can be negative.
+"""
+function svd2x2(a11::T, a12::T, a21::T, a22::T) where T
+    abs_a12 = abs(a12)
+    abs_a21 = abs(a21)
+    if iszero(a21)
+        # upper triangular case
+        (cu, su), (smax, smin), (cv, sv) = svd2x2(a11, a12, a22)    
+    elseif abs_a12 > abs_a21
+        # closer to lower triangular - transpose matrix
+        (cv, sv), (smax, smin), (cu, su) = svd2x2(a11, a21, a12, a22)
+    else
+        # First, we use a givens rotation  Rx
+        # [  cx   sx ] [ a11  a12 ] = [ rx  a12' ]
+        # [ -sx   cx ] [ a21  a22 ]   [ 0   a22' ]
+        (cx, sx), rx = givens_params(a11, a21)
+        a11, a21 = rx, zero(rx)
+        a12, a22 = givens_lmul((cx, sx), (a12, a22))
+        
+        # Next, use the triangular routine
+        # [ f  g ]  =  [  cu  -su ] [ smax     0 ] [  cv   sv ]
+        # [ 0  h ]     [  su   cu ] [    0  smin ] [ -sv   cv ]
+        (cu, su), (smax, smin), (cv, sv) = svd2x2(a11, a12, a22)
+        
+        # Finally, update the LHS (U) transform as follows:
+        # [  cx  -sx ] [  cu  -su ] = [  cu'  -su' ]
+        # [  sx   cx ] [  su   cu ]   [  su'   cu' ]
+        cu, su = givens_lmul((cx, -sx), (cu, su))
+    end
+    return (cu, su), (smax, smin), (cv, sv)
+end
+
+function jacobi_sweep!(U::AbstractMatrix, VT::AbstractMatrix)
+    ii, jj = size(U)
+    if ii < jj
+        throw(ArgumentError("matrix must be 'tall'"))
+    elseif size(VT, 1) != jj
+        throw(ArgumentError("U and VT must be compatible")) 
+    end
+    
+    # TODO: non-traditional indexing
+    offd = zero(eltype(U))
+    for i in 1:ii
+        for j in i+1:jj
+            # Construct the 2x2 matrix to be diagonalized
+            Hii = Hij = Hjj = zero(eltype(U))
+            for k in 1:ii
+                Hii += abs2(U[k, i])
+                Hij += U[k, i] * U[k, j]
+                Hjj += abs2(U[k, j])
+            end
+            offd += abs2(Hij)
+                
+            # diagonalize
+            (_, _), (_, _), (cv, sv) = svd2x2(Hii, Hij, Hij, Hjj)
+
+            # apply rotation to VT
+            rot = LinearAlgebra.Givens(i, j, cv, sv)
+            LinearAlgebra.lmul!(rot, VT)
+            LinearAlgebra.rmul!(U, adjoint(rot))
+        end
+    end
+    return sqrt(offd)
+end
+
+function svd_jacobi!(U::AbstractMatrix{T}; rtol=eps(T), maxiter=20) where T
+    m, n = size(U)
+    if m < n
+        throw(ArgumentError("matrix must be 'tall'"))
+    end
+    
+    # TODO: non-traditional indexing
+    VT = Matrix(one(T) * LinearAlgebra.I, n, n)
+    Unorm = LinearAlgebra.norm(@view U[1:n, 1:n])
+    for _ in 1:maxiter
+        offd = jacobi_sweep!(U, VT)
+        if offd < rtol * Unorm
+            break
+        end
+    end
+    
+    s = Vector{T}(undef, n)
+    for i in 1:n
+        s[i] = LinearAlgebra.norm(@view U[:, i])
+        # For some reason, U[:,i] ./= s[i] creates a copy
+        for j in axes(U, 1)
+            U[j, i] /= s[i]
+        end
+    end
+    return LinearAlgebra.SVD(U, s, VT)
+end
+
+svd_jacobi(U::AbstractMatrix{T}; rtol=eps(T), maxiter=20) where T =
+    svd_jacobi!(copy(U); rtol=rtol, maxiter=maxiter)
+
+end # module _LinAlg
