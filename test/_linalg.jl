@@ -15,9 +15,10 @@ end
 @testset "rrqr" begin
     A = randn(40, 30)
     A_eps = LinearAlgebra.norm(A) * eps(eltype(A))
-    A_qr = rrqr(A)
+    A_qr, A_rank = rrqr(A)
     A_rec = A_qr.Q * A_qr.R * A_qr.P'
     @test isapprox(A_rec, A; rtol=0, atol=4 * A_eps)
+    @test A_rank == 30
 end
 
 end

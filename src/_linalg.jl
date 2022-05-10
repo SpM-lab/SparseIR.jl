@@ -233,8 +233,17 @@ function rrqr!(A::AbstractMatrix{T}; rtol=eps(T)) where T <: AbstractFloat
                 pnorms[j] = pnorms[j] * sqrt(temp)
             end
         end
+
+        # Since we did pivoting, R[i,:] is bounded by R[i,i], so we can
+        # simply ignore all the other rows
+        if abs(A[i, i]) < rtol * abs(A[1, 1])
+            A[i:end, i:end] .= zero(T)
+            taus[i:end] .= zero(T)
+            k = i - 1
+            break
+        end
     end
-    return LinearAlgebra.QRPivoted{T, typeof(A)}(A, taus, jpvt)
+    return LinearAlgebra.QRPivoted{T, typeof(A)}(A, taus, jpvt), k
 end
 
 rrqr(A::AbstractMatrix{T}; rtol=eps(T)) where T <: AbstractFloat =
