@@ -1,7 +1,7 @@
 module _LinAlg
 
 import LinearAlgebra
-export svd2x2, svd_jacobi, svd_jacobi!
+export svd_jacobi, svd_jacobi!, rrqr, rrqr!
 
 """
 Compute Givens rotation `R` matrix that satisfies:
@@ -77,7 +77,7 @@ function svd2x2(f::T, g::T, h::T) where T <: AbstractFloat
         dpq = hypot(d, q)
         a = (spq + dpq) / T(2)
         smax, smin = abs(fa * a), abs(ha / a)
-        
+
         tmp = (q / (spq + s) + q / (dpq + d)) * (one(T) + a)
         tt = hypot(tmp, T(2))
         cv = T(2) / tt
@@ -85,7 +85,7 @@ function svd2x2(f::T, g::T, h::T) where T <: AbstractFloat
         cu = (cv + sv * q) / a
         su = ((h / f) * sv) / a
     end
-    return (cu, su), (smax, smin), (cv, sv)    
+    return (cu, su), (smax, smin), (cv, sv)
 end
 
 """
@@ -101,7 +101,7 @@ function svd2x2(a11::T, a12::T, a21::T, a22::T) where T
     abs_a21 = abs(a21)
     if iszero(a21)
         # upper triangular case
-        (cu, su), (smax, smin), (cv, sv) = svd2x2(a11, a12, a22)    
+        (cu, su), (smax, smin), (cv, sv) = svd2x2(a11, a12, a22)
     elseif abs_a12 > abs_a21
         # closer to lower triangular - transpose matrix
         (cv, sv), (smax, smin), (cu, su) = svd2x2(a11, a21, a12, a22)
@@ -112,12 +112,12 @@ function svd2x2(a11::T, a12::T, a21::T, a22::T) where T
         (cx, sx), rx = givens_params(a11, a21)
         a11, a21 = rx, zero(rx)
         a12, a22 = givens_lmul((cx, sx), (a12, a22))
-        
+
         # Next, use the triangular routine
         # [ f  g ]  =  [  cu  -su ] [ smax     0 ] [  cv   sv ]
         # [ 0  h ]     [  su   cu ] [    0  smin ] [ -sv   cv ]
         (cu, su), (smax, smin), (cv, sv) = svd2x2(a11, a12, a22)
-        
+
         # Finally, update the LHS (U) transform as follows:
         # [  cx  -sx ] [  cu  -su ] = [  cu'  -su' ]
         # [  sx   cx ] [  su   cu ]   [  su'   cu' ]
@@ -131,9 +131,9 @@ function jacobi_sweep!(U::AbstractMatrix, VT::AbstractMatrix)
     if ii < jj
         throw(ArgumentError("matrix must be 'tall'"))
     elseif size(VT, 1) != jj
-        throw(ArgumentError("U and VT must be compatible")) 
+        throw(ArgumentError("U and VT must be compatible"))
     end
-    
+
     # TODO: non-traditional indexing
     offd = zero(eltype(U))
     for i in 1:ii
@@ -146,7 +146,7 @@ function jacobi_sweep!(U::AbstractMatrix, VT::AbstractMatrix)
                 Hjj += abs2(U[k, j])
             end
             offd += abs2(Hij)
-                
+
             # diagonalize
             (_, _), (_, _), (cv, sv) = svd2x2(Hii, Hij, Hij, Hjj)
 
@@ -164,7 +164,7 @@ function svd_jacobi!(U::AbstractMatrix{T}; rtol=eps(T), maxiter=20) where T
     if m < n
         throw(ArgumentError("matrix must be 'tall'"))
     end
-    
+
     # TODO: non-traditional indexing
     VT = Matrix(one(T) * LinearAlgebra.I, n, n)
     Unorm = LinearAlgebra.norm(@view U[1:n, 1:n])
@@ -174,7 +174,7 @@ function svd_jacobi!(U::AbstractMatrix{T}; rtol=eps(T), maxiter=20) where T
             break
         end
     end
-    
+
     s = Vector{T}(undef, n)
     for i in 1:n
         s[i] = LinearAlgebra.norm(@view U[:, i])
@@ -188,5 +188,56 @@ end
 
 svd_jacobi(U::AbstractMatrix{T}; rtol=eps(T), maxiter=20) where T =
     svd_jacobi!(copy(U); rtol=rtol, maxiter=maxiter)
+
+
+function rrqr!(A::AbstractMatrix{T}; rtol=eps(T)) where T <: AbstractFloat
+    # DGEQPF
+    m, n = size(A)
+    k = min(m, n)
+
+    jpvt = Vector(1:n)
+    taus = Vector{T}(undef, k)
+    swapcol = Vector{T}(undef, m)
+
+    xnorms = map(LinearAlgebra.norm, eachcol(A))
+    pnorms = copy(xnorms)
+    sqrteps = sqrt(eps(T))
+
+    for i in 1:k
+        pvt = argmax(@view pnorms[i:end]) + i - 1
+        if i != pvt
+            jpvt[i], jpvt[pvt] = jpvt[pvt], jpvt[i]
+            xnorms[pvt] = xnorms[i]
+            pnorms[pvt] = pnorms[i]
+
+            copy!(swapcol, @view A[:,i])
+            copy!(@view(A[:,i]), @view A[:,pvt])
+            copy!(@view(A[:,pvt]), swapcol)
+        end
+
+        tau_i = LinearAlgebra.reflector!(@view A[i:end, i])
+        taus[i] = tau_i
+        LinearAlgebra.reflectorApply!(
+            @view(A[i:end, i]), tau_i, @view A[i:end, i+1:end])
+
+        # Lapack Working Note 176.
+        for j in i+1:n
+            temp = abs(A[i,j]) / pnorms[j]
+            temp = max(zero(T), (one(T) + temp) * (one(T) - temp))
+            temp2 = temp * abs2(pnorms[j] / xnorms[j])
+            if temp2 < sqrteps
+                recomputed = LinearAlgebra.norm(@view A[i+1:end, j])
+                pnorms[j] = recomputed
+                xnorms[j] = recomputed
+            else
+                pnorms[j] = pnorms[j] * sqrt(temp)
+            end
+        end
+    end
+    return LinearAlgebra.QRPivoted{T, typeof(A)}(A, taus, jpvt)
+end
+
+rrqr(A::AbstractMatrix{T}; rtol=eps(T)) where T <: AbstractFloat =
+    rrqr!(copy(A); rtol=rtol)
 
 end # module _LinAlg
