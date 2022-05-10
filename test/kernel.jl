@@ -30,4 +30,9 @@ using SparseIR
         reldiff = @. ifelse(abs(result) < tiny, 1, result / result_x)
         @test all(isapprox.(reldiff, 1, atol=100ϵ, rtol=0))
     end
+
+    @testset "singularity with Λ = $Λ" for Λ in (10, 42, 10_000), x in 2rand(10) .- 1
+        K = RegularizedBoseKernel(Λ)
+        @test K(x, 0.0) ≈ 1 / Λ
+    end
 end

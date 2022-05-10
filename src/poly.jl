@@ -14,7 +14,7 @@ struct PiecewiseLegendrePoly{T} <: Function
     xmax::T
 
     knots::Vector{T}
-    dx::Vector{T}
+    Δx::Vector{T}
     data::Matrix{T}
     symm::Int
 
@@ -23,14 +23,14 @@ struct PiecewiseLegendrePoly{T} <: Function
     norm::Vector{T}
 
     function PiecewiseLegendrePoly(
-        nsegments, polyorder, xmin, xmax, knots, dx, data, symm, xm, inv_xs, norm
+        nsegments, polyorder, xmin, xmax, knots, Δx, data, symm, xm, inv_xs, norm
     )
         !any(isnan, data) || error("data contains NaN")
         size(knots) == (nsegments + 1,) || error("Invalid knots array")
         issorted(knots) || error("knots must be monotonically increasing")
-        dx ≈ diff(knots) || error("dx must work with knots")
+        Δx ≈ diff(knots) || error("Δx must work with knots")
         return new{eltype(knots)}(
-            nsegments, polyorder, xmin, xmax, knots, dx, data, symm, xm, inv_xs, norm
+            nsegments, polyorder, xmin, xmax, knots, Δx, data, symm, xm, inv_xs, norm
         )
     end
 end
@@ -42,7 +42,7 @@ function PiecewiseLegendrePoly(data, p::PiecewiseLegendrePoly; symm=0)
         p.xmin,
         p.xmax,
         p.knots,
-        p.dx,
+        p.Δx,
         data,
         symm,
         p.xm,
@@ -51,10 +51,10 @@ function PiecewiseLegendrePoly(data, p::PiecewiseLegendrePoly; symm=0)
     )
 end
 
-function PiecewiseLegendrePoly(data::Matrix, knots::Vector; dx=diff(knots), symm=0)
+function PiecewiseLegendrePoly(data::Matrix, knots::Vector; Δx=diff(knots), symm=0)
     polyorder, nsegments = size(data)
     xm = @views (knots[1:(end - 1)] + knots[2:end]) / 2
-    inv_xs = 2 ./ dx
+    inv_xs = 2 ./ Δx
     norm = sqrt.(inv_xs)
 
     return PiecewiseLegendrePoly(
@@ -63,7 +63,7 @@ function PiecewiseLegendrePoly(data::Matrix, knots::Vector; dx=diff(knots), symm
         first(knots),
         last(knots),
         knots,
-        dx,
+        Δx,
         data,
         symm,
         xm,
@@ -90,7 +90,7 @@ function _evaluate(poly::PiecewiseLegendrePoly, xs::AbstractVector)
 end
 
 """
-    overlap(poly::PiecewiseLegendrePoly, f::Function)
+    overlap(poly::PiecewiseLegendrePoly, f)
 
 Evaluate overlap integral of `poly` with arbitrary function `f`.
 
@@ -100,20 +100,15 @@ Given the function `f`, evaluate the integral::
 
 using adaptive Gauss-Legendre quadrature.
 """
-function overlap(poly::PiecewiseLegendrePoly, f; rtol=2.3e-16, return_error=false)
-    int_result, int_error = quadgk(
-        x -> poly(x) * f(x), poly.knots...; rtol, order=10, maxevals=10^4
-    )
+function overlap(
+    poly::PiecewiseLegendrePoly{T}, f; rtol=eps(T), return_error=false, maxevals=10^4
+) where {T}
+    int_result, int_error = quadgk(x -> poly(x) * f(x), poly.knots...; rtol, order=10, maxevals)
     if return_error
         return int_result, int_error
     else
         return int_result
     end
-end
-
-# Backward compatibility
-function overlap(polys::Vector{PiecewiseLegendrePoly}, f; rtol=2.3e-16, return_error=false)
-    return overlap.(polys, f, rtol=rtol, return_error=return_err)
 end
 
 """
@@ -184,7 +179,7 @@ function _split(poly, x::Number)
 end
 
 function scale(poly::PiecewiseLegendrePoly, factor)
-    return PiecewiseLegendrePoly(poly.data * factor, poly.knots; dx=poly.dx, symm=poly.symm)
+    return PiecewiseLegendrePoly(poly.data * factor, poly.knots; Δx=poly.Δx, symm=poly.symm)
 end
 
 ###########################
@@ -210,13 +205,13 @@ function PiecewiseLegendrePolyArray(
 end
 
 function PiecewiseLegendrePolyArray(
-    polys::PiecewiseLegendrePolyArray, knots; dx=diff(knots), symm=0
+    polys::PiecewiseLegendrePolyArray, knots; Δx=diff(knots), symm=0
 )
     size(polys) == size(symm) ||
         throw(DimensionMismatch("Sizes of polys and symm don't match"))
     polys_new = similar(polys)
     for i in eachindex(polys)
-        polys_new[i] = PiecewiseLegendrePoly(polys[i].data, knots; dx, symm=symm[i])
+        polys_new[i] = PiecewiseLegendrePoly(polys[i].data, knots; Δx, symm=symm[i])
     end
     return polys_new
 end
@@ -237,7 +232,7 @@ function (polys::PiecewiseLegendrePolyArray)(x::AbstractArray)
 end
 
 function Base.getproperty(polys::PiecewiseLegendrePolyArray, sym::Symbol)
-    if sym ∈ (:xmin, :xmax, :knots, :dx, :polyorder, :nsegments, :xm, :inv_xs, :norm)
+    if sym ∈ (:xmin, :xmax, :knots, :Δx, :polyorder, :nsegments, :xm, :inv_xs, :norm)
         return getproperty(first(polys), sym)
     elseif sym == :symm
         return map(poly -> poly.symm, polys)
@@ -246,6 +241,13 @@ function Base.getproperty(polys::PiecewiseLegendrePolyArray, sym::Symbol)
     else
         error("Unknown property $sym")
     end
+end
+
+# Backward compatibility
+function overlap(
+    polys::PiecewiseLegendrePolyArray{T}, f; rtol=eps(T), return_error=false
+) where {T}
+    return overlap.(polys, f; rtol, return_error)
 end
 
 #########################
@@ -510,7 +512,7 @@ function _Pqn(poly, wn)
     p = transpose(range(0; length=poly.polyorder))
     wred = π / 2 * wn
     phase_wi = _phase_stable(poly, wn)
-    return _get_tnl.(p, wred .* poly.dx ./ 2) .* phase_wi ./ (√2 .* poly.norm)
+    return _get_tnl.(p, wred .* poly.Δx ./ 2) .* phase_wi ./ (√2 .* poly.norm)
 end
 
 """
@@ -525,10 +527,11 @@ function _get_tnl(l, w)
     return (w < 0 ? conj : identity)(result)
 end
 
+# Works like numpy.choices
 choose(a, choices) = [choices[a[i]][i] for i in eachindex(a)]
 
 """
-    _shift_xmid(knots, dx)
+    _shift_xmid(knots, Δx)
 
 Return midpoint relative to the nearest integer plus a shift.
 
@@ -536,11 +539,11 @@ Return the midpoints `xmid` of the segments, as pair `(diff, shift)`,
 where shift is in `(0, 1, -1)` and `diff` is a float such that
 `xmid == shift + diff` to floating point accuracy.
 """
-function _shift_xmid(knots, dx)
-    dx_half = dx ./ 2
-    xmid_m1 = cumsum(dx) .- dx_half
-    xmid_p1 = -reverse(cumsum(reverse(dx))) + dx_half
-    xmid_0 = knots[2:end] - dx_half
+function _shift_xmid(knots, Δx)
+    Δx_half = Δx ./ 2
+    xmid_m1 = cumsum(Δx) - Δx_half
+    xmid_p1 = -reverse(cumsum(reverse(Δx))) + Δx_half
+    xmid_0 = knots[2:end] - Δx_half
 
     shift = round.(Int, xmid_0)
     diff = choose(shift .+ 2, (xmid_m1, xmid_0, xmid_p1))
@@ -554,10 +557,10 @@ Phase factor for the piecewise Legendre to Matsubara transform.
 
 Compute the following phase factor in a stable way:
 
-    exp.(iπ/2 * wn .* cumsum(poly.dx)')
+    exp.(iπ/2 * wn .* cumsum(poly.Δx)')
 """
 function _phase_stable(poly, wn)
-    xmid_diff, extra_shift = _shift_xmid(poly.knots, poly.dx)
+    xmid_diff, extra_shift = _shift_xmid(poly.knots, poly.Δx)
 
     if wn isa Integer
         shift_arg = wn * xmid_diff

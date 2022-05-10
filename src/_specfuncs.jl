@@ -1,4 +1,3 @@
-
 # Minimally adapted from https://github.com/scipy/scipy/blob/b5d8bab88af61d61de09641243848df63380a67f/scipy/special/_spherical_bessel.pxd#L74
 function sphericalbesselj(n::Integer, x::T) where {T<:AbstractFloat}
     isnan(x) && return x

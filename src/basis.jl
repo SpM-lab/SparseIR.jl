@@ -188,13 +188,11 @@ end
 const _DEFAULT_FINITE_TEMP_BASIS = FiniteTempBasis{LogisticKernel{Float64},Float64}
 
 function Base.show(io::IO, a::FiniteTempBasis)
-    return print(
-        io, "FiniteTempBasis: beta=$(beta(a)), statistics=$(statistics(a)), size=$(size(a))"
-    )
+    return print(io, "FiniteTempBasis($(statistics(a)), $(beta(a)), $(wmax(a)))")
 end
 
 """
-    FiniteTempBasis(statistics, β, wmax, ε=nothing; kernel=nothing, sve_result=nothing)
+    FiniteTempBasis(statistics, β, wmax, ε=nothing; kernel=LogisticKernel(β * wmax), sve_result=compute_sve(kernel; ε))
 
 Construct a finite temperature basis suitable for the given `statistics` and cutoffs `β` and `wmax`.
 """
@@ -221,8 +219,8 @@ function FiniteTempBasis(
     # knots according to: tau = beta/2 * (x + 1), w = wmax * y.  Scaling
     # the data is not necessary as the normalization is inferred.
     wmax = kernel.Λ / β
-    u_ = PiecewiseLegendrePolyArray(u, β / 2 * (u.knots .+ 1); dx=β / 2 * u.dx, symm=u.symm)
-    v_ = PiecewiseLegendrePolyArray(v, wmax * v.knots; dx=wmax * v.dx, symm=v.symm)
+    u_ = PiecewiseLegendrePolyArray(u, β / 2 * (u.knots .+ 1); Δx=β / 2 * u.Δx, symm=u.symm)
+    v_ = PiecewiseLegendrePolyArray(v, wmax * v.knots; Δx=wmax * v.Δx, symm=v.symm)
 
     # The singular values are scaled to match the change of variables, with
     # the additional complexity that the kernel may have an additional

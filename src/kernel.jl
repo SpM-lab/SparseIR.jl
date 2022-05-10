@@ -71,6 +71,8 @@ struct RegularizedBoseKernel{T<:AbstractFloat} <: AbstractKernel
     Λ::T
 end
 
+RegularizedBoseKernel(Λ) = RegularizedBoseKernel(float(Λ))
+
 """
     AbstractSVEHints
 
@@ -210,7 +212,7 @@ function compute(kernel::RegularizedBoseKernel, u₊, u₋, v)
     # it has a singularity at v=0, which can be cured by treating that case
     # separately.  Secondly, the denominator loses precision around 0 since
     # exp(v) = 1 + v + ..., which can be avoided using expm1(...)
-    denom = absv ≥ 1e-200 ? absv / expm1(-absv) : one(absv)
+    denom = absv ≥ 1e-200 ? absv / expm1(-absv) : -one(absv)
     return -1 / T(kernel.Λ) * enum * denom
 end
 
