@@ -24,10 +24,11 @@ end
 @testset "rrqr_trunc" begin
     # Vandermonde matrix
     A = Vector(-1:0.02:1) .^ Vector(0:20)'
+    m, n = size(A)
     A_qr, k = SparseIR._LinAlg.rrqr(A, rtol=1e-5)
+    @assert k < min(m, n)
 
-    Q = LinearAlgebra.QRPackedQ((@view A_qr.factors[:, 1:k]), A_qr.τ[1:k])
-    R = LinearAlgebra.triu!(A_qr.factors[1:k, :])
+    Q, R = SparseIR._LinAlg.truncate_qr_result(A_qr, k)
     A_rec = Q * R * A_qr.P'
     @test isapprox(A, A_rec, rtol=0, atol=1e-5 * norm(A))
 end

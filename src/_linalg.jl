@@ -1,7 +1,7 @@
 module _LinAlg
 
 import LinearAlgebra
-export svd_jacobi, svd_jacobi!, rrqr, rrqr!
+export tsvd, tsvd!, svd_jacobi, svd_jacobi!, rrqr, rrqr!
 
 """
 Compute Givens rotation `R` matrix that satisfies:
@@ -161,6 +161,7 @@ function jacobi_sweep!(U::AbstractMatrix, VT::AbstractMatrix)
     return sqrt(offd)
 end
 
+"""Singular value decomposition using Jacobi rotations."""
 function svd_jacobi!(U::AbstractMatrix{T}; rtol=eps(T), maxiter=20) where T
     m, n = size(U)
     if m < n
@@ -188,10 +189,21 @@ function svd_jacobi!(U::AbstractMatrix{T}; rtol=eps(T), maxiter=20) where T
     return LinearAlgebra.SVD(U, s, VT)
 end
 
+"""Singular value decomposition using Jacobi rotations."""
 svd_jacobi(U::AbstractMatrix{T}; rtol=eps(T), maxiter=20) where T =
     svd_jacobi!(copy(U); rtol=rtol, maxiter=maxiter)
 
+"""
+Truncated rank-revealing QR decomposition with full column pivoting.
 
+Decomposes a `(m, n)` matrix `A` into the product:
+
+    A[:,piv] == Q @ R
+
+where `Q` is an `(m, k)` isometric matrix, `R` is a `(k, n)` upper
+triangular matrix, `piv` is a permutation vector, and `k` is chosen such
+that the relative tolerance `tol` is met in the equality above.
+"""
 function rrqr!(A::AbstractMatrix{T}; rtol=eps(T)) where T <: AbstractFloat
     # DGEQPF
     m, n = size(A)
@@ -249,7 +261,54 @@ function rrqr!(A::AbstractMatrix{T}; rtol=eps(T)) where T <: AbstractFloat
     return LinearAlgebra.QRPivoted{T, typeof(A)}(A, taus, jpvt), k
 end
 
+"""Truncated rank-revealing QR decomposition with full column pivoting."""
 rrqr(A::AbstractMatrix{T}; rtol=eps(T)) where T <: AbstractFloat =
     rrqr!(copy(A); rtol=rtol)
+
+"""Truncate RRQR result low-rank"""
+function truncate_qr_result(qr::LinearAlgebra.QRPivoted{T}, k::Integer) where T
+    m, n = size(qr)
+    if k < 0 || k > min(m, n)
+        throw(ArgumentError("Invalid rank"))
+    end
+    Qfull = LinearAlgebra.QRPackedQ((@view qr.factors[:, 1:k]), qr.τ[1:k])
+
+    Q = LinearAlgebra.lmul!(Qfull, Matrix{T}(LinearAlgebra.I, m, k))
+    R = LinearAlgebra.triu!(qr.factors[1:k, :])
+    return Q, R
+end
+
+"""
+Truncated singular value decomposition.
+
+Decomposes a `(m, n)` matrix `A` into the product:
+
+    A == U @ (s[:,None] * VT)
+
+where `U` is a `(m, k)` matrix with orthogonal columns, `VT` is a `(k, n)`
+matrix with orthogonal rows and `s` are the singular values, a set of `k`
+nonnegative numbers in non-ascending order.  The SVD is truncated in the
+sense that singular values below `tol` are discarded.
+"""
+function tsvd!(A::AbstractMatrix{T}; rtol=eps(T)) where T <: AbstractFloat
+    # Perform RRQR of the m x n matrix at a cost of O(m*n*k), where k is
+    # the QR rank (a mild upper bound for the true rank)
+    A_qr, k = rrqr!(A, rtol=rtol)
+    Q, R = truncate_qr_result(A_qr, k)
+
+    # RRQR is an excellent preconditioner for Jacobi.  One should then perform
+    # Jacobi on RT
+    RT_svd = svd_jacobi(R')
+
+    # Reconstruct A from QR
+    U = Q * RT_svd.V
+    V = A_qr.P * RT_svd.U
+    s = RT_svd.S
+    return LinearAlgebra.SVD(U, s, V')
+end
+
+"""Truncated singular value decomposition."""
+tsvd(A::AbstractMatrix{T}; rtol=eps(T)) where T <: AbstractFloat =
+    tsvd!(copy(A); rtol=rtol)
 
 end # module _LinAlg
