@@ -210,15 +210,15 @@ function rrqr!(A::AbstractMatrix{T}; rtol=eps(T)) where T <: AbstractFloat
             xnorms[pvt] = xnorms[i]
             pnorms[pvt] = pnorms[i]
 
-            copy!(swapcol, @view A[:,i])
-            copy!(@view(A[:,i]), @view A[:,pvt])
-            copy!(@view(A[:,pvt]), swapcol)
+            swapcol .= @view A[:, i]
+            A[:, i] .= @view A[:, pvt]
+            A[:, pvt] .= swapcol
         end
 
         tau_i = LinearAlgebra.reflector!(@view A[i:end, i])
         taus[i] = tau_i
         LinearAlgebra.reflectorApply!(
-            @view(A[i:end, i]), tau_i, @view A[i:end, i+1:end])
+            (@view A[i:end, i]), tau_i, @view A[i:end, i+1:end])
 
         # Lapack Working Note 176.
         for j in i+1:n
@@ -230,7 +230,7 @@ function rrqr!(A::AbstractMatrix{T}; rtol=eps(T)) where T <: AbstractFloat
                 pnorms[j] = recomputed
                 xnorms[j] = recomputed
             else
-                pnorms[j] = pnorms[j] * sqrt(temp)
+                pnorms[j] *= sqrt(temp)
             end
         end
 
