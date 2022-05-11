@@ -133,10 +133,12 @@ function jacobi_sweep!(U::AbstractMatrix, VT::AbstractMatrix)
     elseif size(VT, 1) != jj
         throw(ArgumentError("U and VT must be compatible"))
     end
+    Base.require_one_based_indexing(U)
+    Base.require_one_based_indexing(VT)
 
     # TODO: non-traditional indexing
     offd = zero(eltype(U))
-    for i in 1:ii
+    @inbounds for i in 1:ii
         for j in i+1:jj
             # Construct the 2x2 matrix to be diagonalized
             Hii = Hij = Hjj = zero(eltype(U))
@@ -164,8 +166,8 @@ function svd_jacobi!(U::AbstractMatrix{T}; rtol=eps(T), maxiter=20) where T
     if m < n
         throw(ArgumentError("matrix must be 'tall'"))
     end
+    Base.require_one_based_indexing(U)   # TODO
 
-    # TODO: non-traditional indexing
     VT = Matrix(one(T) * LinearAlgebra.I, n, n)
     Unorm = LinearAlgebra.norm(@view U[1:n, 1:n])
     for _ in 1:maxiter
@@ -176,7 +178,7 @@ function svd_jacobi!(U::AbstractMatrix{T}; rtol=eps(T), maxiter=20) where T
     end
 
     s = Vector{T}(undef, n)
-    for i in 1:n
+    @inbounds for i in 1:n
         s[i] = LinearAlgebra.norm(@view U[:, i])
         # For some reason, U[:,i] ./= s[i] creates a copy
         for j in axes(U, 1)
@@ -194,6 +196,7 @@ function rrqr!(A::AbstractMatrix{T}; rtol=eps(T)) where T <: AbstractFloat
     # DGEQPF
     m, n = size(A)
     k = min(m, n)
+    Base.require_one_based_indexing(A)   # TODO
 
     jpvt = Vector(1:n)
     taus = Vector{T}(undef, k)
@@ -203,7 +206,7 @@ function rrqr!(A::AbstractMatrix{T}; rtol=eps(T)) where T <: AbstractFloat
     pnorms = copy(xnorms)
     sqrteps = sqrt(eps(T))
 
-    for i in 1:k
+    @inbounds for i in 1:k
         pvt = argmax(@view pnorms[i:end]) + i - 1
         if i != pvt
             jpvt[i], jpvt[pvt] = jpvt[pvt], jpvt[i]
