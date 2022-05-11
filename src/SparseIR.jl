@@ -21,6 +21,7 @@ export TauSampling, MatsubaraSampling, evaluate, fit
 @enum Statistics fermion boson
 
 include("_specfuncs.jl")
+include("_linalg.jl")
 
 include("svd.jl")
 include("gauss.jl")
