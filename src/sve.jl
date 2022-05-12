@@ -1,4 +1,4 @@
-const _HAVE_XPREC = false # TODO:
+# const _HAVE_XPREC = false # TODO:
 
 abstract type AbstractSVE end
 
@@ -8,7 +8,7 @@ abstract type AbstractSVE end
 SVE to SVD translation by sampling technique [1].
 
 Maps the singular value expansion (SVE) of a kernel `kernel` onto the singular
-value decomposition of a matrix `A`.  This is achieved by chosing two
+value decomposition of a matrix `A`.  This is achieved by choosing two
 sets of Gauss quadrature rules: `(x, wx)` and `(y, wy)` and
 approximating the integrals in the SVE equations by finite sums.  This
 implies that the singular values of the SVE are well-approximated by the
@@ -24,19 +24,19 @@ be reconstructed from the singular vectors `u` and `v` as follows:
 
 [1] P. Hansen, Discrete Inverse Problems, Ch. 3.1
 """
-struct SamplingSVE{K<:AbstractKernel} <: AbstractSVE
+struct SamplingSVE{T<:AbstractFloat,K<:AbstractKernel} <: AbstractSVE
     kernel::K
-    ε::Float64
+    ε::T
     n_gauss::Int
     nsvals_hint::Int
 
-    rule::Rule{Float64}
-    segs_x::Vector{Float64}
-    segs_y::Vector{Float64}
-    gauss_x::Rule{Float64}
-    gauss_y::Rule{Float64}
-    sqrtw_x::Vector{Float64}
-    sqrtw_y::Vector{Float64}
+    rule::Rule{T}
+    segs_x::Vector{T}
+    segs_y::Vector{T}
+    gauss_x::Rule{T}
+    gauss_y::Rule{T}
+    sqrtw_x::Vector{T}
+    sqrtw_y::Vector{T}
 end
 
 function SamplingSVE(kernel, ε; n_gauss=-1, T=Float64)
@@ -155,9 +155,8 @@ function compute_sve(
     sve_strat::Type{Y}=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE,
     svd_strat::Symbol=:default,
 )::Tuple{
-    PiecewiseLegendrePolyArray{X,1},Vector{X},PiecewiseLegendrePolyArray{X,1}
+    PiecewiseLegendrePolyVector{X},Vector{X},PiecewiseLegendrePolyVector{X}
 } where {X,Y}
-    #
     if isnothing(ε) || isnothing(Twork) || isnothing(svd_strat)
         ε, Twork, default_svd_strat = _choose_accuracy(ε, Twork)
     end
@@ -220,8 +219,8 @@ function postprocess(sve::SamplingSVE, u, s, v, T::Union{Type{X},Nothing}=nothin
     v_data .*= sqrt.(0.5 * dsegs_y')
 
     # Construct polynomials
-    ulx = PiecewiseLegendrePolyArray(T.(u_data), T.(sve.segs_x))
-    vly = PiecewiseLegendrePolyArray(T.(v_data), T.(sve.segs_y))
+    ulx = PiecewiseLegendrePolyVector(T.(u_data), T.(sve.segs_x))
+    vly = PiecewiseLegendrePolyVector(T.(v_data), T.(sve.segs_y))
     _canonicalize!(ulx, vly)
     return ulx, s, vly
 end
@@ -261,8 +260,8 @@ function postprocess(sve::CentrosymmSVE, u, s, v, ::Type{T}) where {T}
         v_neg_data = reverse(v_pos_data; dims=2) .* poly_flip_x * signs[i]
         u_data = [u_neg_data;; u_pos_data]
         v_data = [v_neg_data;; v_pos_data]
-        u_complete[i] = PiecewiseLegendrePoly(u_data, segs_x; symm=signs[i])
-        v_complete[i] = PiecewiseLegendrePoly(v_data, segs_y; symm=signs[i])
+        u_complete[i] = PiecewiseLegendrePoly(u_data, segs_x, i - 1; symm=signs[i])
+        v_complete[i] = PiecewiseLegendrePoly(v_data, segs_y, i - 1; symm=signs[i])
     end
 
     return u_complete, s, v_complete

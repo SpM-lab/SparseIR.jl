@@ -49,7 +49,7 @@ using SparseIR
 
     @testset "matrix_hat" begin
         u, s, v = sve_logistic[42]
-        uhat = hat.(u, :odd, 0:(length(u) - 1)) # TODO: fix this
+        uhat = hat.(u, :odd)
 
         n = [1, 3, 5, -1, -3, 5]
         result1 = uhat[1](n)
@@ -78,7 +78,7 @@ using SparseIR
 
     @testset "eval unique" begin
         u, s, v = sve_logistic[42]
-        û = hat.(u, :odd, 0:(length(u) - 1)) # TODO: fix this
+        û = hat.(u, :odd)
 
         # evaluate
         res1 = û([1, 3, 3, 1])

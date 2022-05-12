@@ -4,7 +4,7 @@ using SparseIR
 include("conftest.jl")
 include("_util.jl")
 
-@testset "SparseIR.jl" begin
+@testset verbose=true "SparseIR.jl" begin
     include("gauss.jl")
     include("kernel.jl")
     include("poly.jl")
@@ -16,6 +16,9 @@ include("_util.jl")
     include("bessels.jl")
     include("composite.jl")
     include("spr.jl")
+    include("_linalg.jl")
     # Works only if Mathematica and MathLink.jl are available.
     # include("_bessels.jl")
 end
+
+nothing

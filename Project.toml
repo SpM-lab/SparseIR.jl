@@ -4,6 +4,7 @@ authors = ["Samuel Badr <samuel.badr@gmail.com>", "Hiroshi Shinaoka <h.shinaoka@
 version = "0.12.0"
 
 [deps]
+DoubleFloats = "497a8b3b-efae-58df-a0af-a86822472b78"
 IntervalRootFinding = "d2bf35a9-74e0-55ec-b149-d360ff49b807"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LowRankApprox = "898213cb-b102-5a47-900c-97e73b919f73"

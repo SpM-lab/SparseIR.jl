@@ -47,27 +47,28 @@ function FiniteTempBasisSet(beta, wmax, eps; sve_result=nothing)
     end
 
     return FiniteTempBasisSet(
-        basis_f,
-        basis_b,
-        TauSampling(basis_f),
-        TauSampling(basis_b),
-        MatsubaraSampling(basis_f),
-        MatsubaraSampling(basis_b),
+        basis_f, basis_b,
+        TauSampling(basis_f), TauSampling(basis_b),
+        MatsubaraSampling(basis_f), MatsubaraSampling(basis_b),
     )
 end
 
-beta(bset::FiniteTempBasisSet) = beta(bset.basis_f)
-wmax(bset::FiniteTempBasisSet) = wmax(bset.basis_f)
+getbeta(bset::FiniteTempBasisSet) = getbeta(bset.basis_f)
+getwmax(bset::FiniteTempBasisSet) = getwmax(bset.basis_f)
 
 function Base.getproperty(bset::FiniteTempBasisSet, d::Symbol)
     if d === :tau
-        return getfield(bset, :smpl_tau_f).sampling_points
+        # return getfield(bset, :smpl_tau_f).sampling_points
+        return bset.smpl_tau_f.sampling_points
     elseif d === :wn_f
-        return getfield(bset, :smpl_wn_f).sampling_points
+        # return getfield(bset, :smpl_wn_f).sampling_points
+        return bset.smpl_wn_f.sampling_points
     elseif d === :wn_b
-        return getfield(bset, :smpl_wn_b).sampling_points
+        # return getfield(bset, :smpl_wn_b).sampling_points
+        return bset.smpl_wn_b.sampling_points
     elseif d === :sve_result
-        return getfield(bset, :basis_f).sve_result
+        # return getfield(bset, :basis_f).sve_result
+        return bset.basis_f.sve_result
     else
         return getfield(bset, d)
     end
@@ -78,5 +79,5 @@ function Base.propertynames(::FiniteTempBasisSet, private::Bool=false)
 end
 
 function Base.show(io::IO, b::FiniteTempBasisSet)
-    return print(io, "FiniteTempBasisSet: beta=$(beta(b)), wmax=$(wmax(b))")
+    return print(io, "FiniteTempBasisSet: beta=$(getbeta(b)), wmax=$(getwmax(b))")
 end

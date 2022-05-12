@@ -17,59 +17,40 @@ struct PiecewiseLegendrePoly{T} <: Function
     Δx::Vector{T}
     data::Matrix{T}
     symm::Int
+    l::Int
 
     xm::Vector{T}
     inv_xs::Vector{T}
     norm::Vector{T}
 
     function PiecewiseLegendrePoly(
-        nsegments, polyorder, xmin, xmax, knots, Δx, data, symm, xm, inv_xs, norm
+        nsegments, polyorder, xmin, xmax, knots, Δx, data, symm, l, xm, inv_xs, norm
     )
         !any(isnan, data) || error("data contains NaN")
         size(knots) == (nsegments + 1,) || error("Invalid knots array")
         issorted(knots) || error("knots must be monotonically increasing")
         Δx ≈ diff(knots) || error("Δx must work with knots")
         return new{eltype(knots)}(
-            nsegments, polyorder, xmin, xmax, knots, Δx, data, symm, xm, inv_xs, norm
+            nsegments, polyorder, xmin, xmax, knots, Δx, data, symm, l, xm, inv_xs, norm
         )
     end
 end
 
 function PiecewiseLegendrePoly(data, p::PiecewiseLegendrePoly; symm=0)
-    return PiecewiseLegendrePoly(
-        p.nsegments,
-        p.polyorder,
-        p.xmin,
-        p.xmax,
-        p.knots,
-        p.Δx,
-        data,
-        symm,
-        p.xm,
-        p.inv_xs,
-        p.norm,
-    )
+    return PiecewiseLegendrePoly(p.nsegments, p.polyorder, p.xmin, p.xmax, p.knots, p.Δx,
+        data, symm, p.l, p.xm, p.inv_xs, p.norm)
 end
 
-function PiecewiseLegendrePoly(data::Matrix, knots::Vector; Δx=diff(knots), symm=0)
+function PiecewiseLegendrePoly(
+    data::Matrix, knots::Vector, l::Integer; Δx=diff(knots), symm=0
+)
     polyorder, nsegments = size(data)
     xm = @views (knots[1:(end - 1)] + knots[2:end]) / 2
     inv_xs = 2 ./ Δx
     norm = sqrt.(inv_xs)
 
-    return PiecewiseLegendrePoly(
-        nsegments,
-        polyorder,
-        first(knots),
-        last(knots),
-        knots,
-        Δx,
-        data,
-        symm,
-        xm,
-        inv_xs,
-        norm,
-    )
+    return PiecewiseLegendrePoly(nsegments, polyorder, first(knots), last(knots), knots,
+        Δx, data, symm, l, xm, inv_xs, norm)
 end
 
 Base.size(::PiecewiseLegendrePoly) = ()
@@ -103,7 +84,9 @@ using adaptive Gauss-Legendre quadrature.
 function overlap(
     poly::PiecewiseLegendrePoly{T}, f; rtol=eps(T), return_error=false, maxevals=10^4
 ) where {T}
-    int_result, int_error = quadgk(x -> poly(x) * f(x), poly.knots...; rtol, order=10, maxevals)
+    int_result, int_error = quadgk(
+        x -> poly(x) * f(x), poly.knots...; rtol, order=10, maxevals
+    )
     if return_error
         return int_result, int_error
     else
@@ -129,30 +112,29 @@ end
 
 Find all roots of the piecewise polynomial `poly`.
 """
-function roots(poly::PiecewiseLegendrePoly{T}; tol=1e-11) where {T}
+function roots(poly::PiecewiseLegendrePoly{T}; tol=1e-10) where {T}
     m = (poly.xmin + poly.xmax) / 2
     xmin = abs(poly.symm) == 1 ? m : poly.xmin # Exploit symmetry.
     xmax = poly.xmax
 
     rts_rootobjects = roots_irf(poly, Interval(xmin, xmax), Newton, tol)
-    filter!(isunique, rts_rootobjects)
-    rts = map(mid ∘ interval, rts_rootobjects)
+    rts = map(mid ∘ interval, Iterators.filter(isunique, rts_rootobjects))
 
     if abs(poly.symm) == 1
-        # Reflect roots about the midpoint m.
+        # Reflect roots about the midpoint m
         append!(rts, 2m .- rts)
-        # If the polynomial is antisymmetric, it has an additional root at m.
+        # If the polynomial is antisymmetric, it has an additional root at m
         poly.symm == -1 && push!(rts, m)
     end
     sort!(rts)
 
-    # TODO: Maybe there's a better way than this.
-    duplicates = Int[]
-    for i in 2:length(rts)
-        isapprox(rts[i], rts[i - 1]; atol=10tol, rtol=0) && push!(duplicates, i)
-    end
-    deleteat!(rts, duplicates)
-    !isempty(duplicates) && @warn "Duplicate roots found, consolidating them..."
+    # Remove duplicates
+    # duplicates = Int[]
+    # for i in 2:length(rts)
+    #     isapprox(rts[i], rts[i - 1]; atol=10tol, rtol=0) && push!(duplicates, i)
+    # end
+    # !isempty(duplicates) && @info "Duplicate roots found, consolidating them..."
+    # deleteat!(rts, duplicates)
 
     return rts
 end
@@ -179,59 +161,64 @@ function _split(poly, x::Number)
 end
 
 function scale(poly::PiecewiseLegendrePoly, factor)
-    return PiecewiseLegendrePoly(poly.data * factor, poly.knots; Δx=poly.Δx, symm=poly.symm)
+    return PiecewiseLegendrePoly(
+        poly.data * factor, poly.knots, poly.l; Δx=poly.Δx, symm=poly.symm
+    )
 end
 
 ###########################
-## PiecewiseLegendrePolyArray ##
+## PiecewiseLegendrePolyVector ##
 ###########################
 
 """
-    PiecewiseLegendrePolyArray{T, N}
+    PiecewiseLegendrePolyVector{T}
 
-Alias for `Array{PiecewiseLegendrePoly{T}, N}`.
+Alias for `Vector{PiecewiseLegendrePoly{T}}`.
 """
-const PiecewiseLegendrePolyArray{T,N} = Array{PiecewiseLegendrePoly{T},N}
+const PiecewiseLegendrePolyVector{T} = Vector{PiecewiseLegendrePoly{T}}
 
-# TODO: simplify constructors
-function PiecewiseLegendrePolyArray(
-    data::Array{T,N}, knots::Vector{T}; symm=zeros(Int, last(size(data)))
-) where {T,N}
-    polys = PiecewiseLegendrePolyArray{T,N - 2}(undef, size(data)[3:end]...)
+function PiecewiseLegendrePolyVector(
+    data::Array{T,3}, knots::Vector{T}; symm=zeros(Int, size(data, 3))
+) where {T}
+    polys = PiecewiseLegendrePolyVector{T}(undef, size(data, 3))
     for i in eachindex(polys)
-        polys[i] = PiecewiseLegendrePoly(data[:, :, i], knots; symm=symm[i])
+        polys[i] = PiecewiseLegendrePoly(data[:, :, i], knots, i - 1; symm=symm[i])
     end
     return polys
 end
 
-function PiecewiseLegendrePolyArray(
-    polys::PiecewiseLegendrePolyArray, knots; Δx=diff(knots), symm=0
+function PiecewiseLegendrePolyVector(
+    polys::PiecewiseLegendrePolyVector, knots; Δx=diff(knots), symm=0
 )
-    size(polys) == size(symm) ||
+    length(polys) == length(symm) ||
         throw(DimensionMismatch("Sizes of polys and symm don't match"))
+
     polys_new = similar(polys)
     for i in eachindex(polys)
-        polys_new[i] = PiecewiseLegendrePoly(polys[i].data, knots; Δx, symm=symm[i])
+        polys_new[i] = PiecewiseLegendrePoly(
+            polys[i].data, knots, polys[i].l; Δx, symm=symm[i]
+        )
     end
     return polys_new
 end
 
-function PiecewiseLegendrePolyArray(data, polys::PiecewiseLegendrePolyArray)
-    size(data)[3:end] == size(polys) ||
+function PiecewiseLegendrePolyVector(data, polys::PiecewiseLegendrePolyVector)
+    size(data, 3) == length(polys) ||
         throw(DimensionMismatch("Sizes of data and polys don't match"))
-    polys = similar(polys)
+
+    polys_new = copy(polys)
     for i in eachindex(polys)
-        polys[i] = PiecewiseLegendrePoly(data[:, :, i], polys.knots; symm=polys.symm[i])
+        polys_new[i].data .= data[:, :, i]
     end
-    return polys
+    return polys_new
 end
 
-(polys::PiecewiseLegendrePolyArray)(x) = map(poly -> poly(x), polys)
-function (polys::PiecewiseLegendrePolyArray)(x::AbstractArray)
+(polys::PiecewiseLegendrePolyVector)(x) = map(poly -> poly(x), polys)
+function (polys::PiecewiseLegendrePolyVector)(x::AbstractArray)
     return reshape(reduce(vcat, polys.(x)), (size(polys)..., size(x)...))
 end
 
-function Base.getproperty(polys::PiecewiseLegendrePolyArray, sym::Symbol)
+function Base.getproperty(polys::PiecewiseLegendrePolyVector, sym::Symbol)
     if sym ∈ (:xmin, :xmax, :knots, :Δx, :polyorder, :nsegments, :xm, :inv_xs, :norm)
         return getproperty(first(polys), sym)
     elseif sym == :symm
@@ -245,7 +232,7 @@ end
 
 # Backward compatibility
 function overlap(
-    polys::PiecewiseLegendrePolyArray{T}, f; rtol=eps(T), return_error=false
+    polys::PiecewiseLegendrePolyVector{T}, f; rtol=eps(T), return_error=false
 ) where {T}
     return overlap.(polys, f; rtol, return_error)
 end
@@ -300,10 +287,10 @@ function Base.show(io::IO, p::PiecewiseLegendreFT)
     return print(io, "$(typeof(p))")
 end
 
-function PiecewiseLegendreFT(poly, freq=:even, n_asymp=Inf, l=0)
+function PiecewiseLegendreFT(poly, freq=:even, n_asymp=Inf)
     (poly.xmin, poly.xmax) == (-1, 1) || error("Only interval [-1, 1] is supported")
     ζ = Dict(:even => 0, :odd => 1)[freq]
-    model = power_model(freq, poly, l)
+    model = power_model(freq, poly)
     return PiecewiseLegendreFT(poly, freq, ζ, float(n_asymp), model)
 end
 
@@ -359,8 +346,8 @@ end
 
 Base.firstindex(::PiecewiseLegendreFT) = 1
 
-function hat(poly::PiecewiseLegendrePoly, freq, l; n_asymp=Inf)
-    return PiecewiseLegendreFT(poly, freq, n_asymp, l)
+function hat(poly::PiecewiseLegendrePoly, freq; n_asymp=Inf)
+    return PiecewiseLegendreFT(poly, freq, n_asymp)
 end
 
 """
@@ -465,9 +452,9 @@ function power_moments(stat, deriv_x1, l)
     return -statsign / √2 * coeff_lm
 end
 
-function power_model(stat, poly, l)
+function power_model(stat, poly)
     deriv_x1 = derivs(poly, 1)
-    moments = power_moments(stat, deriv_x1, l)
+    moments = power_moments(stat, deriv_x1, poly.l)
     return PowerModel(moments)
 end
 
@@ -503,7 +490,7 @@ function _compute_unl_inner(poly::PiecewiseLegendrePoly, wn)
     t_pin = _Pqn(poly, wn)
     return dot(poly.data, transpose(t_pin))
 end
-function _compute_unl_inner(polys::PiecewiseLegendrePolyArray, wn)
+function _compute_unl_inner(polys::PiecewiseLegendrePolyVector, wn)
     t_pin = _Pqn(polys, wn)
     return map(p -> dot(p.data, transpose(t_pin)), polys)
 end

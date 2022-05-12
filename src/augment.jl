@@ -18,7 +18,7 @@ struct LegendreBasis{T<:AbstractFloat} <: AbstractBasis
     statistics::Statistics
     β::Float64
     cl::Vector{T}
-    u::PiecewiseLegendrePolyArray{T}
+    u::PiecewiseLegendrePolyVector{T}
     uhat::PiecewiseLegendreFTArray{T}
 end
 
@@ -38,12 +38,12 @@ function LegendreBasis(
     for l in 1:size
         data[l, 1, l] = sqrt(((l - 1) + 0.5) / beta) * cl[l]
     end
-    u = PiecewiseLegendrePolyArray(data, knots; symm)
+    u = PiecewiseLegendrePolyVector(data, knots; symm)
 
     # uhat
-    uhat_base = PiecewiseLegendrePolyArray(sqrt(beta) .* data, Float64[-1, 1]; symm)
+    uhat_base = PiecewiseLegendrePolyVector(sqrt(beta) .* data, Float64[-1, 1]; symm)
     even_odd = Dict(fermion => :odd, boson => :even)[statistics]
-    uhat = hat.(uhat_base, even_odd, 0:(size - 1))
+    uhat = hat.(uhat_base, even_odd)
 
     return LegendreBasis(statistics, beta, cl, u, uhat)
 end
@@ -60,7 +60,7 @@ iswellconditioned(basis::LegendreBasis) = true
 
 function default_tau_sampling_points(basis::LegendreBasis)
     x = gauss(length(basis.u))[1]
-    return (beta(basis) / 2) .* (x .+ 1)
+    return (getbeta(basis) / 2) .* (x .+ 1)
 end
 
 struct _ConstTerm{T<:Number}

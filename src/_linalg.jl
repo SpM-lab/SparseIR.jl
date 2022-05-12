@@ -1,6 +1,6 @@
 module _LinAlg
 
-import LinearAlgebra
+using LinearAlgebra: LinearAlgebra
 export tsvd, tsvd!, svd_jacobi, svd_jacobi!, rrqr, rrqr!
 
 """
@@ -9,7 +9,7 @@ Compute Givens rotation `R` matrix that satisfies:
     [  c  s ] [ f ]     [ r ]
     [ -s  c ] [ g ]  =  [ 0 ]
 """
-function givens_params(f::T, g::T) where T <: AbstractFloat
+function givens_params(f::T, g::T) where {T<:AbstractFloat}
     # ACM Trans. Math. Softw. 28(2), 206, Alg 1
     if iszero(g)
         c, s = one(T), zero(T)
@@ -31,7 +31,7 @@ Apply Givens rotation to vector:
       [ a ]  =  [  c   s ] [ x ]
       [ b ]     [ -s   c ] [ y ]
 """
-function givens_lmul((c, s)::Tuple{T, T}, (x, y)) where T
+function givens_lmul((c, s)::Tuple{T,T}, (x, y)) where {T}
     a = c * x + s * y
     b = c * y - s * x
     return a, b
@@ -45,7 +45,7 @@ Perform the SVD of upper triangular two-by-two matrix:
 
 Note that smax and smin can be negative.
 """
-function svd2x2(f::T, g::T, h::T) where T <: AbstractFloat
+function svd2x2(f::T, g::T, h::T) where {T<:AbstractFloat}
     # Code taken from LAPACK xSLAV2:
     fa = abs(f)
     ga = abs(g)
@@ -96,7 +96,7 @@ Perform the SVD of an arbitrary two-by-two matrix:
 
 Note that smax and smin can be negative.
 """
-function svd2x2(a11::T, a12::T, a21::T, a22::T) where T
+function svd2x2(a11::T, a12::T, a21::T, a22::T) where {T}
     abs_a12 = abs(a12)
     abs_a21 = abs(a21)
     if iszero(a21)
@@ -128,25 +128,19 @@ end
 
 function jacobi_sweep!(U::AbstractMatrix, VT::AbstractMatrix)
     ii, jj = size(U)
-    if ii < jj
-        throw(ArgumentError("matrix must be 'tall'"))
-    elseif size(VT, 1) != jj
-        throw(ArgumentError("U and VT must be compatible"))
-    end
+    ii ≥ jj || throw(ArgumentError("matrix must be 'tall'"))
+    size(VT, 1) == jj || throw(ArgumentError("U and VT must be compatible"))
     Base.require_one_based_indexing(U)
     Base.require_one_based_indexing(VT)
 
     # TODO: non-traditional indexing
     offd = zero(eltype(U))
     @inbounds for i in 1:ii
-        for j in i+1:jj
+        for j in (i + 1):jj
             # Construct the 2x2 matrix to be diagonalized
-            Hii = Hij = Hjj = zero(eltype(U))
-            for k in 1:ii
-                Hii += abs2(U[k, i])
-                Hij += U[k, i] * U[k, j]
-                Hjj += abs2(U[k, j])
-            end
+            Hii = sum(abs2, @view U[:, i])
+            Hij = sum(k -> @inbounds(U[k, i] * U[k, j]), 1:ii)
+            Hjj = sum(abs2, @view U[:, j])
             offd += abs2(Hij)
 
             # diagonalize
@@ -162,36 +156,27 @@ function jacobi_sweep!(U::AbstractMatrix, VT::AbstractMatrix)
 end
 
 """Singular value decomposition using Jacobi rotations."""
-function svd_jacobi!(U::AbstractMatrix{T}; rtol=eps(T), maxiter=20) where T
+function svd_jacobi!(U::AbstractMatrix{T}; rtol=eps(T), maxiter=20) where {T}
     m, n = size(U)
-    if m < n
-        throw(ArgumentError("matrix must be 'tall'"))
-    end
+    m ≥ n || throw(ArgumentError("matrix must be 'tall'"))
     Base.require_one_based_indexing(U)   # TODO
 
     VT = Matrix(one(T) * LinearAlgebra.I, n, n)
     Unorm = LinearAlgebra.norm(@view U[1:n, 1:n])
     for _ in 1:maxiter
         offd = jacobi_sweep!(U, VT)
-        if offd < rtol * Unorm
-            break
-        end
+        offd < rtol * Unorm && break
     end
 
-    s = Vector{T}(undef, n)
-    @inbounds for i in 1:n
-        s[i] = LinearAlgebra.norm(@view U[:, i])
-        # For some reason, U[:,i] ./= s[i] creates a copy
-        for j in axes(U, 1)
-            U[j, i] /= s[i]
-        end
-    end
+    s = LinearAlgebra.norm.(eachcol(U))
+    U ./= transpose(s)
     return LinearAlgebra.SVD(U, s, VT)
 end
 
 """Singular value decomposition using Jacobi rotations."""
-svd_jacobi(U::AbstractMatrix{T}; rtol=eps(T), maxiter=20) where T =
-    svd_jacobi!(copy(U); rtol=rtol, maxiter=maxiter)
+function svd_jacobi(U::AbstractMatrix{T}; rtol=eps(T), maxiter=20) where {T}
+    return svd_jacobi!(copy(U); rtol, maxiter)
+end
 
 """
 Truncated rank-revealing QR decomposition with full column pivoting.
@@ -204,7 +189,7 @@ where `Q` is an `(m, k)` isometric matrix, `R` is a `(k, n)` upper
 triangular matrix, `piv` is a permutation vector, and `k` is chosen such
 that the relative tolerance `tol` is met in the equality above.
 """
-function rrqr!(A::AbstractMatrix{T}; rtol=eps(T)) where T <: AbstractFloat
+function rrqr!(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat}
     # DGEQPF
     m, n = size(A)
     k = min(m, n)
@@ -219,7 +204,7 @@ function rrqr!(A::AbstractMatrix{T}; rtol=eps(T)) where T <: AbstractFloat
     sqrteps = sqrt(eps(T))
 
     @inbounds for i in 1:k
-        pvt = argmax(@view pnorms[i:end]) + i - 1
+        pvt = argmax(ii -> pnorms[ii], i:n)
         if i != pvt
             jpvt[i], jpvt[pvt] = jpvt[pvt], jpvt[i]
             xnorms[pvt] = xnorms[i]
@@ -233,15 +218,16 @@ function rrqr!(A::AbstractMatrix{T}; rtol=eps(T)) where T <: AbstractFloat
         tau_i = LinearAlgebra.reflector!(@view A[i:end, i])
         taus[i] = tau_i
         LinearAlgebra.reflectorApply!(
-            (@view A[i:end, i]), tau_i, @view A[i:end, i+1:end])
+            (@view A[i:end, i]), tau_i, @view A[i:end, (i + 1):end]
+        )
 
         # Lapack Working Note 176.
-        for j in i+1:n
-            temp = abs(A[i,j]) / pnorms[j]
+        for j in (i + 1):n
+            temp = abs(A[i, j]) / pnorms[j]
             temp = max(zero(T), (one(T) + temp) * (one(T) - temp))
             temp2 = temp * abs2(pnorms[j] / xnorms[j])
             if temp2 < sqrteps
-                recomputed = LinearAlgebra.norm(@view A[i+1:end, j])
+                recomputed = LinearAlgebra.norm(@view A[(i + 1):end, j])
                 pnorms[j] = recomputed
                 xnorms[j] = recomputed
             else
@@ -258,19 +244,16 @@ function rrqr!(A::AbstractMatrix{T}; rtol=eps(T)) where T <: AbstractFloat
             break
         end
     end
-    return LinearAlgebra.QRPivoted{T, typeof(A)}(A, taus, jpvt), k
+    return LinearAlgebra.QRPivoted{T,typeof(A)}(A, taus, jpvt), k
 end
 
 """Truncated rank-revealing QR decomposition with full column pivoting."""
-rrqr(A::AbstractMatrix{T}; rtol=eps(T)) where T <: AbstractFloat =
-    rrqr!(copy(A); rtol=rtol)
+rrqr(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat} = rrqr!(copy(A); rtol)
 
 """Truncate RRQR result low-rank"""
-function truncate_qr_result(qr::LinearAlgebra.QRPivoted{T}, k::Integer) where T
+function truncate_qr_result(qr::LinearAlgebra.QRPivoted{T}, k::Integer) where {T}
     m, n = size(qr)
-    if k < 0 || k > min(m, n)
-        throw(ArgumentError("Invalid rank"))
-    end
+    0 ≤ k ≤ min(m, n) || throw(DomainError(k, "Invalid rank, must be in [0, $(min(m, n))]"))
     Qfull = LinearAlgebra.QRPackedQ((@view qr.factors[:, 1:k]), qr.τ[1:k])
 
     Q = LinearAlgebra.lmul!(Qfull, Matrix{T}(LinearAlgebra.I, m, k))
@@ -290,13 +273,13 @@ matrix with orthogonal rows and `s` are the singular values, a set of `k`
 nonnegative numbers in non-ascending order.  The SVD is truncated in the
 sense that singular values below `tol` are discarded.
 """
-function tsvd!(A::AbstractMatrix{T}; rtol=eps(T)) where T <: AbstractFloat
+function tsvd!(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat}
     # Perform RRQR of the m x n matrix at a cost of O(m*n*k), where k is
     # the QR rank (a mild upper bound for the true rank)
-    A_qr, k = rrqr!(A, rtol=rtol)
+    A_qr, k = rrqr!(A; rtol)
     Q, R = truncate_qr_result(A_qr, k)
 
-    # RRQR is an excellent preconditioner for Jacobi.  One should then perform
+    # RRQR is an excellent preconditioner for Jacobi. One should then perform
     # Jacobi on RT
     RT_svd = svd_jacobi(R')
 
@@ -308,7 +291,6 @@ function tsvd!(A::AbstractMatrix{T}; rtol=eps(T)) where T <: AbstractFloat
 end
 
 """Truncated singular value decomposition."""
-tsvd(A::AbstractMatrix{T}; rtol=eps(T)) where T <: AbstractFloat =
-    tsvd!(copy(A); rtol=rtol)
+tsvd(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat} = tsvd!(copy(A); rtol)
 
 end # module _LinAlg

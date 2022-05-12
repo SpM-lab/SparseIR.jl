@@ -43,8 +43,8 @@ using AssociatedLegendrePolynomials: Plm
         giv = 1 ./ ((im * π / β) * matsu_smpl.sampling_points .- pole)
         gl_from_matsu = fit(matsu_smpl, giv)
 
-        #println(maximum(abs.(gl_from_τ-gl_from_matsu)))
-        #println(maximum(abs.(gl_from_τ)))
+        #println(maximum(abs, gl_from_τ-gl_from_matsu))
+        #println(maximum(abs, gl_from_τ))
         #println("gl_from_τ", gl_from_τ[1:4])
         #println("gl_from_matsu", gl_from_matsu[1:4])
         @test isapprox(

@@ -1,6 +1,7 @@
 "Intermediate representation (IR) for many-body propagators"
 module SparseIR
 
+using DoubleFloats: Double64
 using IntervalRootFinding: roots as roots_irf, Interval, isunique, interval, mid, Newton
 using LinearAlgebra: dot, svd, SVD, QRIteration
 using LowRankApprox: psvd
@@ -10,7 +11,7 @@ using SpecialFunctions: sphericalbesselj as sphericalbesselj_sf
 export fermion, boson
 export DimensionlessBasis, FiniteTempBasis, finite_temp_bases
 export SparsePoleRepresentation, to_IR, from_IR
-export PiecewiseLegendrePoly, PiecewiseLegendrePolyArray, roots, hat, overlap, deriv
+export PiecewiseLegendrePoly, PiecewiseLegendrePolyVector, roots, hat, overlap, deriv
 export LegendreBasis, MatsubaraConstBasis
 export FiniteTempBasisSet
 export legendre, legendre_collocation, Rule, piecewise, quadrature, reseat
@@ -22,6 +23,7 @@ export TauSampling, MatsubaraSampling, evaluate, fit
 
 include("_specfuncs.jl")
 include("_linalg.jl")
+using ._LinAlg: tsvd
 
 include("svd.jl")
 include("gauss.jl")

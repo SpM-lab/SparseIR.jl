@@ -54,7 +54,7 @@ function CompositeBasis(bases::Vector{AbstractBasis})
     u = CompositeBasisFunction([b.u for b in bases])
     v = _collect_polys(CompositeBasisFunction, [b.v for b in bases])
     uhat = _collect_polys(CompositeBasisFunctionFT, [b.uhat for b in bases])
-    return CompositeBasis(beta(bases[1]), bases, u, v, uhat)
+    return CompositeBasis(getbeta(bases[1]), bases, u, v, uhat)
 end
 
 function default_tau_sampling_points(basis::CompositeBasis)

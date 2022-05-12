@@ -1,7 +1,7 @@
 abstract type AbstractBasis end
 
 Base.size(basis::AbstractBasis) = size(basis.u)
-beta(basis::AbstractBasis) = basis.β
+getbeta(basis::AbstractBasis) = basis.β
 statistics(basis::AbstractBasis) = basis.statistics
 
 """
@@ -21,7 +21,7 @@ kernel then only depends on a cutoff parameter `Λ = β * ωmax`.
 
 # Examples
 The following example code assumes the spectral function is a single
-pole at `x = 0.2`. We first compute an IR basis suitable for fermions and `β*W <= 42`. Then we get G(iw) on the first few Matsubara frequencies:
+pole at `x = 0.2`. We first compute an IR basis suitable for fermions and `β*W ≤ 42`. Then we get G(iw) on the first few Matsubara frequencies:
 
 ```julia-repl
 julia> using SparseIR
@@ -34,7 +34,7 @@ julia> giw = transpose(basis.uhat([1, 3, 5, 7])) * gl
 ```
 
 # Fields
-- `u::PiecewiseLegendrePolyArray`: Set of IR basis functions on the reduced imaginary time (`x`) axis. These functions are stored as piecewise Legendre polynomials.
+- `u::PiecewiseLegendrePolyVector`: Set of IR basis functions on the reduced imaginary time (`x`) axis. These functions are stored as piecewise Legendre polynomials.
 
   To obtain the value of all basis functions at a point or a array of
   points `x`, you can call the function `u(x)`.  To obtain a single
@@ -51,7 +51,7 @@ These objects are stored as a set of Bessel functions.
 
 - `s`: Vector of singular values of the continuation kernel
 
-- `v::PiecewiseLegendrePolyArray`: Set of IR basis functions on the reduced real frequency (`y`) axis.
+- `v::PiecewiseLegendrePolyVector`: Set of IR basis functions on the reduced real frequency (`y`) axis.
 These functions are stored as piecewise Legendre polynomials.
 
   To obtain the value of all basis functions at a point or a array of
@@ -62,10 +62,10 @@ See also [`FiniteTempBasis`](@ref) for a basis directly in time/frequency.
 """
 struct DimensionlessBasis{K<:AbstractKernel,T<:AbstractFloat} <: AbstractBasis
     kernel::K
-    u::PiecewiseLegendrePolyArray{T}
+    u::PiecewiseLegendrePolyVector{T}
     uhat::PiecewiseLegendreFTArray{T}
     s::Vector{T}
-    v::PiecewiseLegendrePolyArray{T}
+    v::PiecewiseLegendrePolyVector{T}
     sampling_points_v::Vector{T}
     statistics::Statistics
 end
@@ -99,7 +99,7 @@ function DimensionlessBasis(
     # so for significantly larger frequencies we use the asymptotics,
     # since it has lower relative error.
     even_odd = Dict(fermion => :odd, boson => :even)[statistics]
-    û = hat.(u, even_odd, 0:(length(u) - 1); n_asymp=conv_radius(kernel))
+    û = hat.(u, even_odd; n_asymp=conv_radius(kernel))
     rts = roots(last(v))
     sampling_points_v = [v.xmin; (rts[begin:(end - 1)] .+ rts[(begin + 1):end]) / 2; v.xmax]
     return DimensionlessBasis(kernel, u, û, s, v, sampling_points_v, statistics)
@@ -146,7 +146,7 @@ julia> giw = transpose(basis.uhat([1, 3, 5, 7])) * gl
 ```
 
 # Fields
-- `u::PiecewiseLegendrePolyArray`:
+- `u::PiecewiseLegendrePolyVector`:
   Set of IR basis functions on the imaginary time (`tau`) axis.
   These functions are stored as piecewise Legendre polynomials.
   
@@ -176,11 +176,13 @@ julia> giw = transpose(basis.uhat([1, 3, 5, 7])) * gl
 """
 struct FiniteTempBasis{K,T} <: AbstractBasis
     kernel::K
-    sve_result::Tuple{PiecewiseLegendrePolyArray{T},Vector{T},PiecewiseLegendrePolyArray{T}}
+    sve_result::Tuple{
+        PiecewiseLegendrePolyVector{T},Vector{T},PiecewiseLegendrePolyVector{T}
+    }
     statistics::Statistics
     β::T
-    u::PiecewiseLegendrePolyArray{T}
-    v::PiecewiseLegendrePolyArray{T}
+    u::PiecewiseLegendrePolyVector{T}
+    v::PiecewiseLegendrePolyVector{T}
     s::Vector{T}
     uhat::PiecewiseLegendreFTArray{T}
 end
@@ -188,7 +190,7 @@ end
 const _DEFAULT_FINITE_TEMP_BASIS = FiniteTempBasis{LogisticKernel{Float64},Float64}
 
 function Base.show(io::IO, a::FiniteTempBasis)
-    return print(io, "FiniteTempBasis($(statistics(a)), $(beta(a)), $(wmax(a)))")
+    return print(io, "FiniteTempBasis($(statistics(a)), $(getbeta(a)), $(getwmax(a)))")
 end
 
 """
@@ -198,19 +200,19 @@ Construct a finite temperature basis suitable for the given `statistics` and cut
 """
 function FiniteTempBasis(
     statistics::Statistics,
-    β::T,
+    β,
     wmax,
     ε=nothing;
     kernel=LogisticKernel(β * wmax),
     sve_result=compute_sve(kernel; ε),
-) where {T}
+)
     β > 0 || throw(DomainError(β, "Inverse temperature β must be positive"))
     wmax ≥ 0 || throw(DomainError(wmax, "Frequency cutoff wmax must be non-negative"))
-    if isnothing(ε) && isnothing(sve_result) && !_HAVE_XPREC
-        @warn """No extended precision is being used.
-        Expect single precision (1.5e-8) only as both cutoff
-        and accuracy of the basis functions."""
-    end
+    # if isnothing(ε) && isnothing(sve_result) && !_HAVE_XPREC
+    #     @warn """No extended precision is being used.
+    #     Expect single precision (1.5e-8) only as both cutoff
+    #     and accuracy of the basis functions."""
+    # end
 
     u, s, v = sve_result
     size(u) == size(s) == size(v) || throw(DimensionMismatch("Mismatched shapes in SVE"))
@@ -219,8 +221,10 @@ function FiniteTempBasis(
     # knots according to: tau = beta/2 * (x + 1), w = wmax * y.  Scaling
     # the data is not necessary as the normalization is inferred.
     wmax = kernel.Λ / β
-    u_ = PiecewiseLegendrePolyArray(u, β / 2 * (u.knots .+ 1); Δx=β / 2 * u.Δx, symm=u.symm)
-    v_ = PiecewiseLegendrePolyArray(v, wmax * v.knots; Δx=wmax * v.Δx, symm=v.symm)
+    u_ = PiecewiseLegendrePolyVector(
+        u, β / 2 * (u.knots .+ 1); Δx=β / 2 * u.Δx, symm=u.symm
+    )
+    v_ = PiecewiseLegendrePolyVector(v, wmax * v.knots; Δx=wmax * v.Δx, symm=v.symm)
 
     # The singular values are scaled to match the change of variables, with
     # the additional complexity that the kernel may have an additional
@@ -234,9 +238,9 @@ function FiniteTempBasis(
 
     conv_radius = 40 * kernel.Λ
     even_odd = Dict(fermion => :odd, boson => :even)[statistics]
-    û = hat.(û_base, even_odd, 0:(length(u) - 1); n_asymp=conv_radius)
+    û = hat.(û_base, even_odd; n_asymp=conv_radius)
 
-    return FiniteTempBasis(kernel, sve_result, statistics, β, u_, v_, s_, û)
+    return FiniteTempBasis(kernel, sve_result, statistics, float(β), u_, v_, s_, û)
 end
 
 Base.firstindex(::AbstractBasis) = 1
@@ -254,16 +258,16 @@ function Base.getindex(basis::FiniteTempBasis, i)
     u, s, v = basis.sve_result
     sve_result = u[i], s[i], v[i]
     return FiniteTempBasis(
-        basis.statistics, beta(basis), wmax(basis); kernel=basis.kernel, sve_result
+        basis.statistics, getbeta(basis), getwmax(basis); kernel=basis.kernel, sve_result
     )
 end
 
 """
-    wmax(basis::FiniteTempBasis)
+    getwmax(basis::FiniteTempBasis)
 
 Real frequency cutoff.
 """
-wmax(basis::FiniteTempBasis) = basis.kernel.Λ / beta(basis)
+getwmax(basis::FiniteTempBasis) = basis.kernel.Λ / getbeta(basis)
 
 """
     finite_temp_bases(β, wmax, ε, sve_result=compute_sve(LogisticKernel(β * wmax); ε))
