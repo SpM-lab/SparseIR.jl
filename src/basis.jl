@@ -80,18 +80,9 @@ end
 Construct an IR basis suitable for the given `statistics` and cutoff `Λ`.
 """
 function DimensionlessBasis(
-    statistics::Statistics,
-    Λ,
-    ε=nothing;
-    kernel=LogisticKernel(Λ),
-    sve_result=compute_sve(kernel; ε),
+    statistics::Statistics, Λ, ε=nothing;
+    kernel=LogisticKernel(Λ), sve_result=compute_sve(kernel; ε),
 )
-    if isnothing(ε) && isnothing(sve_result) && !HAVE_XPREC
-        @warn """No extended precision is being used.
-        Expect single precision (1.5e-8) only as both cutoff
-        and accuracy of the basis functions."""
-    end
-
     u, s, v = sve_result
     size(u) == size(s) == size(v) || throw(DimensionMismatch("Mismatched shapes in SVE"))
 
@@ -199,20 +190,11 @@ end
 Construct a finite temperature basis suitable for the given `statistics` and cutoffs `β` and `wmax`.
 """
 function FiniteTempBasis(
-    statistics::Statistics,
-    β,
-    wmax,
-    ε=nothing;
-    kernel=LogisticKernel(β * wmax),
-    sve_result=compute_sve(kernel; ε),
+    statistics::Statistics, β, wmax, ε=nothing;
+    kernel=LogisticKernel(β * wmax), sve_result=compute_sve(kernel; ε),
 )
     β > 0 || throw(DomainError(β, "Inverse temperature β must be positive"))
     wmax ≥ 0 || throw(DomainError(wmax, "Frequency cutoff wmax must be non-negative"))
-    # if isnothing(ε) && isnothing(sve_result) && !_HAVE_XPREC
-    #     @warn """No extended precision is being used.
-    #     Expect single precision (1.5e-8) only as both cutoff
-    #     and accuracy of the basis functions."""
-    # end
 
     u, s, v = sve_result
     size(u) == size(s) == size(v) || throw(DimensionMismatch("Mismatched shapes in SVE"))
@@ -221,10 +203,10 @@ function FiniteTempBasis(
     # knots according to: tau = beta/2 * (x + 1), w = wmax * y.  Scaling
     # the data is not necessary as the normalization is inferred.
     wmax = kernel.Λ / β
-    u_ = PiecewiseLegendrePolyVector(
-        u, β / 2 * (u.knots .+ 1); Δx=β / 2 * u.Δx, symm=u.symm
-    )
-    v_ = PiecewiseLegendrePolyVector(v, wmax * v.knots; Δx=wmax * v.Δx, symm=v.symm)
+    u_knots = β / 2 * (u.knots .+ 1)
+    v_knots = wmax * v.knots
+    u_ = PiecewiseLegendrePolyVector(u, u_knots; Δx=β / 2 * u.Δx, symm=u.symm)
+    v_ = PiecewiseLegendrePolyVector(v, v_knots; Δx=wmax * v.Δx, symm=v.symm)
 
     # The singular values are scaled to match the change of variables, with
     # the additional complexity that the kernel may have an additional

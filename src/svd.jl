@@ -1,5 +1,5 @@
 const _T_MAX = Double64
-const _EPS_MAX = eps(_T_MAX)
+const _ε_MAX = eps(_T_MAX)
 
 function compute_svd(a_matrix::AbstractMatrix; n_sv_hint=nothing, strategy=:fast)
     m, n = size(a_matrix)

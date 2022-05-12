@@ -1,5 +1,3 @@
-# const _HAVE_XPREC = false # TODO:
-
 abstract type AbstractSVE end
 
 """
@@ -274,13 +272,16 @@ Choose work type and accuracy based on specs and defaults
 """
 function _choose_accuracy(ε, Twork)
     if isnothing(ε)
-        # TODO: adjust for extended precision
-        isnothing(Twork) && return sqrt(_EPS_MAX), _T_MAX, :fast
+        if isnothing(Twork)
+            return sqrt(_ε_MAX), _T_MAX, :fast
+        end
         return sqrt(eps(Twork)), Twork, :fast
     end
 
     if isnothing(Twork)
-        ε ≥ sqrt(eps(Float64)) && return ε, Float64, :fast
+        if ε ≥ sqrt(eps(Float64))
+            return ε, Float64, :fast
+        end
         Twork = _T_MAX
     end
 

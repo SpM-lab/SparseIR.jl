@@ -1,14 +1,15 @@
 using Test
 using SparseIR
+using DoubleFloats
 
 using Random
 
 @testset "spr.jl" begin
-    @testset "transform with stat = $stat" for stat in (fermion, )
+    @testset "transform with stat = $stat" for stat in (fermion, boson)
         # TODO: fix stat = boson
         beta = 1e4
         wmax = 1.0
-        eps = Double64(1e-12) # TODO: should be 1e-12, fix once extended precision works
+        eps = Double64(1e-12)
         basis = FiniteTempBasis(stat, beta, wmax, eps)
         spr = SparsePoleRepresentation(basis)
 

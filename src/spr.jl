@@ -32,7 +32,7 @@ function (basis::TauPoleBasis)(tau::Vector{<:AbstractFloat})
         res = -LogisticKernel(Λ).(x, transpose(y))
     else
         K = RegularizedBoseKernel(Λ)
-        res = -K(x, transpose(y)) ./ transpose(y)
+        res = -K.(x, transpose(y)) ./ transpose(y)
     end
     return transpose(res)
 end
