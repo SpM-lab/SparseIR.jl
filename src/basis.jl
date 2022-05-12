@@ -2,7 +2,7 @@ abstract type AbstractBasis end
 
 Base.size(basis::AbstractBasis) = size(basis.u)
 getbeta(basis::AbstractBasis) = basis.β
-statistics(basis::AbstractBasis) = basis.statistics
+getstatistics(basis::AbstractBasis) = basis.statistics
 
 """
     DimensionlessBasis <: AbstractBasis
@@ -71,7 +71,7 @@ struct DimensionlessBasis{K<:AbstractKernel,T<:AbstractFloat} <: AbstractBasis
 end
 
 function Base.show(io::IO, a::DimensionlessBasis)
-    return print(io, "DimensionlessBasis: statistics=$(statistics(a)), size=$(size(a))")
+    return print(io, "DimensionlessBasis: statistics=$(getstatistics(a)), size=$(size(a))")
 end
 
 """
@@ -181,7 +181,7 @@ end
 const _DEFAULT_FINITE_TEMP_BASIS = FiniteTempBasis{LogisticKernel{Float64},Float64}
 
 function Base.show(io::IO, a::FiniteTempBasis)
-    return print(io, "FiniteTempBasis($(statistics(a)), $(getbeta(a)), $(getwmax(a)))")
+    return print(io, "FiniteTempBasis($(getstatistics(a)), $(getbeta(a)), $(getwmax(a)))")
 end
 
 """
