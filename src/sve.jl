@@ -161,7 +161,7 @@ function compute_sve(
     svd_strat = (svd_strat == :default) ? default_svd_strat : svd_strat
 
     sve = sve_strat(kernel, ε; n_gauss, T=Twork)
-    svds = compute_svd.(matrices(sve); n_sv_hint=sve.nsvals_hint, strategy=svd_strat)
+    svds = compute_svd.(matrices(sve); strategy=svd_strat)
     u_, s_, v_ = zip(svds...)
     u, s, v = truncate(u_, s_, v_, ε, n_sv)
     return postprocess(sve, u, s, v, X)
@@ -273,21 +273,21 @@ Choose work type and accuracy based on specs and defaults
 function _choose_accuracy(ε, Twork)
     if isnothing(ε)
         if isnothing(Twork)
-            return sqrt(_ε_MAX), _T_MAX, :fast
+            return sqrt(_ε_MAX), _T_MAX, :default
         end
-        return sqrt(eps(Twork)), Twork, :fast
+        return sqrt(eps(Twork)), Twork, :default
     end
 
     if isnothing(Twork)
         if ε ≥ sqrt(eps(Float64))
-            return ε, Float64, :fast
+            return ε, Float64, :default
         end
         Twork = _T_MAX
     end
 
     safe_ε = sqrt(eps(Twork))
     if ε ≥ safe_ε
-        svd_strat = :fast
+        svd_strat = :default
     else
         svd_strat = :accurate
         @warn """Basis cutoff is $ε, which is below sqrt(eps) with eps = $(safe_ε^2).
