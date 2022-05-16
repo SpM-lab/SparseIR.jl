@@ -3,7 +3,7 @@ using SparseIR
 
 @testset "composite.jl" begin
     @testset "Augmented bosonic basis" begin
-        wmax = 2
+        wmax = 2.0
         β = 1e+3
         basis = FiniteTempBasis(boson, β, wmax, 1e-6)
         basis_legg = LegendreBasis(boson, β, 2)

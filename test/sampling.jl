@@ -31,6 +31,7 @@ using Random, LinearAlgebra
         Λ = 42
         basis = DimensionlessBasis(stat, Λ; sve_result=sve_logistic[Λ])
         smpl = TauSampling(basis)
+        @test issorted(smpl.sampling_points)
         Random.seed!(5318008)
 
         ρℓ = basis.v([-0.999, -0.01, 0.5]) * [0.8, -0.2, 0.5]
@@ -53,6 +54,7 @@ using Random, LinearAlgebra
         Λ = 42
         basis = DimensionlessBasis(stat, Λ; sve_result=sve_logistic[Λ])
         smpl = MatsubaraSampling(basis)
+        @test issorted(smpl.sampling_points)
         Random.seed!(1312 + 161)
 
         ρl = basis.v([-0.999, -0.01, 0.5]) * [0.8, -0.2, 0.5]
@@ -68,6 +70,6 @@ using Random, LinearAlgebra
         @inferred fit(smpl, Giwn_n, dim=1)
         Gl_n = fit(smpl, Giwn_n)
 
-        @test isapprox(Gl, Gl_n, atol=12 * noise * Gl_magn, rtol=0)
+        @test isapprox(Gl, Gl_n, atol=15 * noise * Gl_magn, rtol=0)
     end
 end
