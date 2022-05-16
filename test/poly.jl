@@ -34,7 +34,7 @@ using SparseIR
         basis = DimensionlessBasis(fermion, 42.0; sve_result)
         @test length(basis[begin:5]) == 5
 
-        basis = FiniteTempBasis(fermion, 4.2, 10; sve_result)
+        basis = FiniteTempBasis(fermion, 4.2, 10.0; sve_result)
         @test length(basis[begin:4]) == 4
     end
 

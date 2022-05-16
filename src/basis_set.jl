@@ -36,7 +36,9 @@ Create basis sets for fermion and boson and
 associated sampling objects.
 Fermion and bosonic bases are constructed by SVE of the logistic kernel.
 """
-function FiniteTempBasisSet(beta, wmax, eps; sve_result=nothing)
+function FiniteTempBasisSet(
+    beta::AbstractFloat, wmax::AbstractFloat, eps; sve_result=nothing
+)
     if isnothing(sve_result)
         # Create bases by sve of the logistic kernel
         basis_f, basis_b = finite_temp_bases(beta, wmax, eps)

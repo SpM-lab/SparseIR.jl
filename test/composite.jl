@@ -3,7 +3,7 @@ using SparseIR
 
 @testset "composite.jl" begin
     """Augmented bosonic basis"""
-    wmax = 2
+    wmax = 2.0
     beta = 1e+3
     #startt = time_ns()
     walltimes = Tuple{String,Int}[]

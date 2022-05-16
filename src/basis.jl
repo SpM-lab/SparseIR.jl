@@ -190,7 +190,7 @@ end
 Construct a finite temperature basis suitable for the given `statistics` and cutoffs `β` and `wmax`.
 """
 function FiniteTempBasis(
-    statistics::Statistics, β, wmax, ε=nothing;
+    statistics::Statistics, β::AbstractFloat, wmax::AbstractFloat, ε=nothing;
     kernel=LogisticKernel(β * wmax), sve_result=compute_sve(kernel; ε),
 )
     β > 0 || throw(DomainError(β, "Inverse temperature β must be positive"))
@@ -256,7 +256,12 @@ getwmax(basis::FiniteTempBasis) = basis.kernel.Λ / getbeta(basis)
 
 Construct FiniteTempBasis objects for fermion and bosons using the same LogisticKernel instance.
 """
-function finite_temp_bases(β, wmax, ε, sve_result=compute_sve(LogisticKernel(β * wmax); ε))
+function finite_temp_bases(
+    β::AbstractFloat,
+    wmax::AbstractFloat,
+    ε,
+    sve_result=compute_sve(LogisticKernel(β * wmax); ε),
+)
     basis_f = FiniteTempBasis(fermion, β, wmax, ε; sve_result)
     basis_b = FiniteTempBasis(boson, β, wmax, ε; sve_result)
     return basis_f, basis_b
