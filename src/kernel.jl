@@ -332,12 +332,12 @@ get_symmetrized(kernel::AbstractKernel, sign) = ReducedKernel(kernel, sign)
 
 function get_symmetrized(kernel::LogisticKernel, sign)
     sign == -1 && return LogisticKernelOdd(kernel, sign)
-    return Base.@invoke get_symmetrized(kernel::AbstractKernel, sign)
+    return Base.invoke(get_symmetrized, Tuple{AbstractKernel,Any}, kernel, sign)
 end
 
 function get_symmetrized(kernel::RegularizedBoseKernel, sign)
     sign == -1 && return RegularizedBoseKernelOdd(kernel, sign)
-    return Base.@invoke get_symmetrized(kernel::AbstractKernel, sign)
+    return Base.invoke(get_symmetrized, Tuple{AbstractKernel,Any}, kernel, sign)
 end
 
 get_symmetrized(::AbstractReducedKernel, sign) = error("cannot symmetrize twice")

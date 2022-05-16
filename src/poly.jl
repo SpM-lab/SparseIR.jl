@@ -45,6 +45,7 @@ function PiecewiseLegendrePoly(
     data::Matrix, knots::Vector, l::Integer; Δx=diff(knots), symm=0
 )
     polyorder, nsegments = size(data)
+    size(knots) == (nsegments + 1,) || error("Invalid knots array")
     xm = @views (knots[1:(end - 1)] + knots[2:end]) / 2
     inv_xs = 2 ./ Δx
     norm = sqrt.(inv_xs)
@@ -117,7 +118,7 @@ function roots(poly::PiecewiseLegendrePoly{T}; tol=1e-10) where {T}
     xmin = abs(poly.symm) == 1 ? m : poly.xmin # Exploit symmetry.
     xmax = poly.xmax
 
-    rts_rootobjects = roots_irf(poly, Interval(xmin, xmax), Newton, tol)
+    rts_rootobjects = IntervalRootFinding.roots(poly, Interval(xmin, xmax), Newton, tol)
     rts = map(mid ∘ interval, Iterators.filter(isunique, rts_rootobjects))
 
     if abs(poly.symm) == 1

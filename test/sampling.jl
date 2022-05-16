@@ -18,7 +18,7 @@ using Random, LinearAlgebra
         @test A * x ≈ Ad.U * Diagonal(Ad.S) * Ad.Vt * x atol = 1e-14 * norm_A rtol = 0
 
         x = randn(39, 3)
-        @test A * x ≈ Ad.U * Diagonal(Ad.S) * Ad.Vt * x atol = 1e-14 * norm_A rtol = 0
+        @test A * x ≈ Ad.U * Diagonal(Ad.S) * Ad.Vt * x atol = 2e-14 * norm_A rtol = 0
 
         y = randn(49)
         @test A \ y ≈ Ad \ y atol = 1e-14 * norm_A rtol = 0
@@ -70,6 +70,6 @@ using Random, LinearAlgebra
         @inferred fit(smpl, Giwn_n, dim=1)
         Gl_n = fit(smpl, Giwn_n)
 
-        @test isapprox(Gl, Gl_n, atol=15 * noise * Gl_magn, rtol=0)
+        @test isapprox(Gl, Gl_n, atol=40 * noise * Gl_magn, rtol=0)
     end
 end
