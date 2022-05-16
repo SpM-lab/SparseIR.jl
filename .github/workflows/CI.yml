@@ -5,6 +5,7 @@ on:
       - main
       - develop
       - ci #debug
+      - julia1.6 #debug
     tags: '*'
   pull_request:
 concurrency:
