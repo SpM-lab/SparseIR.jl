@@ -70,6 +70,6 @@ using Random, LinearAlgebra
         @inferred fit(smpl, Giwn_n, dim=1)
         Gl_n = fit(smpl, Giwn_n)
 
-        @test isapprox(Gl, Gl_n, atol=15 * noise * Gl_magn, rtol=0)
+        @test isapprox(Gl, Gl_n, atol=40 * noise * Gl_magn, rtol=0)
     end
 end
