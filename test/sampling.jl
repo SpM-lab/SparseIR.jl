@@ -18,7 +18,7 @@ using Random, LinearAlgebra
         @test A * x ≈ Ad.U * Diagonal(Ad.S) * Ad.Vt * x atol = 1e-14 * norm_A rtol = 0
 
         x = randn(39, 3)
-        @test A * x ≈ Ad.U * Diagonal(Ad.S) * Ad.Vt * x atol = 5e-14 * norm_A rtol = 0
+        @test A * x ≈ Ad.U * Diagonal(Ad.S) * Ad.Vt * x atol = 2e-14 * norm_A rtol = 0
 
         y = randn(49)
         @test A \ y ≈ Ad \ y atol = 1e-14 * norm_A rtol = 0
