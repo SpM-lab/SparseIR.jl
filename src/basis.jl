@@ -75,7 +75,7 @@ function Base.show(io::IO, a::DimensionlessBasis)
 end
 
 """
-    DimensionlessBasis(statistics, Λ, ε=nothing; kernel=nothing, sve_result=nothing)
+    DimensionlessBasis(statistics, Λ, ε=nothing; kernel=LogisticKernel(Λ), sve_result=compute_sve(kernel; ε))
 
 Construct an IR basis suitable for the given `statistics` and cutoff `Λ`.
 """

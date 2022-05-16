@@ -544,7 +544,7 @@ Phase factor for the piecewise Legendre to Matsubara transform.
 
 Compute the following phase factor in a stable way:
 
-    exp.(iπ/2 * wn .* cumsum(poly.Δx)')
+    exp.(iπ/2 * wn * cumsum(poly.Δx))
 """
 function _phase_stable(poly, wn)
     xmid_diff, extra_shift = _shift_xmid(poly.knots, poly.Δx)
@@ -555,10 +555,10 @@ function _phase_stable(poly, wn)
         delta_wn, wn = modf(wn)
         wn = trunc(Int, wn)
         shift_arg = wn * xmid_diff
-        shift_arg .+= delta_wn * (extra_shift + xmid_diff)
+        @. shift_arg += delta_wn * (extra_shift + xmid_diff)
     end
 
-    phase_shifted = exp.(im * π / 2 * shift_arg)
-    corr = im .^ mod.(wn * (extra_shift .+ 1), 4)
+    phase_shifted = @. cispi(shift_arg / 2)
+    corr = @. im ^ mod(wn * (extra_shift + 1), 4)
     return corr .* phase_shifted
 end
