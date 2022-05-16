@@ -5,7 +5,7 @@ on:
       - main
       - develop
       - ci #debug
-      - julia1.6 #debug
+      #- julia1.6 #debug
     tags: '*'
   pull_request:
 concurrency:
@@ -21,7 +21,7 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.4'
+          #- '1.4'
           - '1.6'
           - '1.7'
           #- 'nightly'
