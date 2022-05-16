@@ -320,6 +320,8 @@ function _default_matsubara_sampling_points(uhat, mitigate=true)
         unique!(wn)
     end
 
+    sort!(wn)
+
     return wn
 end
 
