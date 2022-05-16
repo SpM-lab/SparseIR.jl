@@ -256,8 +256,8 @@ function postprocess(sve::CentrosymmSVE, u, s, v, ::Type{T}) where {T}
 
         u_neg_data = reverse(u_pos_data; dims=2) .* poly_flip_x * signs[i]
         v_neg_data = reverse(v_pos_data; dims=2) .* poly_flip_x * signs[i]
-        u_data = [u_neg_data;; u_pos_data]
-        v_data = [v_neg_data;; v_pos_data]
+        u_data = hcat(u_neg_data, u_pos_data)
+        v_data = hcat(v_neg_data, v_pos_data)
         u_complete[i] = PiecewiseLegendrePoly(u_data, segs_x, i - 1; symm=signs[i])
         v_complete[i] = PiecewiseLegendrePoly(v_data, segs_y, i - 1; symm=signs[i])
     end

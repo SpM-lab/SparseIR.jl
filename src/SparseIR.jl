@@ -5,7 +5,7 @@ using DoubleFloats: Double64
 using IntervalRootFinding: roots as roots_irf, Interval, isunique, interval, mid, Newton
 using LinearAlgebra: dot, svd, SVD, QRIteration
 using QuadGK: gauss, kronrod, quadgk
-using SpecialFunctions: sphericalbesselj as sphericalbesselj_sf
+import SpecialFunctions
 
 export fermion, boson
 export DimensionlessBasis, FiniteTempBasis, finite_temp_bases

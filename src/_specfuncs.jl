@@ -7,7 +7,7 @@ function sphericalbesselj(n::Integer, x::T) where {T<:AbstractFloat}
 
     if n > 0 && n ≥ x
         # We don't use SpecialFunctions.sphericalbesselj directly because it errors out on large x
-        return T(sphericalbesselj_sf(n, x))
+        return T(SpecialFunctions.sphericalbesselj(n, x))
     else
         return _sphericalbesselj(n, x)
     end

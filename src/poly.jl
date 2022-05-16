@@ -45,6 +45,7 @@ function PiecewiseLegendrePoly(
     data::Matrix, knots::Vector, l::Integer; Δx=diff(knots), symm=0
 )
     polyorder, nsegments = size(data)
+    size(knots) == (nsegments + 1,) || error("Invalid knots array")
     xm = @views (knots[1:(end - 1)] + knots[2:end]) / 2
     inv_xs = 2 ./ Δx
     norm = sqrt.(inv_xs)
