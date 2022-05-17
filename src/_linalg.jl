@@ -1,5 +1,6 @@
 module _LinAlg
 
+using GenericLinearAlgebra: GenericLinearAlgebra
 using LinearAlgebra: LinearAlgebra
 export tsvd, tsvd!, svd_jacobi, svd_jacobi!, rrqr, rrqr!
 
@@ -133,7 +134,6 @@ function jacobi_sweep!(U::AbstractMatrix, VT::AbstractMatrix)
     Base.require_one_based_indexing(U)
     Base.require_one_based_indexing(VT)
 
-    # TODO: non-traditional indexing
     offd = zero(eltype(U))
     @inbounds for i in 1:ii
         for j in (i + 1):jj
@@ -159,7 +159,7 @@ end
 function svd_jacobi!(U::AbstractMatrix{T}; rtol=eps(T), maxiter=20) where {T}
     m, n = size(U)
     m ≥ n || throw(ArgumentError("matrix must be 'tall'"))
-    Base.require_one_based_indexing(U)   # TODO
+    Base.require_one_based_indexing(U)
 
     VT = Matrix(one(T) * LinearAlgebra.I, n, n)
     Unorm = LinearAlgebra.norm(@view U[1:n, 1:n])
@@ -193,7 +193,7 @@ function rrqr!(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat}
     # DGEQPF
     m, n = size(A)
     k = min(m, n)
-    Base.require_one_based_indexing(A)   # TODO
+    Base.require_one_based_indexing(A)
 
     jpvt = Vector(1:n)
     taus = Vector{T}(undef, k)
@@ -281,11 +281,11 @@ function tsvd!(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat}
 
     # RRQR is an excellent preconditioner for Jacobi. One should then perform
     # Jacobi on RT
-    RT_svd = svd_jacobi(R')
+    RT_svd = GenericLinearAlgebra.svd(R')
 
     # Reconstruct A from QR
     U = Q * RT_svd.V
-    V = A_qr.P * RT_svd.U
+    V = @view RT_svd.U[invperm(A_qr.p), :]
     s = RT_svd.S
     return LinearAlgebra.SVD(U, s, V')
 end

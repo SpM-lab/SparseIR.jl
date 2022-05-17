@@ -560,6 +560,6 @@ function _phase_stable(poly, wn)
     end
 
     phase_shifted = @. cispi(shift_arg / 2)
-    corr = @. im ^ mod(wn * (extra_shift + 1), 4)
+    corr = @. im^mod(wn * (extra_shift + 1), 4)
     return corr .* phase_shifted
 end

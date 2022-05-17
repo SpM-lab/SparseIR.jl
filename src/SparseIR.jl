@@ -2,20 +2,18 @@
 module SparseIR
 
 using DoubleFloats: Double64
-using IntervalRootFinding: Interval, isunique, interval, mid, Newton
-import IntervalRootFinding
+using IntervalRootFinding: IntervalRootFinding, Interval, isunique, interval, mid, Newton
 using LinearAlgebra: dot, svd, SVD, QRIteration
 using QuadGK: gauss, kronrod, quadgk
-import SpecialFunctions
+using SpecialFunctions: SpecialFunctions
 
 export fermion, boson
 export DimensionlessBasis, FiniteTempBasis, finite_temp_bases
 export SparsePoleRepresentation, to_IR, from_IR
-export PiecewiseLegendrePoly, PiecewiseLegendrePolyVector, roots, hat, overlap, deriv
+export overlap
 export LegendreBasis, MatsubaraConstBasis
 export FiniteTempBasisSet
-export legendre, legendre_collocation, Rule, piecewise, quadrature, reseat
-export LogisticKernel, RegularizedBoseKernel, get_symmetrized
+export LogisticKernel, RegularizedBoseKernel
 export CompositeBasis, CompositeBasisFunction, CompositeBasisFunctionFT
 export TauSampling, MatsubaraSampling, evaluate, fit
 

@@ -4,11 +4,12 @@ using SparseIR
 @testset "poly.jl" begin
     @testset "typestability" begin
         @test typestable(
-            SparseIR._evaluate, [PiecewiseLegendrePoly{Float64}, Float64]; checkonlyany=true
+            SparseIR._evaluate, [SparseIR.PiecewiseLegendrePoly{Float64}, Float64];
+            checkonlyany=true,
         )
         @test typestable(
             SparseIR._evaluate,
-            [PiecewiseLegendrePoly{Float64}, Vector{Float64}];
+            [SparseIR.PiecewiseLegendrePoly{Float64}, Vector{Float64}];
             checkonlyany=true,
         )
     end
@@ -49,7 +50,7 @@ using SparseIR
 
     @testset "matrix_hat" begin
         u, s, v = sve_logistic[42]
-        uhat = hat.(u, :odd)
+        uhat = SparseIR.hat.(u, :odd)
 
         n = [1, 3, 5, -1, -3, 5]
         result1 = uhat[1](n)
@@ -78,7 +79,7 @@ using SparseIR
 
     @testset "eval unique" begin
         u, s, v = sve_logistic[42]
-        û = hat.(u, :odd)
+        û = SparseIR.hat.(u, :odd)
 
         # evaluate
         res1 = û([1, 3, 3, 1])

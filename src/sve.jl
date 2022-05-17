@@ -45,17 +45,9 @@ function SamplingSVE(kernel, ε; n_gauss=-1, T=Float64)
     gauss_x, gauss_y = piecewise(rule, segs_x), piecewise(rule, segs_y)
 
     return SamplingSVE(
-        kernel,
-        ε,
-        n_gauss,
-        nsvals(sve_hints_),
-        rule,
-        segs_x,
-        segs_y,
-        gauss_x,
-        gauss_y,
-        sqrt.(gauss_x.w),
-        sqrt.(gauss_y.w),
+        kernel, ε, n_gauss, nsvals(sve_hints_),
+        rule, segs_x, segs_y, gauss_x, gauss_y,
+        sqrt.(gauss_x.w), sqrt.(gauss_y.w),
     )
 end
 
@@ -160,7 +152,7 @@ function compute_sve(
     end
     svd_strat = (svd_strat == :default) ? default_svd_strat : svd_strat
 
-    sve = sve_strat(kernel, ε; n_gauss, T=Twork)
+    sve = sve_strat(kernel, Twork(ε); n_gauss, T=Twork)
     svds = compute_svd.(matrices(sve); strategy=svd_strat)
     u_, s_, v_ = zip(svds...)
     u, s, v = truncate(u_, s_, v_, ε, n_sv)
