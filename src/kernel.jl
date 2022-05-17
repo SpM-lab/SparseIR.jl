@@ -48,15 +48,14 @@ where the weight function is given by
 """
 struct LogisticKernel <: AbstractKernel
     Λ::Float64
-end
-
-function LogisticKernel(Λ)
-    Λ ≥ 0 || throw(DomainError(Λ, "Kernel cutoff Λ must be non-negative"))
-    return LogisticKernel(float(Λ))
+    function LogisticKernel(Λ)
+        Λ ≥ 0 || throw(DomainError(Λ, "Kernel cutoff Λ must be non-negative"))
+        return new(Λ)
+    end
 end
 
 @doc raw"""
-    RegularizedBoseKernel{T} <: AbstractKernel
+    RegularizedBoseKernel <: AbstractKernel
 
 Regularized bosonic analytical continuation kernel.
 
@@ -67,11 +66,13 @@ integral kernel is a function on ``[-1, 1] × [-1, 1]``:
 ```
 Care has to be taken in evaluating this expression around ``y = 0``.
 """
-struct RegularizedBoseKernel{T<:AbstractFloat} <: AbstractKernel
-    Λ::T
+struct RegularizedBoseKernel <: AbstractKernel
+    Λ::Float64
+    function RegularizedBoseKernel(Λ)
+        Λ ≥ 0 || throw(DomainError(Λ, "Kernel cutoff Λ must be non-negative"))
+        return new(Λ)
+    end
 end
-
-RegularizedBoseKernel(Λ) = RegularizedBoseKernel(float(Λ))
 
 """
     AbstractSVEHints
@@ -85,9 +86,9 @@ struct SVEHintsLogistic{T} <: AbstractSVEHints
     ε::T
 end
 
-struct SVEHintsRegularizedBose{T,S} <: AbstractSVEHints
-    kernel::RegularizedBoseKernel{T}
-    ε::S
+struct SVEHintsRegularizedBose{T} <: AbstractSVEHints
+    kernel::RegularizedBoseKernel
+    ε::T
 end
 
 struct SVEHintsReduced{T<:AbstractSVEHints} <: AbstractSVEHints
@@ -137,12 +138,12 @@ struct LogisticKernelOdd <: AbstractReducedKernel
     function LogisticKernelOdd(inner::LogisticKernel, sign)
         iscentrosymmetric(inner) || error("inner kernel must be centrosymmetric")
         abs(sign) == 1 || throw(DomainError(sign, "sign must be -1 or 1"))
-        return new{T}(inner, sign)
+        return new(inner, sign)
     end
 end
 
 @doc raw"""
-    RegularizedBoseKernelOdd{T} <: AbstractReducedKernel
+    RegularizedBoseKernelOdd <: AbstractReducedKernel
 
 Bosonic analytical continuation kernel, odd.
 
@@ -152,14 +153,14 @@ integral kernel is a function on ``[-1, 1] × [-1, 1]``:
     K(x, y) = -y \frac{\sinh(Λ x y / 2)}{\sinh(Λ y / 2)}
 ```
 """
-struct RegularizedBoseKernelOdd{T} <: AbstractReducedKernel
-    inner::RegularizedBoseKernel{T}
+struct RegularizedBoseKernelOdd <: AbstractReducedKernel
+    inner::RegularizedBoseKernel
     sign::Int
 
-    function RegularizedBoseKernelOdd(inner::RegularizedBoseKernel{T}, sign) where {T}
+    function RegularizedBoseKernelOdd(inner::RegularizedBoseKernel, sign)
         iscentrosymmetric(inner) || error("inner kernel must be centrosymmetric")
         abs(sign) == 1 || throw(DomainError(sign, "sign must be -1 or 1"))
-        return new{T}(inner, sign)
+        return new(inner, sign)
     end
 end
 
@@ -332,12 +333,12 @@ get_symmetrized(kernel::AbstractKernel, sign) = ReducedKernel(kernel, sign)
 
 function get_symmetrized(kernel::LogisticKernel, sign)
     sign == -1 && return LogisticKernelOdd(kernel, sign)
-    return Base.invoke(get_symmetrized, Tuple{AbstractKernel,Any}, kernel, sign)
+    return Base.invoke(get_symmetrized, Tuple{AbstractKernel,typeof(sign)}, kernel, sign)
 end
 
 function get_symmetrized(kernel::RegularizedBoseKernel, sign)
     sign == -1 && return RegularizedBoseKernelOdd(kernel, sign)
-    return Base.invoke(get_symmetrized, Tuple{AbstractKernel,Any}, kernel, sign)
+    return Base.invoke(get_symmetrized, Tuple{AbstractKernel,typeof(sign)}, kernel, sign)
 end
 
 get_symmetrized(::AbstractReducedKernel, sign) = error("cannot symmetrize twice")

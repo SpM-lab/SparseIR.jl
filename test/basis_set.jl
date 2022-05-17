@@ -6,7 +6,7 @@ using SparseIR
         β = 2.0
         wmax = 5.0
         ε = 1e-5
-        basis_f, basis_b = finite_temp_bases(β, wmax, ε)
+        basis_f, basis_b = SparseIR.finite_temp_bases(β, wmax, ε)
         bs = FiniteTempBasisSet(β, wmax, ε)
 
         @test length(bs.basis_f) == length(basis_f)
@@ -19,7 +19,7 @@ using SparseIR
         ε = 1e-5
 
         sve_result = sve_logistic[β * wmax]
-        basis_f, basis_b = finite_temp_bases(β, wmax, ε, sve_result)
+        basis_f, basis_b = SparseIR.finite_temp_bases(β, wmax, ε, sve_result)
         smpl_τ_f = TauSampling(basis_f)
         smpl_τ_b = TauSampling(basis_b)
         smpl_wn_f = MatsubaraSampling(basis_f)

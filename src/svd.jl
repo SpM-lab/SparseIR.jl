@@ -1,7 +1,7 @@
-const _T_MAX = Double64
-const _ε_MAX = eps(_T_MAX)
+const T_MAX = Double64
+const ε_MAX = eps(T_MAX)
 
-function compute_svd(A::AbstractMatrix{_T_MAX}; n_sv_hint=nothing, strategy=:default)
+function compute_svd(A::AbstractMatrix{T_MAX}; n_sv_hint=nothing, strategy=:default)
     if !isnothing(n_sv_hint)
         @info "n_sv_hint is set but will not be used in the current implementation!"
     end

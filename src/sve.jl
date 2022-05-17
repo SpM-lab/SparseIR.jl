@@ -136,17 +136,11 @@ Return tuple `(u, s, v)`, where:
 - `v::PiecewiseLegendrePoly`: the right singular functions
 """
 function compute_sve(
-    kernel::AbstractKernel;
-    ε=nothing,
-    n_sv=typemax(Int),
-    n_gauss=-1,
-    T::Type{X}=Float64,
-    Twork=nothing,
-    sve_strat::Type{Y}=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE,
-    svd_strat::Symbol=:default,
-)::Tuple{
-    PiecewiseLegendrePolyVector{X},Vector{X},PiecewiseLegendrePolyVector{X}
-} where {X,Y}
+    kernel::AbstractKernel; ε=nothing, n_sv=typemax(Int),
+    n_gauss=-1, T=Float64, Twork=nothing,
+    sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE,
+    svd_strat=:default,
+)
     if isnothing(ε) || isnothing(Twork) || isnothing(svd_strat)
         ε, Twork, default_svd_strat = _choose_accuracy(ε, Twork)
     end
@@ -156,7 +150,7 @@ function compute_sve(
     svds = compute_svd.(matrices(sve); strategy=svd_strat)
     u_, s_, v_ = zip(svds...)
     u, s, v = truncate(u_, s_, v_, ε, n_sv)
-    return postprocess(sve, u, s, v, X)
+    return postprocess(sve, u, s, v, T)
 end
 
 """
@@ -177,9 +171,9 @@ matrices(sve::CentrosymmSVE) = (only(matrices(sve.even)), only(matrices(sve.odd)
 
 Construct the SVE result from the SVD.
 """
-function postprocess(sve::SamplingSVE, u, s, v, T::Union{Type{X},Nothing}=nothing) where {X}
-    isnothing(T) && (T = promote_type(eltype(u), eltype(s), eltype(v)))
-
+function postprocess(
+    sve::SamplingSVE, u, s, v, T=promote_type(eltype(u), eltype(s), eltype(v))
+)
     s = T.(s)
     u_x = u ./ sve.sqrtw_x
     v_y = v ./ sve.sqrtw_y
@@ -215,7 +209,7 @@ function postprocess(sve::SamplingSVE, u, s, v, T::Union{Type{X},Nothing}=nothin
     return ulx, s, vly
 end
 
-function postprocess(sve::CentrosymmSVE, u, s, v, ::Type{T}) where {T}
+function postprocess(sve::CentrosymmSVE, u, s, v, T)
     u_even, s_even, v_even = postprocess(sve.even, u[1], s[1], v[1], T)
     u_odd, s_odd, v_odd = postprocess(sve.odd, u[2], s[2], v[2], T)
 
@@ -265,7 +259,7 @@ Choose work type and accuracy based on specs and defaults
 function _choose_accuracy(ε, Twork)
     if isnothing(ε)
         if isnothing(Twork)
-            return sqrt(_ε_MAX), _T_MAX, :default
+            return sqrt(ε_MAX), T_MAX, :default
         end
         return sqrt(eps(Twork)), Twork, :default
     end
@@ -274,7 +268,7 @@ function _choose_accuracy(ε, Twork)
         if ε ≥ sqrt(eps(Float64))
             return ε, Float64, :default
         end
-        Twork = _T_MAX
+        Twork = T_MAX
     end
 
     safe_ε = sqrt(eps(Twork))
@@ -321,11 +315,8 @@ Truncate singular value expansion.
     - `lmax` : If given, at most the `lmax` most significant singular
     values are retained.
 """
-function truncate(u, s, v, rtol=0, lmax=nothing)
-    if !isnothing(lmax)
-        lmax ≥ 0 || throw(DomainError(lmax, "lmax must be non-negative"))
-        lmax isa Integer || error("lmax must be an integer")
-    end
+function truncate(u, s, v, rtol=0, lmax::Integer=typemax(Int))
+    lmax ≥ 0 || throw(DomainError(lmax, "lmax must be non-negative"))
     0 ≤ rtol ≤ 1 || throw(DomainError(rtol, "rtol must be in [0, 1]"))
 
     sall = vcat(s...)
@@ -335,7 +326,7 @@ function truncate(u, s, v, rtol=0, lmax=nothing)
     # singular value space, rather, we reduce the size of the basis.
     ssort = sort(sall)
     cutoff = rtol * last(ssort)
-    if !isnothing(lmax) && lmax < length(sall)
+    if lmax < length(sall)
         cutoff = max(cutoff, s[end - lmax])
     end
 

@@ -19,7 +19,7 @@ struct LegendreBasis{T<:AbstractFloat} <: AbstractBasis
     β::Float64
     cl::Vector{T}
     u::PiecewiseLegendrePolyVector{T}
-    uhat::PiecewiseLegendreFTArray{T}
+    uhat::PiecewiseLegendreFTVector{T}
 end
 
 function LegendreBasis(

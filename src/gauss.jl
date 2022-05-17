@@ -72,7 +72,7 @@ end
 
 Join multiple Gauss quadratures together.
 """
-function joinrules(rules::AbstractVector{Rule{T}}) where {T}
+function joinrules(rules::AbstractVector{Rule{T}}) where {T<:AbstractFloat}
     for i in Iterators.drop(eachindex(rules), 1)
         rules[i - 1].b == rules[i].a || error("rules must be contiguous")
     end
@@ -105,7 +105,7 @@ function legendre_collocation(rule, n=length(rule.x))
     return res
 end
 
-function Base.convert(::Type{Rule{T}}, rule::Rule{S}) where {T,S<:AbstractFloat}
+function Base.convert(::Type{Rule{T}}, rule::Rule) where {T}
     return Rule(T.(rule.x), T.(rule.w), T(rule.a), T(rule.b))
 end
 

@@ -3,7 +3,7 @@ struct MatsubaraPoleBasis <: AbstractBasis
     poles::Vector{Float64}
 end
 
-function (basis::MatsubaraPoleBasis)(n::Vector{T}) where {T<:Integer}
+function (basis::MatsubaraPoleBasis)(n::Vector{<:Integer})
     iv = (im * π / getbeta(basis)) .* n
     return 1 ./ (transpose(iv) .- basis.poles)
 end

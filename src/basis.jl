@@ -40,7 +40,7 @@ julia> giw = transpose(basis.uhat([1, 3, 5, 7])) * gl
   points `x`, you can call the function `u(x)`.  To obtain a single
   basis function, a slice or a subset `l`, you can use `u[l]`.
 
-- `uhat::PiecewiseLegendreFTArray`: Set of IR basis functions on the Matsubara frequency (`wn`) axis.
+- `uhat::PiecewiseLegendreFTVector`: Set of IR basis functions on the Matsubara frequency (`wn`) axis.
 These objects are stored as a set of Bessel functions.
 
   To obtain the value of all basis functions at a Matsubara frequency
@@ -63,7 +63,7 @@ See also [`FiniteTempBasis`](@ref) for a basis directly in time/frequency.
 struct DimensionlessBasis{K<:AbstractKernel,T<:AbstractFloat} <: AbstractBasis
     kernel::K
     u::PiecewiseLegendrePolyVector{T}
-    uhat::PiecewiseLegendreFTArray{T}
+    uhat::PiecewiseLegendreFTVector{T}
     s::Vector{T}
     v::PiecewiseLegendrePolyVector{T}
     sampling_points_v::Vector{T}
@@ -175,7 +175,7 @@ struct FiniteTempBasis{K,T} <: AbstractBasis
     u::PiecewiseLegendrePolyVector{T}
     v::PiecewiseLegendrePolyVector{T}
     s::Vector{T}
-    uhat::PiecewiseLegendreFTArray{T}
+    uhat::PiecewiseLegendreFTVector{T}
 end
 
 const _DEFAULT_FINITE_TEMP_BASIS = FiniteTempBasis{LogisticKernel,Float64}
@@ -259,9 +259,7 @@ getwmax(basis::FiniteTempBasis) = basis.kernel.Λ / getbeta(basis)
 Construct FiniteTempBasis objects for fermion and bosons using the same LogisticKernel instance.
 """
 function finite_temp_bases(
-    β::AbstractFloat,
-    wmax::AbstractFloat,
-    ε,
+    β::AbstractFloat, wmax::AbstractFloat, ε,
     sve_result=compute_sve(LogisticKernel(β * wmax); ε),
 )
     basis_f = FiniteTempBasis(fermion, β, wmax, ε; sve_result)

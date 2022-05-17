@@ -113,7 +113,7 @@ end
 
 Find all roots of the piecewise polynomial `poly`.
 """
-function roots(poly::PiecewiseLegendrePoly{T}; tol=1e-10) where {T}
+function roots(poly::PiecewiseLegendrePoly; tol=1e-10)
     m = (poly.xmin + poly.xmax) / 2
     xmin = abs(poly.symm) == 1 ? m : poly.xmin # Exploit symmetry.
     xmax = poly.xmax
@@ -181,11 +181,10 @@ const PiecewiseLegendrePolyVector{T} = Vector{PiecewiseLegendrePoly{T}}
 function PiecewiseLegendrePolyVector(
     data::Array{T,3}, knots::Vector{T}; symm=zeros(Int, size(data, 3))
 ) where {T}
-    polys = PiecewiseLegendrePolyVector{T}(undef, size(data, 3))
-    for i in eachindex(polys)
-        polys[i] = PiecewiseLegendrePoly(data[:, :, i], knots, i - 1; symm=symm[i])
-    end
-    return polys
+    return [
+        PiecewiseLegendrePoly(data[:, :, i], knots, i - 1; symm=symm[i]) for
+        i in axes(data, 3)
+    ]
 end
 
 function PiecewiseLegendrePolyVector(
@@ -295,9 +294,9 @@ function PiecewiseLegendreFT(poly, freq=:even, n_asymp=Inf)
     return PiecewiseLegendreFT(poly, freq, ζ, float(n_asymp), model)
 end
 
-const PiecewiseLegendreFTArray{T,N} = Array{PiecewiseLegendreFT{T},N}
+const PiecewiseLegendreFTVector{T} = Vector{PiecewiseLegendreFT{T}}
 
-function Base.getproperty(polyFTs::PiecewiseLegendreFTArray, sym::Symbol)
+function Base.getproperty(polyFTs::PiecewiseLegendreFTVector, sym::Symbol)
     if sym ∈ (:freq, :ζ, :n_asymp)
         return getproperty(first(polyFTs), sym)
     elseif sym == :poly
@@ -312,7 +311,7 @@ end
 
 Obtain Fourier transform of polynomial for given frequency index `n`.
 """
-function (polyFT::Union{PiecewiseLegendreFT,PiecewiseLegendreFTArray})(n::Integer)
+function (polyFT::Union{PiecewiseLegendreFT,PiecewiseLegendreFTVector})(n::Integer)
     n = check_reduced_matsubara(n, polyFT.ζ)
 
     if abs(n) < polyFT.n_asymp
@@ -323,7 +322,7 @@ function (polyFT::Union{PiecewiseLegendreFT,PiecewiseLegendreFTArray})(n::Intege
 end
 
 (polyFT::PiecewiseLegendreFT)(n::AbstractArray) = polyFT.(n)
-function (polyFTs::PiecewiseLegendreFTArray)(n::AbstractArray)
+function (polyFTs::PiecewiseLegendreFTVector)(n::AbstractArray)
     return reshape(reduce(vcat, polyFTs.(n)), (size(polyFTs)..., size(n)...))
 end
 
@@ -340,7 +339,7 @@ function giw(polyFT, wn::Integer)
 end
 
 moments(polyFT::PiecewiseLegendreFT) = polyFT.model.moments
-function moments(polyFTs::PiecewiseLegendreFTArray)
+function moments(polyFTs::PiecewiseLegendreFTVector)
     n = length(first(polyFTs).model.moments)
     return [[p.model.moments[i] for p in polyFTs] for i in 1:n]
 end

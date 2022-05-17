@@ -8,7 +8,7 @@ using QuadGK: gauss, kronrod, quadgk
 using SpecialFunctions: SpecialFunctions
 
 export fermion, boson
-export DimensionlessBasis, FiniteTempBasis, finite_temp_bases
+export DimensionlessBasis, FiniteTempBasis
 export SparsePoleRepresentation, to_IR, from_IR
 export overlap
 export LegendreBasis, MatsubaraConstBasis
