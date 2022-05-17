@@ -22,7 +22,7 @@ where ``ρ'(y) = w(y) ρ(y)``.
 abstract type AbstractKernel end
 
 @doc raw"""
-    LogisticKernel{T} <: AbstractKernel
+    LogisticKernel <: AbstractKernel
 
 Fermionic/bosonic analytical continuation kernel.
 
@@ -46,8 +46,8 @@ where the weight function is given by
     w(y) = \frac{1}{\tanh(Λ y/2)}.
 ```
 """
-struct LogisticKernel{T<:AbstractFloat} <: AbstractKernel
-    Λ::T
+struct LogisticKernel <: AbstractKernel
+    Λ::Float64
 end
 
 function LogisticKernel(Λ)
@@ -80,9 +80,9 @@ Discretization hints for singular value expansion of a given kernel.
 """
 abstract type AbstractSVEHints end
 
-struct SVEHintsLogistic{T,S} <: AbstractSVEHints
-    kernel::LogisticKernel{T}
-    ε::S
+struct SVEHintsLogistic{T} <: AbstractSVEHints
+    kernel::LogisticKernel
+    ε::T
 end
 
 struct SVEHintsRegularizedBose{T,S} <: AbstractSVEHints
@@ -120,7 +120,7 @@ struct ReducedKernel{K<:AbstractKernel} <: AbstractReducedKernel
 end
 
 @doc raw"""
-    LogisticKernelOdd{T} <: AbstractReducedKernel
+    LogisticKernelOdd <: AbstractReducedKernel
 
 Fermionic analytical continuation kernel, odd.
 
@@ -130,11 +130,11 @@ integral kernel is a function on ``[-1, 1] × [-1, 1]``:
     K(x, y) = -\frac{\sinh(Λ x y / 2)}{\cosh(Λ y / 2)}
 ```
 """
-struct LogisticKernelOdd{T} <: AbstractReducedKernel
-    inner::LogisticKernel{T}
+struct LogisticKernelOdd <: AbstractReducedKernel
+    inner::LogisticKernel
     sign::Int
 
-    function LogisticKernelOdd(inner::LogisticKernel{T}, sign) where {T}
+    function LogisticKernelOdd(inner::LogisticKernel, sign)
         iscentrosymmetric(inner) || error("inner kernel must be centrosymmetric")
         abs(sign) == 1 || throw(DomainError(sign, "sign must be -1 or 1"))
         return new{T}(inner, sign)

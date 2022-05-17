@@ -25,7 +25,7 @@ end
 
     @testset "num roots u with Λ = $Λ" for Λ in (10, 42, 10_000)
         basis = DimensionlessBasis(fermion, Λ; sve_result=sve_logistic[Λ])
-        for i in 1:length(basis.u)
+        for i in eachindex(basis.u)
             ui_roots = SparseIR.roots(basis.u[i])
             @test length(ui_roots) == i - 1
         end
