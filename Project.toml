@@ -16,6 +16,7 @@ DoubleFloats = "1.2"
 IntervalRootFinding = "0.5"
 QuadGK = "2"
 SpecialFunctions = "2"
+GenericLinearAlgebra = "0.3.1"
 julia = "1.6, 1.7"
 
 [extras]
