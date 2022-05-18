@@ -1,7 +1,11 @@
 "Intermediate representation (IR) for many-body propagators"
 module SparseIR
 
-using DoubleFloats: Double64
+using MultiFloats: Float64x2
+Base.sinh(x::Float64x2) = Float64x2(sinh(big(x)))
+Base.cosh(x::Float64x2) = Float64x2(cosh(big(x)))
+Base.Math.hypot(x::Float64x2, y::Float64x2) = Base.Math._hypot(x, y) # TODO: only needed until MultiFloats is fixed
+
 using IntervalRootFinding: IntervalRootFinding, Interval, isunique, interval, mid, Newton
 using LinearAlgebra: dot, svd, SVD, QRIteration
 using QuadGK: gauss, kronrod, quadgk

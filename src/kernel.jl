@@ -291,8 +291,8 @@ function matrix_from_gauss(kernel, gauss_x, gauss_y)
     # (1 ± x) is problematic around x = -1 and x = 1, where the quadrature
     # nodes are clustered most tightly.  Thus we have the need for the
     # matrix method.
-    return kernel.(
-        gauss_x.x, permutedims(gauss_y.x), gauss_x.x .- gauss_x.a, gauss_x.b .- gauss_x.x
+    return @inbounds kernel.(
+        gauss_x.x, transpose(gauss_y.x), gauss_x.x .- gauss_x.a, gauss_x.b .- gauss_x.x
     )
 end
 
@@ -383,7 +383,7 @@ if either difference is to be formed and cancellation expected.
 function (kernel::AbstractKernel)(
     x, y, x₊=x - first(xrange(kernel)), x₋=last(xrange(kernel)) - x
 )
-    x, y = check_domain(kernel, x, y)
+    @boundscheck x, y = check_domain(kernel, x, y)
     u₊, u₋, v = compute_uv(kernel.Λ, x, y, x₊, x₋)
     return compute(kernel, u₊, u₋, v)
 end

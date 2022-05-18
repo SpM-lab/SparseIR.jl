@@ -1,6 +1,6 @@
 using Test
 using SparseIR
-using DoubleFloats
+using MultiFloats
 
 using Random
 
@@ -9,7 +9,7 @@ using Random
         # TODO: fix stat = boson
         beta = 1e4
         wmax = 1.0
-        eps = Double64(1e-12)
+        eps = Float64x2(1e-12)
         basis = FiniteTempBasis(stat, beta, wmax, eps)
         spr = SparsePoleRepresentation(basis)
 

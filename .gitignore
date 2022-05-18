@@ -10,3 +10,4 @@ playground_pluto.jl
 !/.gitignore
 !/.dev/
 !/.github/
+!/.JuliaFormatter.toml

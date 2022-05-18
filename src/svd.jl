@@ -1,4 +1,4 @@
-const T_MAX = Double64
+const T_MAX = Float64x2
 const ε_MAX = eps(T_MAX)
 
 function compute_svd(A::AbstractMatrix{T_MAX}; n_sv_hint=nothing, strategy=:default)

@@ -1,8 +1,129 @@
 module _LinAlg
 
-using GenericLinearAlgebra: GenericLinearAlgebra
-using LinearAlgebra: LinearAlgebra
+using GenericLinearAlgebra: svd
+using LinearAlgebra: norm, lmul!, rmul!, triu!, Givens, I, SVD, reflector!, reflectorApply!,
+    QRPivoted, QRPackedQ
+
 export tsvd, tsvd!, svd_jacobi, svd_jacobi!, rrqr, rrqr!
+
+"""
+Truncated rank-revealing QR decomposition with full column pivoting.
+
+Decomposes a `(m, n)` matrix `A` into the product:
+
+    A[:,piv] == Q @ R
+
+where `Q` is an `(m, k)` isometric matrix, `R` is a `(k, n)` upper
+triangular matrix, `piv` is a permutation vector, and `k` is chosen such
+that the relative tolerance `tol` is met in the equality above.
+"""
+function rrqr!(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat}
+    # DGEQPF
+    m, n = size(A)
+    k = min(m, n)
+    Base.require_one_based_indexing(A)
+
+    jpvt = Vector(1:n)
+    taus = Vector{T}(undef, k)
+    swapcol = Vector{T}(undef, m)
+
+    xnorms = map(norm, eachcol(A))
+    pnorms = copy(xnorms)
+    sqrteps = sqrt(eps(T))
+
+    @inbounds for i in 1:k
+        pvt = argmax(ii -> pnorms[ii], i:n)
+        if i != pvt
+            jpvt[i], jpvt[pvt] = jpvt[pvt], jpvt[i]
+            xnorms[pvt] = xnorms[i]
+            pnorms[pvt] = pnorms[i]
+
+            swapcol .= @view A[:, i]
+            A[:, i] .= @view A[:, pvt]
+            A[:, pvt] .= swapcol
+        end
+
+        tau_i = reflector!(@view A[i:end, i])
+        taus[i] = tau_i
+        reflectorApply!(
+            (@view A[i:end, i]), tau_i, @view A[i:end, (i + 1):end]
+        )
+
+        # Lapack Working Note 176.
+        for j in (i + 1):n
+            temp = abs(A[i, j]) / pnorms[j]
+            temp = max(zero(T), (one(T) + temp) * (one(T) - temp))
+            temp2 = temp * abs2(pnorms[j] / xnorms[j])
+            if temp2 < sqrteps
+                recomputed = norm(@view A[(i + 1):end, j])
+                pnorms[j] = recomputed
+                xnorms[j] = recomputed
+            else
+                pnorms[j] *= sqrt(temp)
+            end
+        end
+
+        # Since we did pivoting, R[i,:] is bounded by R[i,i], so we can
+        # simply ignore all the other rows
+        if abs(A[i, i]) < rtol * abs(A[1, 1])
+            A[i:end, i:end] .= zero(T)
+            taus[i:end] .= zero(T)
+            k = i - 1
+            break
+        end
+    end
+    return QRPivoted{T,typeof(A)}(A, taus, jpvt), k
+end
+
+"""Truncated rank-revealing QR decomposition with full column pivoting."""
+rrqr(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat} = rrqr!(copy(A); rtol)
+
+"""Truncate RRQR result low-rank"""
+function truncate_qr_result(qr::QRPivoted{T}, k::Integer) where {T}
+    m, n = size(qr)
+    0 ≤ k ≤ min(m, n) || throw(DomainError(k, "Invalid rank, must be in [0, $(min(m, n))]"))
+    Qfull = QRPackedQ((@view qr.factors[:, 1:k]), qr.τ[1:k])
+
+    Q = lmul!(Qfull, Matrix{T}(I, m, k))
+    R = triu!(qr.factors[1:k, :])
+    return Q, R
+end
+
+"""
+Truncated singular value decomposition.
+
+Decomposes a `(m, n)` matrix `A` into the product:
+
+    A == U @ (s[:,None] * VT)
+
+where `U` is a `(m, k)` matrix with orthogonal columns, `VT` is a `(k, n)`
+matrix with orthogonal rows and `s` are the singular values, a set of `k`
+nonnegative numbers in non-ascending order.  The SVD is truncated in the
+sense that singular values below `tol` are discarded.
+"""
+function tsvd!(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat}
+    # Perform RRQR of the m x n matrix at a cost of O(m*n*k), where k is
+    # the QR rank (a mild upper bound for the true rank)
+    A_qr, k = rrqr!(A; rtol)
+    Q, R = truncate_qr_result(A_qr, k)
+
+    # RRQR is an excellent preconditioner for Jacobi. One should then perform
+    # Jacobi on RT
+    RT_svd = svd(R')
+
+    # Reconstruct A from QR
+    U = Q * RT_svd.V
+    V = @view RT_svd.U[invperm(A_qr.p), :]
+    s = RT_svd.S
+    return SVD(U, s, V')
+end
+
+"""Truncated singular value decomposition."""
+tsvd(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat} = tsvd!(copy(A); rtol)
+
+################################################################################################################
+### Everything below is currently not used in tsvd. (GenericLinearAlgebra.svd is used instead of svd_jacobi) ###
+################################################################################################################
 
 """
 Compute Givens rotation `R` matrix that satisfies:
@@ -147,9 +268,9 @@ function jacobi_sweep!(U::AbstractMatrix, VT::AbstractMatrix)
             (_, _), (_, _), (cv, sv) = svd2x2(Hii, Hij, Hij, Hjj)
 
             # apply rotation to VT
-            rot = LinearAlgebra.Givens(i, j, cv, sv)
-            LinearAlgebra.lmul!(rot, VT)
-            LinearAlgebra.rmul!(U, adjoint(rot))
+            rot = Givens(i, j, cv, sv)
+            lmul!(rot, VT)
+            rmul!(U, adjoint(rot))
         end
     end
     return sqrt(offd)
@@ -161,136 +282,21 @@ function svd_jacobi!(U::AbstractMatrix{T}; rtol=eps(T), maxiter=20) where {T}
     m ≥ n || throw(ArgumentError("matrix must be 'tall'"))
     Base.require_one_based_indexing(U)
 
-    VT = Matrix(one(T) * LinearAlgebra.I, n, n)
-    Unorm = LinearAlgebra.norm(@view U[1:n, 1:n])
+    VT = Matrix(one(T) * I, n, n)
+    Unorm = norm(@view U[1:n, 1:n])
     for _ in 1:maxiter
         offd = jacobi_sweep!(U, VT)
         offd < rtol * Unorm && break
     end
 
-    s = LinearAlgebra.norm.(eachcol(U))
+    s = norm.(eachcol(U))
     U ./= transpose(s)
-    return LinearAlgebra.SVD(U, s, VT)
+    return SVD(U, s, VT)
 end
 
 """Singular value decomposition using Jacobi rotations."""
 function svd_jacobi(U::AbstractMatrix{T}; rtol=eps(T), maxiter=20) where {T}
     return svd_jacobi!(copy(U); rtol, maxiter)
 end
-
-"""
-Truncated rank-revealing QR decomposition with full column pivoting.
-
-Decomposes a `(m, n)` matrix `A` into the product:
-
-    A[:,piv] == Q @ R
-
-where `Q` is an `(m, k)` isometric matrix, `R` is a `(k, n)` upper
-triangular matrix, `piv` is a permutation vector, and `k` is chosen such
-that the relative tolerance `tol` is met in the equality above.
-"""
-function rrqr!(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat}
-    # DGEQPF
-    m, n = size(A)
-    k = min(m, n)
-    Base.require_one_based_indexing(A)
-
-    jpvt = Vector(1:n)
-    taus = Vector{T}(undef, k)
-    swapcol = Vector{T}(undef, m)
-
-    xnorms = map(LinearAlgebra.norm, eachcol(A))
-    pnorms = copy(xnorms)
-    sqrteps = sqrt(eps(T))
-
-    @inbounds for i in 1:k
-        pvt = argmax(ii -> pnorms[ii], i:n)
-        if i != pvt
-            jpvt[i], jpvt[pvt] = jpvt[pvt], jpvt[i]
-            xnorms[pvt] = xnorms[i]
-            pnorms[pvt] = pnorms[i]
-
-            swapcol .= @view A[:, i]
-            A[:, i] .= @view A[:, pvt]
-            A[:, pvt] .= swapcol
-        end
-
-        tau_i = LinearAlgebra.reflector!(@view A[i:end, i])
-        taus[i] = tau_i
-        LinearAlgebra.reflectorApply!(
-            (@view A[i:end, i]), tau_i, @view A[i:end, (i + 1):end]
-        )
-
-        # Lapack Working Note 176.
-        for j in (i + 1):n
-            temp = abs(A[i, j]) / pnorms[j]
-            temp = max(zero(T), (one(T) + temp) * (one(T) - temp))
-            temp2 = temp * abs2(pnorms[j] / xnorms[j])
-            if temp2 < sqrteps
-                recomputed = LinearAlgebra.norm(@view A[(i + 1):end, j])
-                pnorms[j] = recomputed
-                xnorms[j] = recomputed
-            else
-                pnorms[j] *= sqrt(temp)
-            end
-        end
-
-        # Since we did pivoting, R[i,:] is bounded by R[i,i], so we can
-        # simply ignore all the other rows
-        if abs(A[i, i]) < rtol * abs(A[1, 1])
-            A[i:end, i:end] .= zero(T)
-            taus[i:end] .= zero(T)
-            k = i - 1
-            break
-        end
-    end
-    return LinearAlgebra.QRPivoted{T,typeof(A)}(A, taus, jpvt), k
-end
-
-"""Truncated rank-revealing QR decomposition with full column pivoting."""
-rrqr(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat} = rrqr!(copy(A); rtol)
-
-"""Truncate RRQR result low-rank"""
-function truncate_qr_result(qr::LinearAlgebra.QRPivoted{T}, k::Integer) where {T}
-    m, n = size(qr)
-    0 ≤ k ≤ min(m, n) || throw(DomainError(k, "Invalid rank, must be in [0, $(min(m, n))]"))
-    Qfull = LinearAlgebra.QRPackedQ((@view qr.factors[:, 1:k]), qr.τ[1:k])
-
-    Q = LinearAlgebra.lmul!(Qfull, Matrix{T}(LinearAlgebra.I, m, k))
-    R = LinearAlgebra.triu!(qr.factors[1:k, :])
-    return Q, R
-end
-
-"""
-Truncated singular value decomposition.
-
-Decomposes a `(m, n)` matrix `A` into the product:
-
-    A == U @ (s[:,None] * VT)
-
-where `U` is a `(m, k)` matrix with orthogonal columns, `VT` is a `(k, n)`
-matrix with orthogonal rows and `s` are the singular values, a set of `k`
-nonnegative numbers in non-ascending order.  The SVD is truncated in the
-sense that singular values below `tol` are discarded.
-"""
-function tsvd!(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat}
-    # Perform RRQR of the m x n matrix at a cost of O(m*n*k), where k is
-    # the QR rank (a mild upper bound for the true rank)
-    A_qr, k = rrqr!(A; rtol)
-    Q, R = truncate_qr_result(A_qr, k)
-
-    # RRQR is an excellent preconditioner for Jacobi. One should then perform
-    # Jacobi on RT
-    RT_svd = GenericLinearAlgebra.svd(R')
-
-    # Reconstruct A from QR
-    U = Q * RT_svd.V
-    V = @view RT_svd.U[invperm(A_qr.p), :]
-    s = RT_svd.S
-    return LinearAlgebra.SVD(U, s, V')
-end
-
-"""Truncated singular value decomposition."""
-tsvd(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat} = tsvd!(copy(A); rtol)
 
 end # module _LinAlg
