@@ -17,7 +17,7 @@ export LogisticKernel, RegularizedBoseKernel
 export CompositeBasis, CompositeBasisFunction, CompositeBasisFunctionFT
 export TauSampling, MatsubaraSampling, evaluate, fit
 
-@enum Statistics fermion boson
+@enum Statistics boson fermion
 
 include("_specfuncs.jl")
 include("_linalg.jl")
