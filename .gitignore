@@ -1,6 +1,12 @@
+.*
 *~
 \#*\#
 
-/Manifest.toml
+*.ipynb
+Manifest.toml
 /docs/build/
 playground_pluto.jl
+
+!/.gitignore
+!/.dev/
+!/.github/
