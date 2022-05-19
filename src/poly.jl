@@ -179,8 +179,8 @@ Alias for `Vector{PiecewiseLegendrePoly{T}}`.
 const PiecewiseLegendrePolyVector{T} = Vector{PiecewiseLegendrePoly{T}}
 
 function PiecewiseLegendrePolyVector(
-    data::Array{T,3}, knots::Vector{T}; symm=zeros(Int, size(data, 3))
-) where {T}
+    data::AbstractArray{T,3}, knots::Vector{T}; symm=zeros(Int, size(data, 3))
+) where {T<:AbstractFloat}
     return [
         PiecewiseLegendrePoly(data[:, :, i], knots, i - 1; symm=symm[i]) for
         i in axes(data, 3)
@@ -188,7 +188,7 @@ function PiecewiseLegendrePolyVector(
 end
 
 function PiecewiseLegendrePolyVector(
-    polys::PiecewiseLegendrePolyVector, knots; Δx=diff(knots), symm=0
+    polys::PiecewiseLegendrePolyVector, knots::AbstractVector; Δx=diff(knots), symm=0
 )
     length(polys) == length(symm) ||
         throw(DimensionMismatch("Sizes of polys and symm don't match"))
@@ -202,7 +202,9 @@ function PiecewiseLegendrePolyVector(
     return polys_new
 end
 
-function PiecewiseLegendrePolyVector(data, polys::PiecewiseLegendrePolyVector)
+function PiecewiseLegendrePolyVector(
+    data::AbstractArray{T,3}, polys::PiecewiseLegendrePolyVector
+) where {T}
     size(data, 3) == length(polys) ||
         throw(DimensionMismatch("Sizes of data and polys don't match"))
 

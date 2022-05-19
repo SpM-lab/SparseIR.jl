@@ -512,7 +512,7 @@ function weight_func(kernel::LogisticKernel, statistics::Statistics)
         return y -> 1 ./ tanh.(0.5 * kernel.Λ * y)
     end
 end
-function weight_func(::RegularizedBoseKernel, statistics)
+function weight_func(::RegularizedBoseKernel, statistics::Statistics)
     statistics == boson || error("Kernel is designed for bosonic functions")
     return y -> 1 / y
 end
