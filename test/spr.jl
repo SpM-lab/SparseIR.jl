@@ -1,9 +1,9 @@
 @testset "spr.jl" begin
     @testset "transform with stat = $stat" for stat in (fermion, boson)
-        beta = 1e4
+        beta = 10_000
         wmax = 1.0
         eps = 1e-12
-        basis = FiniteTempBasis(stat, beta, wmax, eps)
+        basis = FiniteTempBasis(stat, float(beta), wmax, eps, sve_result=sve_logistic[(beta,eps)])
         spr = SparsePoleRepresentation(basis)
 
         Random.seed!(4711)
