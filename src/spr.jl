@@ -50,6 +50,10 @@ struct SparsePoleRepresentation{T<:AbstractFloat} <: AbstractBasis
     matrix::SVD
 end
 
+function Base.show(io::IO, obj::SparsePoleRepresentation{T}) where {T<:AbstractFloat}
+    return print(io, "SparsePoleRepresentation for $(obj.basis) with poles at $(obj.poles)")
+end
+
 function SparsePoleRepresentation(
     basis::AbstractBasis, poles=default_omega_sampling_points(basis)
 )

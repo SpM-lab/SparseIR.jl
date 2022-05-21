@@ -74,7 +74,7 @@ WORKDIR ${HOME}
 USER ${USER}
 # FIXME
 # Install dependencies in a smarter way
-RUN julia -e 'import Pkg; Pkg.add(["AssociatedLegendrePolynomials", "Revise", "Plots"])'
+RUN julia -e 'import Pkg; Pkg.add(["AssociatedLegendrePolynomials", "Revise", "Plots", "BenchmarkTools"])'
 RUN julia -e 'import Pkg; Pkg.add(["DoubleFloats", "IntervalRootFinding", "LinearAlgebra", "QuadGK", "SpecialFunctions", "MultiFloats"])'
 
 EXPOSE 8000
