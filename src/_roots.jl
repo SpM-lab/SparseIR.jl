@@ -28,7 +28,6 @@ function _bisect_cont(f, a, b, fa, fb)
         else
             a, fa = mid, fmid
         end
-        # @show a b
         isapprox(a, b; rtol=0, atol=1e-10) && return mid
     end
 end
@@ -37,7 +36,7 @@ function _refine_grid(grid, alpha)
     xbegin = @view grid[1:(end - 1)]
     xend = @view grid[2:end]
 
-    newgrid_iter = ((x -> x[1:(end - 1)]) ∘ range).(xbegin, xend, alpha + 1)
+    newgrid_iter = ((x -> x[1:(end - 1)]) ∘ range).(xbegin, xend; length=alpha + 1)
     newgrid = mapreduce(collect, vcat, newgrid_iter)
     push!(newgrid, last(grid))
     return newgrid
