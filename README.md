@@ -14,5 +14,5 @@ basis_f = FiniteTempBasis(fermion, beta, wmax, eps)
 basis_b = FiniteTempBasis(boson, beta, wmax, eps)
 ```
 
-## Tutorial and sample codes
+### Tutorial and sample codes
 More detailed tutorial and sample codes are available [online](https://spm-lab.github.io/sparse-ir-tutorial/).
