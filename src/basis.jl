@@ -192,7 +192,7 @@ end
 Construct a finite temperature basis suitable for the given `statistics` and cutoffs `β` and `wmax`.
 """
 function FiniteTempBasis(
-    statistics::Statistics, β::AbstractFloat, wmax::AbstractFloat, ε=nothing;
+    statistics::Statistics, β, wmax, ε=nothing;
     kernel=LogisticKernel(β * wmax), sve_result=compute_sve(kernel; ε),
 )
     β > 0 || throw(DomainError(β, "Inverse temperature β must be positive"))

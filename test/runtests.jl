@@ -3,7 +3,7 @@ using SparseIR
 using Random
 using MultiFloats
 
-include("conftest.jl")
+include("__conftest.jl")
 include("_util.jl")
 
 @testset verbose = true "SparseIR.jl" begin

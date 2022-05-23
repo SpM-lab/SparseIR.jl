@@ -2,14 +2,13 @@
 module SparseIR
 
 using MultiFloats: Float64x2
-Base.sinh(x::Float64x2) = Float64x2(sinh(big(x)))
-Base.cosh(x::Float64x2) = Float64x2(cosh(big(x)))
-Base.Math.hypot(x::Float64x2, y::Float64x2) = Base.Math._hypot(x, y) # TODO: only needed until MultiFloats is fixed
-
-using IntervalRootFinding: IntervalRootFinding, Interval, isunique, interval, mid, Newton
 using LinearAlgebra: dot, svd, SVD, QRIteration
 using QuadGK: gauss, kronrod, quadgk
 using SpecialFunctions: SpecialFunctions
+
+Base.sinh(x::Float64x2) = Float64x2(sinh(big(x)))
+Base.cosh(x::Float64x2) = Float64x2(cosh(big(x)))
+Base.Math.hypot(x::Float64x2, y::Float64x2) = Base.Math._hypot(x, y) # TODO: only needed until MultiFloats is fixed
 
 export fermion, boson
 export DimensionlessBasis, FiniteTempBasis
@@ -23,8 +22,9 @@ export TauSampling, MatsubaraSampling, evaluate, fit
 
 @enum Statistics boson fermion
 
-include("_specfuncs.jl")
 include("_linalg.jl")
+include("_roots.jl")
+include("_specfuncs.jl")
 using ._LinAlg: tsvd
 
 include("svd.jl")

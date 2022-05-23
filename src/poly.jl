@@ -63,8 +63,8 @@ end
 (poly::PiecewiseLegendrePoly)(x) = _evaluate(poly, x)
 
 function _evaluate(poly::PiecewiseLegendrePoly, x::Number)
-    i, tildex = _split(poly, x)
-    return legval(tildex, view(poly.data, :, i)) * poly.norm[i]
+    i, x̃ = _split(poly, x)
+    return legval(x̃, view(poly.data, :, i)) * poly.norm[i]
 end
 
 function _evaluate(poly::PiecewiseLegendrePoly, xs::AbstractVector)
@@ -113,31 +113,10 @@ end
 
 Find all roots of the piecewise polynomial `poly`.
 """
-function roots(poly::PiecewiseLegendrePoly; tol=1e-10)
-    m = (poly.xmin + poly.xmax) / 2
-    xmin = abs(poly.symm) == 1 ? m : poly.xmin # Exploit symmetry.
-    xmax = poly.xmax
-
-    rts_rootobjects = IntervalRootFinding.roots(poly, Interval(xmin, xmax), Newton, tol)
-    rts = map(mid ∘ interval, Iterators.filter(isunique, rts_rootobjects))
-
-    if abs(poly.symm) == 1
-        # Reflect roots about the midpoint m
-        append!(rts, 2m .- rts)
-        # If the polynomial is antisymmetric, it has an additional root at m
-        poly.symm == -1 && push!(rts, m)
-    end
-    sort!(rts)
-
-    # Remove duplicates
-    # duplicates = Int[]
-    # for i in 2:length(rts)
-    #     isapprox(rts[i], rts[i - 1]; atol=10tol, rtol=0) && push!(duplicates, i)
-    # end
-    # !isempty(duplicates) && @info "Duplicate roots found, consolidating them..."
-    # deleteat!(rts, duplicates)
-
-    return rts
+function roots(poly::PiecewiseLegendrePoly; tol=1e-10, alpha=2)
+    grid = poly.knots
+    grid = _refine_grid(grid, alpha)
+    return find_all(poly, grid)
 end
 
 function check_domain(poly::PiecewiseLegendrePoly, x)
@@ -156,9 +135,9 @@ function _split(poly, x::Number)
     @boundscheck check_domain(poly, x)
 
     i = max(searchsortedlast(poly.knots, x; lt=≤), 1)
-    tildex = x - poly.xm[i]
-    tildex *= poly.inv_xs[i]
-    return i, tildex
+    x̃ = x - poly.xm[i]
+    x̃ *= poly.inv_xs[i]
+    return i, x̃
 end
 
 function scale(poly::PiecewiseLegendrePoly, factor)

@@ -32,12 +32,10 @@ end
 
 # Adapted from https://github.com/numpy/numpy/blob/4adc87dff15a247e417d50f10cc4def8e1c17a03/numpy/polynomial/legendre.py#L832-L914
 function legval(x, c::AbstractVector)
-    # Pad the coefficient vector if it contains only one (i.e. the constant 
-    # polynomial's) coefficient.
-    length(c) ≥ 2 || (c = [c; zero(c)])
     nd = length(c)
+    nd ≥ 2 || return last(c)
 
-    c0, c1 = c[nd - 1], c[nd]
+    c0, c1 = @inbounds c[nd - 1], c[nd]
     @inbounds for j in (nd - 2):-1:1
         k = j / (j + 1)
         c0, c1 = c[j] - c1 * k, c0 + c1 * x * (k + 1)
