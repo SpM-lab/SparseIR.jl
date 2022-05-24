@@ -96,16 +96,16 @@ function overlap(
 end
 
 """
-    deriv(poly, n=1)
+    deriv(poly)
 
-Get polynomial for the n'th derivative.
+Get polynomial for the derivative.
 """
-function deriv(poly::PiecewiseLegendrePoly, n=1)
-    ddata = legder(poly.data, n)
+function deriv(poly::PiecewiseLegendrePoly)
+    ddata = legder(poly.data)
 
-    scale = poly.inv_xs .^ n
-    ddata .*= reshape(scale, (1, :))
-    return PiecewiseLegendrePoly(ddata, poly; symm=(-1)^n * poly.symm)
+    scale = poly.inv_xs
+    ddata .*= transpose(scale)
+    return PiecewiseLegendrePoly(ddata, poly; symm=-poly.symm)
 end
 
 """
@@ -455,7 +455,8 @@ we expect an even one.  If `ζ` is omitted, any one is fine.
 """
 check_reduced_matsubara(n::Integer) = n
 function check_reduced_matsubara(n::Integer, ζ)
-    return (n & 1 == ζ) ? n : throw(DomainError(n, "n has the wrong parity"))
+    n & 1 == ζ || throw(DomainError(n, "n has the wrong parity"))
+    return n
 end
 
 ########################
@@ -492,7 +493,7 @@ Fourier integral of the `l`-th Legendre polynomial::
 """
 function _get_tnl(l, w)
     result = 2im^l * sphericalbesselj(l, abs(w))
-    return (w < 0 ? conj : identity)(result)
+    return w < 0 ? conj(result) : result
 end
 
 # Works like numpy.choices

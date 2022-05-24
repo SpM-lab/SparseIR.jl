@@ -76,26 +76,15 @@ end
 """
     legder
 """
-legder(cc::AbstractMatrix, cnt=1; dims=1) = mapslices(c -> legder(c, cnt), cc; dims)
-
-function legder(c::AbstractVector{T}, cnt=1) where {T}
-    cnt ≥ 0 || throw(DomainError(cnt, "The order of derivation must be non-negative"))
+function legder(c::AbstractMatrix{T}) where {T}
     c = copy(c)
-    cnt == 0 && return c
-    n = length(c)
-    if n ≤ cnt
-        c = [zero(T)]
-    else
-        for _ in 1:cnt
-            n -= 1
-            der = Vector{T}(undef, n)
-            for j in n:-1:2
-                der[j] = (2j - 1) * c[j + 1]
-                c[j - 1] += c[j + 1]
-            end
-            der[1] = c[2]
-            c = der
-        end
+    n, m = size(c)
+    n -= 1
+    der = Matrix{T}(undef, n, m)
+    @views @inbounds for j in n:-1:2
+        @. der[j, :] = (2j - 1) * c[j + 1, :]
+        @. c[j - 1, :] += c[j + 1, :]
     end
-    return c
+    @views @inbounds @. der[1, :] = c[2, :]
+    return der
 end

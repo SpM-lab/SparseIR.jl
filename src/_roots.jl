@@ -33,11 +33,11 @@ function _bisect_cont(f, a, b, fa, fb)
 end
 
 function _refine_grid(grid, alpha)
-    xbegin = @view grid[1:(end - 1)]
-    xend = @view grid[2:end]
+    xbegin = @view grid[begin:(end - 1)]
+    xend = @view grid[(begin + 1):end]
 
     newgrid_iter = range.(xbegin, xend; length=alpha + 1)
-    newgrid = mapreduce(collect ∘ (x -> x[1:end-1]), vcat, newgrid_iter)
+    newgrid = mapreduce(collect ∘ (x -> x[begin:(end - 1)]), vcat, newgrid_iter)
     push!(newgrid, last(grid))
     return newgrid
 end
