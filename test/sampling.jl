@@ -3,7 +3,7 @@ using SparseIR
 
 using Random, LinearAlgebra
 
-#include("conftest.jl")
+include("__conftest.jl")
 
 @testset "sampling.jl" begin
     @testset "decomp" begin

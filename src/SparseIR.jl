@@ -2,7 +2,8 @@
 module SparseIR
 
 using MultiFloats: Float64x2
-using LinearAlgebra: dot, svd, SVD, QRIteration
+using LinearAlgebra: dot, svd, SVD, QRIteration, Factorization, factorize, cond, mul!, ldiv!
+import LinearAlgebra: cond
 using QuadGK: gauss, kronrod, quadgk
 using SpecialFunctions: SpecialFunctions
 

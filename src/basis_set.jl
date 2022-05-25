@@ -20,13 +20,15 @@ and associated sparse-sampling objects.
 - smpl_wn_b::MatsubaraSampling: Sparse sampling for Matsubara frequency & boson
 - sve_result::Tuple{PiecewiseLegendrePoly,Vector{Float64},PiecewiseLegendrePoly}: Results of SVE
 """
-struct FiniteTempBasisSet
+struct FiniteTempBasisSet{
+    TSf<:TauSampling,MSf<:MatsubaraSampling,TSb<:TauSampling,MSb<:MatsubaraSampling
+}
     basis_f::_DEFAULT_FINITE_TEMP_BASIS
     basis_b::_DEFAULT_FINITE_TEMP_BASIS
-    smpl_tau_f::TauSampling{Float64,_DEFAULT_FINITE_TEMP_BASIS,Float64,Float64}
-    smpl_tau_b::TauSampling{Float64,_DEFAULT_FINITE_TEMP_BASIS,Float64,Float64}
-    smpl_wn_f::MatsubaraSampling{Int,_DEFAULT_FINITE_TEMP_BASIS,ComplexF64,Float64}
-    smpl_wn_b::MatsubaraSampling{Int,_DEFAULT_FINITE_TEMP_BASIS,ComplexF64,Float64}
+    smpl_tau_f::TSf # TauSampling{Float64,_DEFAULT_FINITE_TEMP_BASIS,Float64,Float64}
+    smpl_tau_b::TSb # TauSampling{Float64,_DEFAULT_FINITE_TEMP_BASIS,Float64,Float64}
+    smpl_wn_f::MSf # MatsubaraSampling{Int,_DEFAULT_FINITE_TEMP_BASIS,ComplexF64,Float64}
+    smpl_wn_b::MSb # MatsubaraSampling{Int,_DEFAULT_FINITE_TEMP_BASIS,ComplexF64,Float64}
 end
 
 """
@@ -37,7 +39,8 @@ associated sampling objects.
 Fermion and bosonic bases are constructed by SVE of the logistic kernel.
 """
 function FiniteTempBasisSet(
-    β::AbstractFloat, wmax::AbstractFloat, ε; sve_result=compute_sve(LogisticKernel(β * wmax); ε)
+    β::AbstractFloat, wmax::AbstractFloat, ε;
+    sve_result=compute_sve(LogisticKernel(β * wmax); ε),
 )
     # Create bases using the given sve results
     basis_f = FiniteTempBasis(fermion, β, wmax, ε; sve_result)
