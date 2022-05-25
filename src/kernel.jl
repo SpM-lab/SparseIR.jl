@@ -292,7 +292,7 @@ function matrix_from_gauss(kernel, gauss_x, gauss_y)
     # nodes are clustered most tightly.  Thus we have the need for the
     # matrix method.
     return @inbounds kernel.(
-        gauss_x.x, transpose(gauss_y.x), gauss_x.x .- gauss_x.a, gauss_x.b .- gauss_x.x
+        gauss_x.x, transpose(gauss_y.x), gauss_x.x_forward, gauss_x.x_backward
     )
 end
 

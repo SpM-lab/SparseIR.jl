@@ -10,6 +10,8 @@ function validategauss(rule)
     @test all(≥(rule.a), rule.x)
     @test issorted(rule.x)
     @test length(rule.x) == length(rule.w)
+    @test rule.x_forward ≈ rule.x .- rule.a
+    @test rule.x_backward ≈ rule.b .- rule.x
 end
 
 @testset "gauss.jl" begin
