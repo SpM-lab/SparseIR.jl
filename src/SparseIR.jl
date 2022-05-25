@@ -19,7 +19,7 @@ export LegendreBasis, MatsubaraConstBasis
 export FiniteTempBasisSet
 export LogisticKernel, RegularizedBoseKernel
 export CompositeBasis, CompositeBasisFunction, CompositeBasisFunctionFT
-export TauSampling, MatsubaraSampling, evaluate, fit
+export TauSampling, MatsubaraSampling, evaluate, fit, evaluate!, fit!
 
 @enum Statistics boson fermion
 
