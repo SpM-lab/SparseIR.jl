@@ -14,13 +14,7 @@ basis coefficients `G_ir[l]` to time/frequency sampled on sparse points
         |________________|      fit        |___________________|
 
 """
-abstract type AbstractSampling{T,B<:AbstractBasis,F<:Factorization,Tmat} end
-
-"""
-    cond(sampling)
-
-Condition number of the fitting problem.
-"""
+abstract type AbstractSampling{T,Tmat,F<:Factorization} end
 cond(sampling::AbstractSampling) = cond(sampling.matrix)
 
 """
@@ -31,21 +25,24 @@ Sparse sampling in imaginary time.
 Allows the transformation between the IR basis and a set of sampling points
 in (scaled/unscaled) imaginary time.
 """
-struct TauSampling{T,B<:AbstractBasis,F<:Factorization,Tmat} <: AbstractSampling{T,B,F,Tmat}
+struct TauSampling{T,Tmat,F<:Factorization} <: AbstractSampling{T,Tmat,F}
     sampling_points::Vector{T}
-    basis::B
-    matrix_fact::F
     matrix::Matrix{Tmat}
+    matrix_fact::F
 end
 
 """
-    TauSampling(basis, sampling_points)
+    TauSampling(basis[, sampling_points])
 
-Construct a `TauSampling` object.
+Construct a `TauSampling` object. If not given, the `sampling_points` are chosen as 
+the extrema of the highest-order basis function in imaginary time. This turns out 
+to be close to optimal with respect to conditioning for this size (within a few percent).
 """
-function TauSampling(basis, sampling_points=default_tau_sampling_points(basis))
+function TauSampling(
+    basis::AbstractBasis, sampling_points=default_tau_sampling_points(basis)
+)
     matrix = eval_matrix(TauSampling, basis, sampling_points)
-    sampling = TauSampling(sampling_points, basis, factorize(matrix), matrix)
+    sampling = TauSampling(sampling_points, matrix, factorize(matrix))
 
     if iswellconditioned(basis) && cond(sampling) > 1e8
         @warn "Sampling matrix is poorly conditioned (cond = $(cond(sampling)))."
@@ -62,22 +59,24 @@ Sparse sampling in Matsubara frequencies.
 Allows the transformation between the IR basis and a set of sampling points
 in (scaled/unscaled) imaginary frequencies.
 """
-struct MatsubaraSampling{T,B<:AbstractBasis,F<:Factorization,Tmat} <:
-       AbstractSampling{T,B,F,Tmat}
+struct MatsubaraSampling{T,Tmat,F<:Factorization} <: AbstractSampling{T,Tmat,F}
     sampling_points::Vector{T}
-    basis::B
-    matrix_fact::F
     matrix::Matrix{Tmat}
+    matrix_fact::F
 end
 
 """
-    MatsubaraSampling(basis, sampling_points)
+    MatsubaraSampling(basis[, sampling_points])
 
-Construct a `MatsubaraSampling` object.
+Construct a `MatsubaraSampling` object. If not given, the `sampling_points` are chosen as 
+the (discrete) extrema of the highest-order basis function in Matsubara. This turns out 
+to be close to optimal with respect to conditioning for this size (within a few percent).
 """
-function MatsubaraSampling(basis, sampling_points=default_matsubara_sampling_points(basis))
+function MatsubaraSampling(
+    basis::AbstractBasis, sampling_points=default_matsubara_sampling_points(basis)
+)
     matrix = eval_matrix(MatsubaraSampling, basis, sampling_points)
-    sampling = MatsubaraSampling(sampling_points, basis, factorize(matrix), matrix)
+    sampling = MatsubaraSampling(sampling_points, matrix, factorize(matrix))
 
     if iswellconditioned(basis) && cond(sampling) > 1e8
         @warn "Sampling matrix is poorly conditioned (cond = $(cond(sampling)))."
@@ -100,8 +99,8 @@ eval_matrix(::Type{MatsubaraSampling}, basis, x) = permutedims(basis.uhat(x))
 Evaluate the basis coefficients aₗ at the sparse sampling points.
 """
 function evaluate(
-    smpl::AbstractSampling{Ts,B,F,Tmat}, aₗ::AbstractArray{T,N}; dim=1
-) where {Ts,B,F,Tmat,T,N}
+    smpl::AbstractSampling{Ts,Tmat}, aₗ::AbstractArray{T,N}; dim=1
+) where {Ts,Tmat,T,N}
     if size(smpl.matrix, 2) ≠ size(aₗ, dim)
         msg = "Number of columns (got $(size(smpl.matrix, 2))) has to match aₗ's size in dim (got $(size(aₗ, dim)))"
         throw(DimensionMismatch(msg))
@@ -133,8 +132,8 @@ end
 Fit basis coefficients from the sparse sampling points
 """
 function fit(
-    smpl::AbstractSampling{Ts,B,F,Tmat}, aₗ::AbstractArray{T,N}; dim=1
-) where {Ts,B,F,Tmat,T,N}
+    smpl::AbstractSampling{Ts,Tmat}, aₗ::AbstractArray{T,N}; dim=1
+) where {Ts,Tmat,T,N}
     if size(smpl.matrix, 1) ≠ size(aₗ, dim)
         msg = "Number of rows (got $(size(smpl.matrix, 1))) has to match aₗ's size in dim (got $(size(aₗ, dim)))"
         throw(DimensionMismatch(msg))
