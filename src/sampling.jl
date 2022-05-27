@@ -42,13 +42,11 @@ function TauSampling(
     basis::AbstractBasis, sampling_points=default_tau_sampling_points(basis)
 )
     matrix = eval_matrix(TauSampling, basis, sampling_points)
-    sampling = TauSampling(sampling_points, matrix, factorize(matrix))
-
-    if iswellconditioned(basis) && cond(sampling) > 1e8
+    if iswellconditioned(basis) && cond(matrix) > 1e8
         @warn "Sampling matrix is poorly conditioned (cond = $(cond(sampling)))."
     end
 
-    return sampling
+    return TauSampling(sampling_points, matrix, factorize(matrix))
 end
 
 """
@@ -76,13 +74,11 @@ function MatsubaraSampling(
     basis::AbstractBasis, sampling_points=default_matsubara_sampling_points(basis)
 )
     matrix = eval_matrix(MatsubaraSampling, basis, sampling_points)
-    sampling = MatsubaraSampling(sampling_points, matrix, factorize(matrix))
-
-    if iswellconditioned(basis) && cond(sampling) > 1e8
+    if iswellconditioned(basis) && cond(matrix) > 1e8
         @warn "Sampling matrix is poorly conditioned (cond = $(cond(sampling)))."
     end
 
-    return sampling
+    return MatsubaraSampling(sampling_points, matrix, factorize(matrix))
 end
 
 """
@@ -105,8 +101,8 @@ function evaluate(
         msg = "Number of columns (got $(size(smpl.matrix, 2))) has to match aₗ's size in dim (got $(size(aₗ, dim)))"
         throw(DimensionMismatch(msg))
     end
-    buffersize = (size(smpl.matrix, 1), size(aₗ)[1:(dim - 1)]..., size(aₗ)[(dim + 1):N]...)
-    buffer = Array{promote_type(Tmat, T),N}(undef, buffersize)
+    bufsize = (size(smpl.matrix, 1), size(aₗ)[1:(dim - 1)]..., size(aₗ)[(dim + 1):N]...)
+    buffer = Array{promote_type(Tmat, T),N}(undef, bufsize)
     return evaluate!(buffer, smpl, aₗ; dim)
 end
 
@@ -116,11 +112,9 @@ end
 Like [`evaluate`](@ref), but write the result to `buffer`.
 """
 function evaluate!(buffer::AbstractArray, smpl::AbstractSampling, aₗ; dim=1)
-    buffersize = (
-        size(smpl.matrix, 1), size(aₗ)[1:(dim - 1)]..., size(aₗ)[(dim + 1):end]...
-    )
-    if size(buffer) ≠ buffersize
-        msg = "Buffer has the wrong size (got $(size(buffer)), expected $buffersize)"
+    bufsize = (size(smpl.matrix, 1), size(aₗ)[1:(dim - 1)]..., size(aₗ)[(dim + 1):end]...)
+    if size(buffer) ≠ bufsize
+        msg = "Buffer has the wrong size (got $(size(buffer)), expected $bufsize)"
         throw(DimensionMismatch(msg))
     end
     return matop_along_dim!(buffer, smpl.matrix, aₗ, dim; op=mul!)
@@ -138,8 +132,8 @@ function fit(
         msg = "Number of rows (got $(size(smpl.matrix, 1))) has to match aₗ's size in dim (got $(size(aₗ, dim)))"
         throw(DimensionMismatch(msg))
     end
-    buffersize = (size(smpl.matrix, 2), size(aₗ)[1:(dim - 1)]..., size(aₗ)[(dim + 1):N]...)
-    buffer = Array{promote_type(Tmat, T),N}(undef, buffersize)
+    bufsize = (size(smpl.matrix, 2), size(aₗ)[1:(dim - 1)]..., size(aₗ)[(dim + 1):N]...)
+    buffer = Array{promote_type(Tmat, T),N}(undef, bufsize)
     return fit!(buffer, smpl, aₗ; dim)
 end
 
@@ -149,11 +143,9 @@ end
 Like [`fit`](@ref), but write the result to `buffer`.
 """
 function fit!(buffer, smpl::AbstractSampling, aₗ; dim=1)
-    buffersize = (
-        size(smpl.matrix, 2), size(aₗ)[1:(dim - 1)]..., size(aₗ)[(dim + 1):end]...
-    )
-    if size(buffer) ≠ buffersize
-        msg = "Buffer has the wrong size (got $(size(buffer)), expected $buffersize)"
+    bufsize = (size(smpl.matrix, 2), size(aₗ)[1:(dim - 1)]..., size(aₗ)[(dim + 1):end]...)
+    if size(buffer) ≠ bufsize
+        msg = "Buffer has the wrong size (got $(size(buffer)), expected $bufsize)"
         throw(DimensionMismatch(msg))
     end
     return matop_along_dim!(buffer, smpl.matrix_fact, aₗ, dim; op=ldiv!)
@@ -191,14 +183,13 @@ function matop_along_dim!(buffer, mat, arr::AbstractArray{T,N}, dim=1; op=mul!) 
 end
 
 """
-    matop(mat, arr::AbstractArray; op=*)
+    matop!(buffer, mat, arr::AbstractArray; op=*)
 
 Apply the operator `op` to the matrix `mat` and to the array `arr` along the first dimension.
 """
-function matop!(buffer, mat, arr::AbstractArray{T,N}; op=mul!) where {T,N}
-    N == 1 && return op(buffer, mat, arr)
-
+function matop!(buffer, mat, arr::AbstractArray; op=mul!)
     flatarr = reshape(arr, (size(arr, 1), :))
     op(buffer, mat, flatarr)
     return reshape(buffer, (:, size(arr)[2:end]...))
 end
+matop!(buffer, mat, arr::AbstractVector; op=mul!) = op(buffer, mat, arr)
