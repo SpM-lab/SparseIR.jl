@@ -3,8 +3,7 @@ using SparseIR
 
 @testset "matsubara.jl" begin
     @testset "single pole with stat = $stat, Λ = $Λ" for stat in (fermion, boson),
-        Λ in (1e1, 1e4)
-
+        Λ in (10, 42, 10_000)
         ε = (@isdefined Float64x2) ? nothing : 1e-15
         wmax = 1.0
         pole = 0.1 * wmax
@@ -12,8 +11,8 @@ using SparseIR
         basis = FiniteTempBasis(stat, β, wmax, ε; sve_result=sve_logistic[Λ])
 
         stat_shift = (stat == fermion) ? 1 : 0
-        weight = (stat == fermion) ? 1 : 1 / tanh(0.5 * Λ * pole / wmax)
-        gl = -basis.s .* basis.v(pole) * weight
+        spr = SparsePoleRepresentation(basis, [pole])
+        gl = to_IR(spr, [1.0])
 
         func_G(n) = 1 / (im * (2n + stat_shift) * π / β - pole)
 

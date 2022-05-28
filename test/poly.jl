@@ -61,8 +61,8 @@ using SparseIR
         @test result == result_iter
     end
 
-    @testset "overlap with Λ = $Λ, atol = $atol" for (Λ, atol) in
-                                                     ((42, 1e-13), (10^4, 1e-13))
+    @testset "overlap with Λ = $Λ, atol = $atol" for Λ in (10, 42, 10_000)
+        atol = 1e-13
         u, s, v = sve_logistic[Λ]
 
         # Keep only even number of polynomials

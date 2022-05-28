@@ -15,7 +15,14 @@ basis coefficients `G_ir[l]` to time/frequency sampled on sparse points
 
 """
 abstract type AbstractSampling{T,Tmat,F<:Factorization} end
+
 cond(sampling::AbstractSampling) = cond(sampling.matrix)
+
+function Base.show(io::IO, smpl::S) where {S<:AbstractSampling}
+    println(io, S)
+    print(io, "Sampling points: ")
+    return println(io, smpl.sampling_points)
+end
 
 """
     TauSampling <: AbstractSampling
