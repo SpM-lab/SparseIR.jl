@@ -61,8 +61,8 @@ using SparseIR
         @test result == result_iter
     end
 
-    @testset "overlap with Λ = $Λ, atol = $atol" for (Λ, atol) in
-                                                     ((42, 1e-13), (10^4, 1e-13))
+    @testset "overlap with Λ = $Λ" for Λ in (10, 42, 10_000)
+        atol = 1e-13
         u, s, v = sve_logistic[Λ]
 
         # Keep only even number of polynomials
@@ -74,7 +74,7 @@ using SparseIR
         @test overlap(u[1], u[2]) ≈ 0 rtol = 0 atol = atol
 
         ref = float.(eachindex(s) .== 1)
-        @test all(isapprox.(overlap(u[1], u), ref, rtol=0, atol=atol))
+        @test all(isapprox.(overlap(u[1], u), ref; rtol=0, atol))
     end
 
     @testset "eval unique" begin

@@ -14,14 +14,15 @@ basis coefficients `G_ir[l]` to time/frequency sampled on sparse points
         |________________|      fit        |___________________|
 
 """
-abstract type AbstractSampling end
+abstract type AbstractSampling{T,Tmat,F<:Factorization} end
 
-"""
-    cond(sampling)
+cond(sampling::AbstractSampling) = cond(sampling.matrix)
 
-Condition number of the fitting problem.
-"""
-cond(sampling::AbstractSampling) = first(sampling.matrix.S) / last(sampling.matrix.S)
+function Base.show(io::IO, smpl::S) where {S<:AbstractSampling}
+    println(io, S)
+    print(io, "Sampling points: ")
+    return println(io, smpl.sampling_points)
+end
 
 """
     TauSampling <: AbstractSampling
@@ -31,27 +32,28 @@ Sparse sampling in imaginary time.
 Allows the transformation between the IR basis and a set of sampling points
 in (scaled/unscaled) imaginary time.
 """
-struct TauSampling{T,B<:AbstractBasis,S,Sr} <: AbstractSampling
+struct TauSampling{T,Tmat,F<:Factorization} <: AbstractSampling{T,Tmat,F}
     sampling_points::Vector{T}
-    basis::B
-    matrix::SVD{S,Sr,Matrix{S}}
-    matrixfull::Matrix{S}
+    matrix::Matrix{Tmat}
+    matrix_fact::F
 end
 
 """
-    TauSampling(basis, sampling_points)
+    TauSampling(basis[, sampling_points])
 
-Construct a `TauSampling` object.
+Construct a `TauSampling` object. If not given, the `sampling_points` are chosen as 
+the extrema of the highest-order basis function in imaginary time. This turns out 
+to be close to optimal with respect to conditioning for this size (within a few percent).
 """
-function TauSampling(basis, sampling_points=default_tau_sampling_points(basis))
-    matrixfull = eval_matrix(TauSampling, basis, sampling_points)
-    sampling = TauSampling(sampling_points, basis, svd(matrixfull), matrixfull)
-
-    if iswellconditioned(basis) && cond(sampling) > 1e8
+function TauSampling(
+    basis::AbstractBasis, sampling_points=default_tau_sampling_points(basis)
+)
+    matrix = eval_matrix(TauSampling, basis, sampling_points)
+    if iswellconditioned(basis) && cond(matrix) > 1e8
         @warn "Sampling matrix is poorly conditioned (cond = $(cond(sampling)))."
     end
 
-    return sampling
+    return TauSampling(sampling_points, matrix, factorize(matrix))
 end
 
 """
@@ -62,27 +64,28 @@ Sparse sampling in Matsubara frequencies.
 Allows the transformation between the IR basis and a set of sampling points
 in (scaled/unscaled) imaginary frequencies.
 """
-struct MatsubaraSampling{T,B<:AbstractBasis,S,Sr} <: AbstractSampling
+struct MatsubaraSampling{T,Tmat,F<:Factorization} <: AbstractSampling{T,Tmat,F}
     sampling_points::Vector{T}
-    basis::B
-    matrix::SVD{S,Sr,Matrix{S}}
-    matrixfull::Matrix{S}
+    matrix::Matrix{Tmat}
+    matrix_fact::F
 end
 
 """
-    MatsubaraSampling(basis, sampling_points)
+    MatsubaraSampling(basis[, sampling_points])
 
-Construct a `MatsubaraSampling` object.
+Construct a `MatsubaraSampling` object. If not given, the `sampling_points` are chosen as 
+the (discrete) extrema of the highest-order basis function in Matsubara. This turns out 
+to be close to optimal with respect to conditioning for this size (within a few percent).
 """
-function MatsubaraSampling(basis, sampling_points=default_matsubara_sampling_points(basis))
-    matrixfull = eval_matrix(MatsubaraSampling, basis, sampling_points)
-    sampling = MatsubaraSampling(sampling_points, basis, svd(matrixfull), matrixfull)
-
-    if iswellconditioned(basis) && cond(sampling) > 1e8
+function MatsubaraSampling(
+    basis::AbstractBasis, sampling_points=default_matsubara_sampling_points(basis)
+)
+    matrix = eval_matrix(MatsubaraSampling, basis, sampling_points)
+    if iswellconditioned(basis) && cond(matrix) > 1e8
         @warn "Sampling matrix is poorly conditioned (cond = $(cond(sampling)))."
     end
 
-    return sampling
+    return MatsubaraSampling(sampling_points, matrix, factorize(matrix))
 end
 
 """
@@ -94,18 +97,66 @@ eval_matrix(::Type{TauSampling}, basis, x) = permutedims(basis.u(x))
 eval_matrix(::Type{MatsubaraSampling}, basis, x) = permutedims(basis.uhat(x))
 
 """
-    evaluate(sampling, al)
+    evaluate(sampling, aₗ; dim=1)
 
-Evaluate the basis coefficients at the sparse sampling points.
+Evaluate the basis coefficients aₗ at the sparse sampling points.
 """
-evaluate(smpl::AbstractSampling, al; dim=1) = matop_along_dim(smpl.matrixfull, al, dim)
+function evaluate(
+    smpl::AbstractSampling{Ts,Tmat}, aₗ::AbstractArray{T,N}; dim=1
+) where {Ts,Tmat,T,N}
+    if size(smpl.matrix, 2) ≠ size(aₗ, dim)
+        msg = "Number of columns (got $(size(smpl.matrix, 2))) has to match aₗ's size in dim (got $(size(aₗ, dim)))"
+        throw(DimensionMismatch(msg))
+    end
+    bufsize = (size(smpl.matrix, 1), size(aₗ)[1:(dim - 1)]..., size(aₗ)[(dim + 1):N]...)
+    buffer = Array{promote_type(Tmat, T),N}(undef, bufsize)
+    return evaluate!(buffer, smpl, aₗ; dim)
+end
 
 """
-    fit(sampling, al)
+    evaluate!(buffer::AbstractArray, sampling, aₗ; dim=1)
+
+Like [`evaluate`](@ref), but write the result to `buffer`.
+"""
+function evaluate!(buffer::AbstractArray, smpl::AbstractSampling, aₗ; dim=1)
+    bufsize = (size(smpl.matrix, 1), size(aₗ)[1:(dim - 1)]..., size(aₗ)[(dim + 1):end]...)
+    if size(buffer) ≠ bufsize
+        msg = "Buffer has the wrong size (got $(size(buffer)), expected $bufsize)"
+        throw(DimensionMismatch(msg))
+    end
+    return matop_along_dim!(buffer, smpl.matrix, aₗ, dim; op=mul!)
+end
+
+"""
+    fit(sampling, aₗ; dim=1)
 
 Fit basis coefficients from the sparse sampling points
 """
-fit(smpl::AbstractSampling, al; dim=1) = matop_along_dim(smpl.matrixfull, al, dim; op=\)
+function fit(
+    smpl::AbstractSampling{Ts,Tmat}, aₗ::AbstractArray{T,N}; dim=1
+) where {Ts,Tmat,T,N}
+    if size(smpl.matrix, 1) ≠ size(aₗ, dim)
+        msg = "Number of rows (got $(size(smpl.matrix, 1))) has to match aₗ's size in dim (got $(size(aₗ, dim)))"
+        throw(DimensionMismatch(msg))
+    end
+    bufsize = (size(smpl.matrix, 2), size(aₗ)[1:(dim - 1)]..., size(aₗ)[(dim + 1):N]...)
+    buffer = Array{promote_type(Tmat, T),N}(undef, bufsize)
+    return fit!(buffer, smpl, aₗ; dim)
+end
+
+"""
+    fit!(buffer::AbstractArray, sampling, aₗ; dim=1)
+
+Like [`fit`](@ref), but write the result to `buffer`.
+"""
+function fit!(buffer, smpl::AbstractSampling, aₗ; dim=1)
+    bufsize = (size(smpl.matrix, 2), size(aₗ)[1:(dim - 1)]..., size(aₗ)[(dim + 1):end]...)
+    if size(buffer) ≠ bufsize
+        msg = "Buffer has the wrong size (got $(size(buffer)), expected $bufsize)"
+        throw(DimensionMismatch(msg))
+    end
+    return matop_along_dim!(buffer, smpl.matrix_fact, aₗ, dim; op=ldiv!)
+end
 
 """
     movedim(arr::AbstractArray, src => dst)
@@ -124,28 +175,28 @@ function movedim(arr::AbstractArray{T,N}, dims::Pair) where {T,N}
 end
 
 """
-    matop_along_dim(mat::AbstractMatrix, arr::AbstractArray, dim::Integer; op=*)
+    matop_along_dim(mat, arr::AbstractArray, dim::Integer; op=*)
 
 Apply the operator `op` to the matrix `mat` and to the array `arr` along the dimension `dim`.
 """
-function matop_along_dim(
-    mat::AbstractMatrix, arr::AbstractArray{T,N}, dim=1; op=*
-) where {T,N}
-    # Move the target dim to the first position
+function matop_along_dim!(buffer, mat, arr::AbstractArray{T,N}, dim=1; op=mul!) where {T,N}
     1 ≤ dim ≤ N || throw(DomainError(dim, "Dimension must be in [1, $N]"))
 
+    # Move the target dim to the first position
     arr = movedim(arr, dim => 1)
-    return movedim(matop(mat, arr; op), 1 => dim)
+    buffer = movedim(buffer, dim => 1)
+    matop!(buffer, mat, arr; op)
+    return movedim(buffer, 1 => dim)
 end
 
 """
-    matop(mat::AbstractMatrix, arr::AbstractArray; op=*)
+    matop!(buffer, mat, arr::AbstractArray; op=*)
 
 Apply the operator `op` to the matrix `mat` and to the array `arr` along the first dimension.
 """
-function matop(mat::AbstractMatrix, arr::AbstractArray{T,N}; op=*) where {T,N}
-    N == 1 && return op(mat, arr)
-
+function matop!(buffer, mat, arr::AbstractArray; op=mul!)
     flatarr = reshape(arr, (size(arr, 1), :))
-    return reshape(op(mat, flatarr), (:, size(arr)[2:end]...))
+    op(buffer, mat, flatarr)
+    return reshape(buffer, (:, size(arr)[2:end]...))
 end
+matop!(buffer, mat, arr::AbstractVector; op=mul!) = op(buffer, mat, arr)

@@ -161,7 +161,7 @@ SVD problems underlying the SVE.
 function matrices(sve::SamplingSVE)
     result = matrix_from_gauss(sve.kernel, sve.gauss_x, sve.gauss_y)
     result .*= sve.sqrtw_x
-    result .*= sve.sqrtw_y'
+    result .*= transpose(sve.sqrtw_y)
     return (result,)
 end
 matrices(sve::CentrosymmSVE) = (only(matrices(sve.even)), only(matrices(sve.odd)))
