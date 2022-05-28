@@ -57,7 +57,7 @@ include("__conftest.jl")
         @test isapprox(Gℓ, Gℓ_n, atol=12 * noise * Gℓ_magn, rtol=0)
     end
 
-    @testset "τ noise with stat = $stat, Λ = $Λ" for stat in (boson, fermion), Λ in (10, 42)
+    @testset "iω noise with stat = $stat, Λ = $Λ" for stat in (boson, fermion), Λ in (10, 42)
         basis = DimensionlessBasis(stat, Λ; sve_result=sve_logistic[Λ])
         smpl = MatsubaraSampling(basis)
         @test issorted(smpl.sampling_points)
@@ -84,6 +84,6 @@ include("__conftest.jl")
         fit!(Gℓ_n_inplace, smpl, Giwn_n)
         @test Gℓ_n == Gℓ_n_inplace
 
-        @test isapprox(Gℓ, Gℓ_n, atol=13 * noise * Gℓ_magn, rtol=0)
+        @test isapprox(Gℓ, Gℓ_n, atol=40 * noise * Gℓ_magn, rtol=0)
     end
 end
