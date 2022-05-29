@@ -97,34 +97,34 @@ eval_matrix(::Type{TauSampling}, basis, x) = permutedims(basis.u(x))
 eval_matrix(::Type{MatsubaraSampling}, basis, x) = permutedims(basis.uhat(x))
 
 """
-    evaluate(sampling, aₗ; dim=1)
+    evaluate(sampling, al; dim=1)
 
 Evaluate the basis coefficients aₗ at the sparse sampling points.
 """
 function evaluate(
-    smpl::AbstractSampling{Ts,Tmat}, aₗ::AbstractArray{T,N}; dim=1
+    smpl::AbstractSampling{Ts,Tmat}, al::AbstractArray{T,N}; dim=1
 ) where {Ts,Tmat,T,N}
-    if size(smpl.matrix, 2) ≠ size(aₗ, dim)
-        msg = "Number of columns (got $(size(smpl.matrix, 2))) has to match aₗ's size in dim (got $(size(aₗ, dim)))"
+    if size(smpl.matrix, 2) ≠ size(al, dim)
+        msg = "Number of columns (got $(size(smpl.matrix, 2))) has to match aₗ's size in dim (got $(size(al, dim)))"
         throw(DimensionMismatch(msg))
     end
-    bufsize = (size(smpl.matrix, 1), size(aₗ)[1:(dim - 1)]..., size(aₗ)[(dim + 1):N]...)
+    bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 1), size(al)[(dim + 1):end]...)
     buffer = Array{promote_type(Tmat, T),N}(undef, bufsize)
-    return evaluate!(buffer, smpl, aₗ; dim)
+    return evaluate!(buffer, smpl, al; dim)
 end
 
 """
-    evaluate!(buffer::AbstractArray, sampling, aₗ; dim=1)
+    evaluate!(buffer::AbstractArray, sampling, al; dim=1)
 
 Like [`evaluate`](@ref), but write the result to `buffer`.
 """
-function evaluate!(buffer::AbstractArray, smpl::AbstractSampling, aₗ; dim=1)
-    bufsize = (size(smpl.matrix, 1), size(aₗ)[1:(dim - 1)]..., size(aₗ)[(dim + 1):end]...)
+function evaluate!(buffer::AbstractArray, smpl::AbstractSampling, al; dim=1)
+    bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 1), size(al)[(dim + 1):end]...)
     if size(buffer) ≠ bufsize
         msg = "Buffer has the wrong size (got $(size(buffer)), expected $bufsize)"
         throw(DimensionMismatch(msg))
     end
-    return matop_along_dim!(buffer, smpl.matrix, aₗ, dim; op=mul!)
+    return matop_along_dim!(buffer, smpl.matrix, al, dim; op=mul!)
 end
 
 """
@@ -196,7 +196,8 @@ Apply the operator `op` to the matrix `mat` and to the array `arr` along the fir
 """
 function matop!(buffer, mat, arr::AbstractArray; op=mul!)
     flatarr = reshape(arr, (size(arr, 1), :))
-    op(buffer, mat, flatarr)
-    return reshape(buffer, (:, size(arr)[2:end]...))
+    flatbuffer = reshape(buffer, size(buffer)[1], :)
+    op(flatbuffer, mat, flatarr)
+    return buffer
 end
 matop!(buffer, mat, arr::AbstractVector; op=mul!) = op(buffer, mat, arr)

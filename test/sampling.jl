@@ -27,6 +27,26 @@ include("__conftest.jl")
         @test A \ y ≈ Ad \ y atol = 1e-14 * norm_A rtol = 0
     end
 
+    @testset "evaluate" begin
+        Λ = 10
+        basis = DimensionlessBasis(fermion, Λ; sve_result=sve_logistic[Λ])
+        smpl = TauSampling(basis)
+        @test issorted(smpl.sampling_points)
+        Random.seed!(5318008)
+        newaxis = [CartesianIndex()]
+
+        shape = (2, 3, 4)
+        rhol = Random.randn(length(basis), prod(shape)) + im * Random.randn(length(basis), prod(shape))
+        flatgl = - basis.s[:, newaxis] .* rhol
+        for dim in 1:length(shape)
+            gl = SparseIR.movedim(reshape(flatgl, :, shape...), 1 => dim)
+            gtau = evaluate(smpl, gl, dim=dim)
+            @test size(gtau) == (size(gl)[1:(dim-1)]..., length(smpl.sampling_points), size(gl)[(dim+1):end]...)
+
+            # TODO: implement check of gtau
+        end
+    end
+
     @testset "τ noise with stat = $stat, Λ = $Λ" for stat in (boson, fermion), Λ in (10, 42)
         basis = DimensionlessBasis(stat, Λ; sve_result=sve_logistic[Λ])
         smpl = TauSampling(basis)
