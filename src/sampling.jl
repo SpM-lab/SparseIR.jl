@@ -182,22 +182,37 @@ Apply the operator `op` to the matrix `mat` and to the array `arr` along the dim
 function matop_along_dim!(buffer, mat, arr::AbstractArray{T,N}, dim=1; op=mul!) where {T,N}
     1 ≤ dim ≤ N || throw(DomainError(dim, "Dimension must be in [1, $N]"))
 
-    # Move the target dim to the first position
-    arr = movedim(arr, dim => 1)
-    buffer = movedim(buffer, dim => 1)
-    matop!(buffer, mat, arr; op)
-    return movedim(buffer, 1 => dim)
+    #if N > 1 && dim == N && op == mul!
+    if dim == N
+        # Apply the operator to the last dimension
+        matop!(buffer, mat, arr; op=op, dim=N)
+        return buffer
+    else
+        # Move the target dim to the first position
+        arr = movedim(arr, dim => 1)
+        buffer = movedim(buffer, dim => 1)
+        matop!(buffer, mat, arr; op=op, dim=1)
+        return movedim(buffer, 1 => dim)
+    end
 end
 
 """
     matop!(buffer, mat, arr::AbstractArray; op=*)
 
-Apply the operator `op` to the matrix `mat` and to the array `arr` along the first dimension.
+Apply the operator `op` to the matrix `mat` and to the array `arr` along the first dimension (dim=1) or the last dimension (dim=N)
 """
-function matop!(buffer, mat, arr::AbstractArray; op=mul!)
-    flatarr = reshape(arr, (size(arr, 1), :))
-    flatbuffer = reshape(buffer, size(buffer)[1], :)
-    op(flatbuffer, mat, flatarr)
+function matop!(buffer::AbstractArray{S,N}, mat, arr::AbstractArray{T,N}; op=mul!, dim=1) where {S,T,N}
+    (dim == 1 || dim == N) || throw(DomainError("Dimension must be 1 or $(N)"))
+
+    if dim == 1
+        flatarr = reshape(arr, (size(arr, 1), :))
+        flatbuffer = reshape(buffer, size(buffer)[1], :)
+        op(flatbuffer, mat, flatarr)
+    else
+        flatarr = reshape(arr, :, size(arr)[end])
+        flatbuffer = reshape(buffer, :, size(buffer)[end])
+        op(flatbuffer, flatarr, transpose(mat))
+    end
     return buffer
 end
-matop!(buffer, mat, arr::AbstractVector; op=mul!) = op(buffer, mat, arr)
+#matop!(buffer, mat, arr::AbstractVector; op=mul!) = op(buffer, mat, arr)
