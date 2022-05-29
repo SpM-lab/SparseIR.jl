@@ -99,13 +99,13 @@ eval_matrix(::Type{MatsubaraSampling}, basis, x) = permutedims(basis.uhat(x))
 """
     evaluate(sampling, al; dim=1)
 
-Evaluate the basis coefficients aₗ at the sparse sampling points.
+Evaluate the basis coefficients `al` at the sparse sampling points.
 """
 function evaluate(
-    smpl::AbstractSampling{Ts,Tmat}, al::AbstractArray{T,N}; dim=1
-) where {Ts,Tmat,T,N}
+    smpl::AbstractSampling{S,Tmat}, al::AbstractArray{T,N}; dim=1
+) where {S,Tmat,T,N}
     if size(smpl.matrix, 2) ≠ size(al, dim)
-        msg = "Number of columns (got $(size(smpl.matrix, 2))) has to match aₗ's size in dim (got $(size(al, dim)))"
+        msg = "Number of columns (got $(size(smpl.matrix, 2))) has to match al's size in dim (got $(size(al, dim)))"
         throw(DimensionMismatch(msg))
     end
     bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 1), size(al)[(dim + 1):end]...)
@@ -114,7 +114,7 @@ function evaluate(
 end
 
 """
-    evaluate!(buffer::AbstractArray, sampling, al; dim=1)
+    evaluate!(buffer, sampling, al; dim=1)
 
 Like [`evaluate`](@ref), but write the result to `buffer`.
 """
@@ -128,34 +128,34 @@ function evaluate!(buffer::AbstractArray, smpl::AbstractSampling, al; dim=1)
 end
 
 """
-    fit(sampling, aₗ; dim=1)
+    fit(sampling, al; dim=1)
 
 Fit basis coefficients from the sparse sampling points
 """
 function fit(
-    smpl::AbstractSampling{Ts,Tmat}, aₗ::AbstractArray{T,N}; dim=1
-) where {Ts,Tmat,T,N}
-    if size(smpl.matrix, 1) ≠ size(aₗ, dim)
-        msg = "Number of rows (got $(size(smpl.matrix, 1))) has to match aₗ's size in dim (got $(size(aₗ, dim)))"
+    smpl::AbstractSampling{S,Tmat}, al::AbstractArray{T,N}; dim=1
+) where {S,Tmat,T,N}
+    if size(smpl.matrix, 1) ≠ size(al, dim)
+        msg = "Number of rows (got $(size(smpl.matrix, 1))) has to match al's size in dim (got $(size(al, dim)))"
         throw(DimensionMismatch(msg))
     end
-    bufsize = (size(smpl.matrix, 2), size(aₗ)[1:(dim - 1)]..., size(aₗ)[(dim + 1):N]...)
+    bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 2), size(al)[(dim + 1):N]...)
     buffer = Array{promote_type(Tmat, T),N}(undef, bufsize)
-    return fit!(buffer, smpl, aₗ; dim)
+    return fit!(buffer, smpl, al; dim)
 end
 
 """
-    fit!(buffer::AbstractArray, sampling, aₗ; dim=1)
+    fit!(buffer, sampling, al; dim=1)
 
 Like [`fit`](@ref), but write the result to `buffer`.
 """
-function fit!(buffer, smpl::AbstractSampling, aₗ; dim=1)
-    bufsize = (size(smpl.matrix, 2), size(aₗ)[1:(dim - 1)]..., size(aₗ)[(dim + 1):end]...)
+function fit!(buffer, smpl::AbstractSampling, al; dim=1)
+    bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 2), size(al)[(dim + 1):end]...)
     if size(buffer) ≠ bufsize
         msg = "Buffer has the wrong size (got $(size(buffer)), expected $bufsize)"
         throw(DimensionMismatch(msg))
     end
-    return matop_along_dim!(buffer, smpl.matrix_fact, aₗ, dim; op=ldiv!)
+    return matop_along_dim!(buffer, smpl.matrix_fact, al, dim; op=ldiv!)
 end
 
 """
@@ -182,37 +182,37 @@ Apply the operator `op` to the matrix `mat` and to the array `arr` along the dim
 function matop_along_dim!(buffer, mat, arr::AbstractArray{T,N}, dim=1; op=mul!) where {T,N}
     1 ≤ dim ≤ N || throw(DomainError(dim, "Dimension must be in [1, $N]"))
 
-    #if N > 1 && dim == N && op == mul!
     if dim == N
         # Apply the operator to the last dimension
-        matop!(buffer, mat, arr; op=op, dim=N)
-        return buffer
+        matop!(buffer, mat, arr; op, dim)
     else
         # Move the target dim to the first position
         arr = movedim(arr, dim => 1)
         buffer = movedim(buffer, dim => 1)
-        matop!(buffer, mat, arr; op=op, dim=1)
-        return movedim(buffer, 1 => dim)
-    end
-end
-
-"""
-    matop!(buffer, mat, arr::AbstractArray; op=*)
-
-Apply the operator `op` to the matrix `mat` and to the array `arr` along the first dimension (dim=1) or the last dimension (dim=N)
-"""
-function matop!(buffer::AbstractArray{S,N}, mat, arr::AbstractArray{T,N}; op=mul!, dim=1) where {S,T,N}
-    (dim == 1 || dim == N) || throw(DomainError("Dimension must be 1 or $(N)"))
-
-    if dim == 1
-        flatarr = reshape(arr, (size(arr, 1), :))
-        flatbuffer = reshape(buffer, size(buffer)[1], :)
-        op(flatbuffer, mat, flatarr)
-    else
-        flatarr = reshape(arr, :, size(arr)[end])
-        flatbuffer = reshape(buffer, :, size(buffer)[end])
-        op(flatbuffer, flatarr, transpose(mat))
+        matop!(buffer, mat, arr; op, dim=1)
+        buffer = movedim(buffer, 1 => dim)
     end
     return buffer
 end
-#matop!(buffer, mat, arr::AbstractVector; op=mul!) = op(buffer, mat, arr)
+
+"""
+    matop!(buffer, mat, arr::AbstractArray; op=*, dim=1)
+
+Apply the operator `op` to the matrix `mat` and to the array `arr` along the first dimension (dim=1) or the last dimension (dim=N)
+"""
+function matop!(
+    buffer::AbstractArray{S,N}, mat, arr::AbstractArray{T,N}; op=mul!, dim=1
+) where {S,T,N}
+    if dim == 1
+        flatarr = reshape(arr, (size(arr, 1), :))
+        flatbuffer = reshape(buffer, (size(buffer, 1), :))
+        op(flatbuffer, mat, flatarr)
+    elseif dim == N
+        flatarr = reshape(arr, (:, size(arr, N)))
+        flatbuffer = reshape(buffer, (:, size(buffer, N)))
+        op(flatbuffer, flatarr, transpose(mat))
+    else
+        throw(DomainError("Dimension must be 1 or $(N)"))
+    end
+    return buffer
+end
