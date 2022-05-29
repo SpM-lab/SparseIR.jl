@@ -47,8 +47,7 @@ include("__conftest.jl")
         end
     end
 
-    #@testset "τ noise with stat = $stat, Λ = $Λ" for stat in (boson, fermion), Λ in (10, 42)
-    @testset "τ noise with stat = $stat, Λ = $Λ" for stat in (fermion,), Λ in (10, )
+    @testset "τ noise with stat = $stat, Λ = $Λ" for stat in (boson, fermion), Λ in (10, 42)
         basis = DimensionlessBasis(stat, Λ; sve_result=sve_logistic[Λ])
         smpl = TauSampling(basis)
         @test issorted(smpl.sampling_points)
