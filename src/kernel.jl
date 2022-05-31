@@ -242,9 +242,9 @@ function segments_y end
 function segments_x(hints::SVEHintsLogistic)
     nzeros = max(round(Int, 15 * log10(hints.kernel.Λ)), 1)
     diffs = 1 ./ cosh.(0.143 * range(0; length=nzeros))
-    cumsum!(diffs, diffs; dims=1) # From here on, `diffs` contains the zeros
-    diffs ./= last(diffs)
-    return [-reverse(diffs); 0; diffs]
+    zeros = cumsum(diffs)
+    zeros ./= last(zeros)
+    return [-reverse(zeros); 0; zeros]
 end
 
 function segments_y(hints::SVEHintsLogistic)
@@ -253,33 +253,32 @@ function segments_y(hints::SVEHintsLogistic)
     # Zeros around -1 and 1 are distributed asymptotically identically
     leading_diffs = [0.01523, 0.03314, 0.04848, 0.05987, 0.06703, 0.07028, 0.07030, 0.06791,
         0.06391, 0.05896, 0.05358, 0.04814, 0.04288, 0.03795, 0.03342, 0.02932, 0.02565,
-        0.02239, 0.01951, 0.01699][begin:min(nzeros, 20)]
+        0.02239, 0.01951, 0.01699][1:min(nzeros, 20)]
 
     diffs = [leading_diffs; 0.25 ./ exp.(0.141 * (20:(nzeros - 1)))]
-
-    cumsum!(diffs, diffs; dims=1) # From here on, `diffs` contains the zeros
-    diffs ./= pop!(diffs)
-    diffs .-= 1
-    return [-1; diffs; 0; -reverse(diffs); 1]
+    zeros = cumsum(diffs)
+    zeros ./= pop!(zeros)
+    zeros .-= 1
+    return [-1; zeros; 0; -reverse(zeros); 1]
 end
 
 function segments_x(hints::SVEHintsRegularizedBose)
     # Somewhat less accurate...
     nzeros = max(round(Int, 15 * log10(hints.kernel.Λ)), 15)
     diffs = 1 ./ cosh.(0.18 * range(0; length=nzeros))
-    cumsum!(diffs, diffs; dims=1) # From here on, `diffs` contains the zeros
-    diffs ./= last(diffs)
-    return [-reverse(diffs); 0; diffs]
+    zeros = cumsum(diffs)
+    zeros ./= last(zeros)
+    return [-reverse(zeros); 0; zeros]
 end
 
 function segments_y(hints::SVEHintsRegularizedBose)
     nzeros = max(round(Int, 20 * log10(hints.kernel.Λ)), 20)
     i = range(0; length=nzeros)
     diffs = @. 0.12 / exp(0.0337 * i * log(i + 1))
-    cumsum!(diffs, diffs; dims=1) # From here on, `diffs` contains the zeros
-    diffs ./= pop!(diffs)
-    diffs .-= 1
-    return [-1; diffs; 0; -reverse(diffs); 1]
+    zeros = cumsum(diffs)
+    zeros ./= pop!(zeros)
+    zeros .-= 1
+    return [-1; zeros; 0; -reverse(zeros); 1]
 end
 
 """
@@ -292,7 +291,7 @@ function matrix_from_gauss(kernel, gauss_x, gauss_y)
     # nodes are clustered most tightly.  Thus we have the need for the
     # matrix method.
     return @inbounds kernel.(
-        gauss_x.x, transpose(gauss_y.x), gauss_x.x .- gauss_x.a, gauss_x.b .- gauss_x.x
+        gauss_x.x, transpose(gauss_y.x), gauss_x.x_forward, gauss_x.x_backward
     )
 end
 

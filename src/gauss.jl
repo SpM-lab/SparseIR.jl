@@ -16,14 +16,17 @@ struct Rule{T}
     a::T
     b::T
 
-    function Rule(x, w, a=-1, b=1)
+    x_forward::Vector{T}
+    x_backward::Vector{T}
+
+    function Rule(x, w, a=-1, b=1, x_forward=x .- a, x_backward=b .- x)
         a ≤ b || error("a must be ≤ b")
         all(≤(b), x) || error("x must be ≤ b")
         all(≥(a), x) || error("x must be ≥ a")
         issorted(x) || error("x must be strictly increasing")
         length(x) == length(w) ||
             throw(DimensionMismatch("x and w must have the same length"))
-        return new{eltype(x)}(x, w, a, b)
+        return new{eltype(x)}(x, w, a, b, x_forward, x_backward)
     end
 end
 
@@ -45,7 +48,9 @@ function reseat(rule::Rule, a, b)
     scaling = (b - a) / (rule.b - rule.a)
     x = (rule.x .- (rule.a + rule.b) / 2) * scaling .+ (a + b) / 2
     w = rule.w * scaling
-    return Rule(x, w, a, b)
+    x_forward = rule.x_forward * scaling
+    x_backward = rule.x_backward * scaling
+    return Rule(x, w, a, b, x_forward, x_backward)
 end
 
 """
@@ -53,7 +58,9 @@ end
 
 Scale weights by `factor`.
 """
-scale(rule, factor) = Rule(rule.x, rule.w * factor, rule.a, rule.b)
+function scale(rule, factor)
+    return Rule(rule.x, rule.w * factor, rule.a, rule.b, rule.x_forward, rule.x_backward)
+end
 
 """
     piecewise(rule, edges)
@@ -82,13 +89,16 @@ function joinrules(rules::AbstractVector{Rule{T}}) where {T<:AbstractFloat}
     a = first(rules).a
     b = last(rules).b
 
-    return Rule(x, w, a, b)
+    x_forward = reduce(vcat, rule.x_forward .+ (rule.a - a) for rule in rules)
+    x_backward = reduce(vcat, rule.x_backward .+ (b - rule.b) for rule in rules)
+
+    return Rule(x, w, a, b, x_forward, x_backward)
 end
 
 """
     legendre(n[, T])
 
-Gauss-Legendre quadrature with `n` points.
+Gauss-Legendre quadrature with `n` points on [-1, 1].
 """
 legendre(n) = Rule(gauss(n)...)
 legendre(n, T) = Rule(gauss(T, n)...)
@@ -106,7 +116,11 @@ function legendre_collocation(rule, n=length(rule.x))
 end
 
 function Base.convert(::Type{Rule{T}}, rule::Rule) where {T}
-    return Rule(T.(rule.x), T.(rule.w), T(rule.a), T(rule.b))
+    return Rule(
+        T.(rule.x), T.(rule.w),
+        T(rule.a), T(rule.b),
+        T.(rule.x_forward), T.(rule.x_backward),
+    )
 end
 
 """
