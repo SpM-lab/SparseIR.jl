@@ -147,22 +147,30 @@ function fit(
 end
 
 """
+    workarrsizefit(smpl::AbstractSampling, al; dim=1)
+
+Return size of workarr for `fit!`.
+"""
+function workarrsizefit(smpl::AbstractSampling, al; dim=1)
+    return length(smpl.matrix_svd.S), (length(al) ÷ size(al, dim))
+end
+
+"""
     fit!(buffer, sampling, al; dim=1)
 
 Like [`fit`](@ref), but write the result to `buffer`.
 """
 function fit!(
-    buffer, smpl::AbstractSampling, al;
+    buffer, smpl::AbstractSampling, al::Array{T,N};
     dim=1,
-    workarr=Matrix{eltype(al)}(
-        undef, length(smpl.matrix_svd.S), length(al) ÷ size(al, dim)
-    ),
-)
+    workarr::Matrix{T}=Matrix{T}(undef, workarrsizefit(smpl, al, dim=dim)...)
+) where {T,N}
     bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 2), size(al)[(dim + 1):end]...)
     if size(buffer) ≠ bufsize
         msg = "Buffer has the wrong size (got $(size(buffer)), expected $bufsize)"
         throw(DimensionMismatch(msg))
     end
+    size(workarr) == workarrsizefit(smpl, al, dim=dim) || throw(ArgumentError("Invalid size of workarr"))
     return matop_along_dim!(buffer, smpl.matrix_svd, al, workarr, dim, ldiv_noalloc!)
 end
 
