@@ -33,10 +33,10 @@ using SparseIR
         sve_result = sve_logistic[42]
 
         basis = DimensionlessBasis(fermion, 42.0; sve_result)
-        @test length(basis[begin:5]) == 5
+        @test length(basis[1:5]) == 5
 
         basis = FiniteTempBasis(fermion, 4.2, 10.0; sve_result)
-        @test length(basis[begin:4]) == 4
+        @test length(basis[1:4]) == 4
     end
 
     @testset "eval" begin
@@ -66,9 +66,9 @@ using SparseIR
         u, s, v = sve_logistic[Λ]
 
         # Keep only even number of polynomials
-        u, s, v = u[begin:(end - end % 2)],
-        s[begin:(end - end % 2)],
-        v[begin:(end - end % 2)]
+        u, s, v = u[1:(end - end % 2)],
+        s[1:(end - end % 2)],
+        v[1:(end - end % 2)]
 
         @test overlap(u[1], u[1]) ≈ 1 rtol = 0 atol = atol
         @test overlap(u[1], u[2]) ≈ 0 rtol = 0 atol = atol

@@ -33,7 +33,7 @@ function rrqr!(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat}
 
     @inbounds for i in 1:k
         pvt = argmax(ii -> pnorms[ii], i:n)
-        if i != pvt
+        if i ≠ pvt
             jpvt[i], jpvt[pvt] = jpvt[pvt], jpvt[i]
             xnorms[pvt] = xnorms[i]
             pnorms[pvt] = pnorms[i]

@@ -333,8 +333,8 @@ function truncate(u, s, v, rtol=0, lmax::Integer=typemax(Int))
     # Determine how many singular values survive in each group
     scount = [count(>(cutoff), si) for si in s]
 
-    u_cut = [ui[:, begin:counti] for (ui, counti) in zip(u, scount)]
-    s_cut = [si[begin:counti] for (si, counti) in zip(s, scount)]
-    v_cut = [vi[:, begin:counti] for (vi, counti) in zip(v, scount)]
+    u_cut = [ui[:, 1:counti] for (ui, counti) in zip(u, scount)]
+    s_cut = [si[1:counti] for (si, counti) in zip(s, scount)]
+    v_cut = [vi[:, 1:counti] for (vi, counti) in zip(v, scount)]
     return u_cut, s_cut, v_cut
 end
