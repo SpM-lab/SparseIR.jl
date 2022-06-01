@@ -150,7 +150,9 @@ function compute_sve(
     svds = compute_svd.(matrices(sve); strategy=svd_strat)
     u_, s_, v_ = zip(svds...)
     u, s, v = truncate(u_, s_, v_, ε, n_sv)
-    return postprocess(sve, u, s, v, T)
+    return postprocess(
+        sve, u, s, v, T
+    )::Tuple{PiecewiseLegendrePolyVector{T},Vector{T},PiecewiseLegendrePolyVector{T}}
 end
 
 """
@@ -178,10 +180,8 @@ function postprocess(
     u_x = u ./ sve.sqrtw_x
     v_y = v ./ sve.sqrtw_y
 
-    # TODO: Surely this can be done much more elegantly.
-    # As is it feels pretty much unmaintainable
-    u_x = permutedims(reshape(permutedims(u_x), (length(s), sve.n_gauss, :)), (2, 3, 1))
-    v_y = permutedims(reshape(permutedims(v_y), (length(s), sve.n_gauss, :)), (2, 3, 1))
+    u_x = reshape(u_x, (sve.n_gauss, length(sve.segs_x)-1, length(s)))
+    v_y = reshape(v_y, (sve.n_gauss, length(sve.segs_y)-1, length(s)))
 
     cmat = legendre_collocation(sve.rule)
     u_data = reshape(cmat * reshape(u_x, (size(u_x, 1), :)), (:, size(u_x)[2:3]...))
@@ -258,12 +258,10 @@ function _choose_accuracy(ε, Twork)
     end
     return ε, Twork, svd_strat
 end
-
 function _choose_accuracy(ε, ::Nothing)
     ε ≥ sqrt(eps(Float64)) && return ε, Float64, :default
     return _choose_accuracy(ε, T_MAX)
 end
-
 _choose_accuracy(::Nothing, ::Nothing) = sqrt(ε_MAX), T_MAX, :default
 
 """
@@ -277,24 +275,22 @@ fix that gauge by demanding `u[l](1) > 0`.  This ensures a diffeomorphic
 connection to the Legendre polynomials as `Λ → 0`.
 """
 function _canonicalize!(ulx, vly)
-    gauge = sign.(ulx(1))
-    for i in eachindex(ulx, vly, gauge)
-        ulx[i].data .*= 1 / gauge[i]
-        vly[i].data .*= gauge[i]
+    for i in eachindex(ulx, vly)
+        gauge = sign(ulx[i](1))
+        ulx[i].data .*= gauge
+        vly[i].data .*= gauge
     end
 end
 
 """
-    truncate(u, s, v, rtol=0, lmax=nothing)
+    truncate(u, s, v[, rtol][, lmax])
 
 Truncate singular value expansion.
 
 # Arguments
     - `u`, `s`, `v`: Thin singular value expansion
-    - `rtol` : If given, only singular values satisfying
-    `s[l]/s[0] > rtol` are retained.
-    - `lmax` : If given, at most the `lmax` most significant singular
-    values are retained.
+    - `rtol` : If given, only singular values satisfying `s[l]/s[0] > rtol` are retained.
+    - `lmax` : If given, at most the `lmax` most significant singular values are retained.
 """
 function truncate(u, s, v, rtol=0, lmax::Integer=typemax(Int))
     lmax ≥ 0 || throw(DomainError(lmax, "lmax must be non-negative"))
