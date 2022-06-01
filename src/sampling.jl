@@ -116,9 +116,10 @@ function evaluate(
 end
 
 """
-    evaluate!(buffer, sampling, al; dim=1)
+    evaluate!(buffer::AbstractArray{T,N}, sampling, al; dim=1) where {T,N}
 
 Like [`evaluate`](@ref), but write the result to `buffer`.
+Please use dim = 1 or N to avoid allocating large temporary arrays internally.
 """
 function evaluate!(buffer::AbstractArray, smpl::AbstractSampling, al; dim=1)
     bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 1), size(al)[(dim + 1):end]...)
@@ -130,9 +131,10 @@ function evaluate!(buffer::AbstractArray, smpl::AbstractSampling, al; dim=1)
 end
 
 """
-    fit(sampling, al; dim=1)
+    fit(sampling, al::AbstractArray{T,N}; dim=1)
 
 Fit basis coefficients from the sparse sampling points
+Please use dim = 1 or N to avoid allocating large temporary arrays internally.
 """
 function fit(
     smpl::AbstractSampling{S,Tmat}, al::AbstractArray{T,N}; dim=1
@@ -147,31 +149,33 @@ function fit(
 end
 
 """
-    workarrsizefit(smpl::AbstractSampling, al; dim=1)
+    workarrlengthfit(smpl::AbstractSampling, al; dim=1)
 
-Return size of workarr for `fit!`.
+Return min size of workarr for `fit!`.
 """
-function workarrsizefit(smpl::AbstractSampling, al::AbstractArray{T,N}; dim=1) where {T,N}
+function workarrlengthfit(smpl::AbstractSampling, al::AbstractArray{T,N}; dim=1) where {T,N}
     return length(smpl.matrix_svd.S) * (length(al) ÷ size(al, dim))
 end
 
 """
-    fit!(buffer, sampling, al; dim=1)
+    fit!(buffer, sampling, al::Array{T,N}; dim=1)
 
 Like [`fit`](@ref), but write the result to `buffer`.
-workarr must have the same eltype as buffer.
+Please use dim = 1 or N to avoid allocating large temporary arrays internally.
+The length of `workarry` cannot be smaller than the returned value of `workarrlengthfit`.
 """
 function fit!(
     buffer::Array{S,N}, smpl::AbstractSampling, al::Array{T,N};
     dim=1,
-    workarr::Vector{S}=Vector{S}(undef, workarrsizefit(smpl, al, dim=dim))
+    workarr::Vector{S}=Vector{S}(undef, workarrlengthfit(smpl, al; dim=dim)),
 ) where {S,T,N}
     bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 2), size(al)[(dim + 1):end]...)
     if size(buffer) ≠ bufsize
         msg = "Buffer has the wrong size (got $(size(buffer)), expected $bufsize)"
         throw(DimensionMismatch(msg))
     end
-    length(workarr) >= workarrsizefit(smpl, al, dim=dim) || throw(ArgumentError("Invalid size of workarr"))
+    length(workarr) >= workarrlengthfit(smpl, al; dim=dim) ||
+        throw(ArgumentError("Invalid size of workarr"))
     return div_noalloc!(buffer, smpl.matrix_svd, al, workarr, dim)
 end
 
@@ -184,11 +188,15 @@ dimensions unchanged.
 function movedim(arr::AbstractArray{T,N}, dims::Pair) where {T,N}
     src, dst = dims
     src == dst && return arr
+    return permutedims(arr, getperm(N, dims))
+end
 
+function getperm(N, dims::Pair)
+    src, dst = dims
     perm = collect(1:N)
     deleteat!(perm, src)
     insert!(perm, dst, src)
-    return permutedims(arr, perm)
+    return perm
 end
 
 """
@@ -197,45 +205,25 @@ end
 Apply the operator `op` to the matrix `mat` and to the array `arr` along the dimension `dim`.
 """
 function matop_along_dim!(
-    buffer, mat, arr::AbstractArray{T,N}, dim, op
-) where {T,N}
+    buffer::AbstractArray{S,N}, mat, arr::AbstractArray{T,N}, dim, op
+) where {S,T,N}
     1 ≤ dim ≤ N || throw(DomainError(dim, "Dimension must be in [1, $N]"))
 
     if dim == 1
         matop!(buffer, mat, arr, op, 1)
     elseif dim != N
         # Move the target dim to the first position
-        arr = movedim(arr, dim => 1)
-        buffer_perm = movedim(buffer, dim => 1)
-        matop!(buffer_perm, mat, arr, op, 1)
-        buffer = movedim(buffer_perm, 1 => dim)
+        perm = getperm(N, dim => 1)
+        arr_perm = permutedims(arr, perm)
+        buffer_perm = permutedims(buffer, perm)
+        matop!(buffer_perm, mat, arr_perm, op, 1)
+        permutedims!(buffer, buffer_perm, getperm(N, 1 => dim))
     else
         # Apply the operator to the last dimension
         matop!(buffer, mat, arr, op, N)
     end
     return buffer
 end
-#===
-function matop_along_dim!(
-    buffer, mat, arr::AbstractArray{T,N}, workarr::AbstractVector, dim, op
-) where {T,N}
-    1 ≤ dim ≤ N || throw(DomainError(dim, "Dimension must be in [1, $N]"))
-
-    if dim == 1
-        matop!(buffer, mat, arr, workarr, op, 1)
-    elseif dim != N
-        # Move the target dim to the first position
-        arr = movedim(arr, dim => 1)
-        buffer = movedim(buffer, dim => 1)
-        matop!(buffer, mat, arr, workarr, op, 1)
-        buffer = movedim(buffer, 1 => dim)
-    else
-        # Apply the operator to the last dimension
-        matop!(buffer, mat, arr, workarr, op, N)
-    end
-    return buffer
-end
-===#
 
 """
     matop!(buffer, mat, arr::AbstractArray; op=*, dim=1)
@@ -276,7 +264,9 @@ function matop!(
     return buffer
 end
 
-function div_noalloc!(buffer::AbstractArray{S,N}, mat::SVD, arr::AbstractArray{T,N}, workarr, dim) where {S,T,N}
+function div_noalloc!(
+    buffer::AbstractArray{S,N}, mat::SVD, arr::AbstractArray{T,N}, workarr, dim
+) where {S,T,N}
     1 ≤ dim ≤ N || throw(DomainError(dim, "Dimension must be in [1, $N]"))
 
     if dim == 1
@@ -299,10 +289,13 @@ function div_noalloc!(buffer::AbstractArray{S,N}, mat::SVD, arr::AbstractArray{T
     return buffer
 end
 
-function ldiv_noalloc!(Y::AbstractMatrix, A::SVD, B::AbstractMatrix, workarr::AbstractVector)
+function ldiv_noalloc!(
+    Y::AbstractMatrix, A::SVD, B::AbstractMatrix, workarr::AbstractVector
+)
     # Setup work space
     worksize = size(A.U, 2) * size(B, 2)
-    length(workarr) >= worksize || throw(DimensionMismatch("size(workarr)=$(size(workarr)), min worksize=$(worksize)"))
+    length(workarr) >= worksize ||
+        throw(DimensionMismatch("size(workarr)=$(size(workarr)), min worksize=$(worksize)"))
     workarr_view = reshape(view(workarr, 1:worksize), size(A.U, 2), size(B, 2))
 
     mul!(workarr_view, A.U', B)
@@ -313,7 +306,8 @@ end
 function rdiv_noalloc!(Y::AbstractMatrix, A::AbstractMatrix, B::SVD, workarr)
     # Setup work space
     worksize = size(A, 1) * size(B.U, 2)
-    length(workarr) >= worksize || throw(DimensionMismatch("size(workarr)=$(size(workarr)), min worksize=$(worksize)"))
+    length(workarr) >= worksize ||
+        throw(DimensionMismatch("size(workarr)=$(size(workarr)), min worksize=$(worksize)"))
     workarr_view = reshape(view(workarr, 1:worksize), size(A, 1), size(B.U, 2))
 
     # Note: conj create a temporary matrix
