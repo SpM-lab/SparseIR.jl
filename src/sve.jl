@@ -85,9 +85,9 @@ struct CentrosymmSVE{K<:AbstractKernel,T,SVEeven<:AbstractSVE,SVEodd<:AbstractSV
     nsvals_hint::Int
 end
 
-function CentrosymmSVE(kernel, ε; InnerSVE=SamplingSVE, inner_args...)
-    even = InnerSVE(get_symmetrized(kernel, +1), ε; inner_args...)
-    odd = InnerSVE(get_symmetrized(kernel, -1), ε; inner_args...)
+function CentrosymmSVE(kernel, ε; InnerSVE=SamplingSVE, n_gauss, T)
+    even = InnerSVE(get_symmetrized(kernel, +1), ε; n_gauss, T)
+    odd = InnerSVE(get_symmetrized(kernel, -1), ε; n_gauss, T)
     return CentrosymmSVE(kernel, ε, even, odd, max(even.nsvals_hint, odd.nsvals_hint))
 end
 
@@ -180,27 +180,17 @@ function postprocess(
 
     # TODO: Surely this can be done much more elegantly.
     # As is it feels pretty much unmaintainable
-    u_x = permutedims(
-        reshape(permutedims(u_x), (length(s), sve.n_gauss, length(sve.segs_x) - 1)),
-        (2, 3, 1),
-    )
-    v_y = permutedims(
-        reshape(permutedims(v_y), (length(s), sve.n_gauss, length(sve.segs_y) - 1)),
-        (2, 3, 1),
-    )
+    u_x = permutedims(reshape(permutedims(u_x), (length(s), sve.n_gauss, :)), (2, 3, 1))
+    v_y = permutedims(reshape(permutedims(v_y), (length(s), sve.n_gauss, :)), (2, 3, 1))
 
     cmat = legendre_collocation(sve.rule)
-    u_data = reshape(
-        cmat * reshape(u_x, (size(u_x, 1), :)), (:, size(u_x, 2), size(u_x, 3))
-    )
-    v_data = reshape(
-        cmat * reshape(v_y, (size(v_y, 1), :)), (:, size(v_y, 2), size(v_y, 3))
-    )
+    u_data = reshape(cmat * reshape(u_x, (size(u_x, 1), :)), (:, size(u_x)[2:3]...))
+    v_data = reshape(cmat * reshape(v_y, (size(v_y, 1), :)), (:, size(v_y)[2:3]...))
 
     dsegs_x = diff(sve.segs_x)
     dsegs_y = diff(sve.segs_y)
-    u_data .*= sqrt.(0.5 * dsegs_x')
-    v_data .*= sqrt.(0.5 * dsegs_y')
+    u_data .*= sqrt.(0.5 .* transpose(dsegs_x))
+    v_data .*= sqrt.(0.5 .* transpose(dsegs_y))
 
     # Construct polynomials
     ulx = PiecewiseLegendrePolyVector(T.(u_data), T.(sve.segs_x))
@@ -257,20 +247,6 @@ end
 Choose work type and accuracy based on specs and defaults
 """
 function _choose_accuracy(ε, Twork)
-    if isnothing(ε)
-        if isnothing(Twork)
-            return sqrt(ε_MAX), T_MAX, :default
-        end
-        return sqrt(eps(Twork)), Twork, :default
-    end
-
-    if isnothing(Twork)
-        if ε ≥ sqrt(eps(Float64))
-            return ε, Float64, :default
-        end
-        Twork = T_MAX
-    end
-
     safe_ε = sqrt(eps(Twork))
     if ε ≥ safe_ε
         svd_strat = :default
@@ -278,12 +254,17 @@ function _choose_accuracy(ε, Twork)
         svd_strat = :accurate
         @warn """Basis cutoff is $ε, which is below sqrt(eps) with eps = $(safe_ε^2).
         Expect singular values and basis functions for large l to have lower precision
-        than the cutoff.
-        """
+        than the cutoff."""
     end
-
     return ε, Twork, svd_strat
 end
+
+function _choose_accuracy(ε, ::Nothing)
+    ε ≥ sqrt(eps(Float64)) && return ε, Float64, :default
+    return _choose_accuracy(ε, T_MAX)
+end
+
+_choose_accuracy(::Nothing, ::Nothing) = sqrt(ε_MAX), T_MAX, :default
 
 """
     canonicalize!(u, v)
@@ -333,8 +314,8 @@ function truncate(u, s, v, rtol=0, lmax::Integer=typemax(Int))
     # Determine how many singular values survive in each group
     scount = [count(>(cutoff), si) for si in s]
 
-    u_cut = [ui[:, begin:counti] for (ui, counti) in zip(u, scount)]
-    s_cut = [si[begin:counti] for (si, counti) in zip(s, scount)]
-    v_cut = [vi[:, begin:counti] for (vi, counti) in zip(v, scount)]
+    u_cut = [ui[:, 1:counti] for (ui, counti) in zip(u, scount)]
+    s_cut = [si[1:counti] for (si, counti) in zip(s, scount)]
+    v_cut = [vi[:, 1:counti] for (vi, counti) in zip(v, scount)]
     return u_cut, s_cut, v_cut
 end
