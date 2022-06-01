@@ -36,7 +36,7 @@ include("__conftest.jl")
         shape = (2, 3, 4)
         rhol = randn(ComplexF64, (length(basis), shape...))
         originalgl = -basis.s .* rhol
-        for dim in 1:length(shape)
+        for dim in 1:ndims(rhol)
             gl = SparseIR.movedim(originalgl, 1 => dim)
             gtau = evaluate(smpl, gl; dim)
             @test size(gtau) == (

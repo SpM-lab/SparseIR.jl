@@ -147,11 +147,11 @@ function fit(
 end
 
 """
-    workarrsizefit(smpl::AbstractSampling, al; dim=1)
+    workarrlength(smpl::AbstractSampling, al; dim=1)
 
-Return size of workarr for `fit!`.
+Return length of workarr for `fit!`.
 """
-function workarrsizefit(smpl::AbstractSampling, al::AbstractArray{T,N}; dim=1) where {T,N}
+function workarrlength(smpl::AbstractSampling, al::AbstractArray; dim=1)
     return length(smpl.matrix_svd.S) * (length(al) ÷ size(al, dim))
 end
 
@@ -163,15 +163,15 @@ workarr must have the same eltype as buffer.
 """
 function fit!(
     buffer::Array{S,N}, smpl::AbstractSampling, al::Array{T,N};
-    dim=1,
-    workarr::Vector{S}=Vector{S}(undef, workarrsizefit(smpl, al, dim=dim))
+    dim=1, workarr::Vector{S}=Vector{S}(undef, workarrlength(smpl, al; dim)),
 ) where {S,T,N}
     bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 2), size(al)[(dim + 1):end]...)
     if size(buffer) ≠ bufsize
         msg = "Buffer has the wrong size (got $(size(buffer)), expected $bufsize)"
         throw(DimensionMismatch(msg))
     end
-    length(workarr) >= workarrsizefit(smpl, al, dim=dim) || throw(ArgumentError("Invalid size of workarr"))
+    length(workarr) ≥ workarrlength(smpl, al; dim) ||
+        throw(ArgumentError("workarr too small"))
     return div_noalloc!(buffer, smpl.matrix_svd, al, workarr, dim)
 end
 
@@ -192,13 +192,12 @@ function movedim(arr::AbstractArray{T,N}, dims::Pair) where {T,N}
 end
 
 """
-    matop_along_dim(mat, arr::AbstractArray, dim::Integer; op=*)
+    matop_along_dim!(buffer, mat, arr::AbstractArray, dim::Integer, op)
 
-Apply the operator `op` to the matrix `mat` and to the array `arr` along the dimension `dim`.
+Apply the operator `op` to the matrix `mat` and to the array `arr` along the dimension
+`dim`, writing the result to `buffer`.
 """
-function matop_along_dim!(
-    buffer, mat, arr::AbstractArray{T,N}, dim, op
-) where {T,N}
+function matop_along_dim!(buffer, mat, arr::AbstractArray{T,N}, dim, op) where {T,N}
     1 ≤ dim ≤ N || throw(DomainError(dim, "Dimension must be in [1, $N]"))
 
     if dim == 1
@@ -215,32 +214,12 @@ function matop_along_dim!(
     end
     return buffer
 end
-#===
-function matop_along_dim!(
-    buffer, mat, arr::AbstractArray{T,N}, workarr::AbstractVector, dim, op
-) where {T,N}
-    1 ≤ dim ≤ N || throw(DomainError(dim, "Dimension must be in [1, $N]"))
-
-    if dim == 1
-        matop!(buffer, mat, arr, workarr, op, 1)
-    elseif dim != N
-        # Move the target dim to the first position
-        arr = movedim(arr, dim => 1)
-        buffer = movedim(buffer, dim => 1)
-        matop!(buffer, mat, arr, workarr, op, 1)
-        buffer = movedim(buffer, 1 => dim)
-    else
-        # Apply the operator to the last dimension
-        matop!(buffer, mat, arr, workarr, op, N)
-    end
-    return buffer
-end
-===#
 
 """
-    matop!(buffer, mat, arr::AbstractArray; op=*, dim=1)
+    matop!(buffer, mat, arr::AbstractArray, op, dim)
 
-Apply the operator `op` to the matrix `mat` and to the array `arr` along the first dimension (dim=1) or the last dimension (dim=N)
+Apply the operator `op` to the matrix `mat` and to the array `arr` along the first
+dimension (dim=1) or the last dimension (dim=N).
 """
 function matop!(
     buffer::AbstractArray{S,N}, mat, arr::AbstractArray{T,N}, op, dim
@@ -259,24 +238,9 @@ function matop!(
     return buffer
 end
 
-function matop!(
-    buffer::AbstractArray{S,N}, mat, arr::AbstractArray{T,N}, workarr, op, dim
+function div_noalloc!(
+    buffer::AbstractArray{S,N}, mat::SVD, arr::AbstractArray{T,N}, workarr, dim
 ) where {S,T,N}
-    if dim == 1
-        flatarr = reshape(arr, (size(arr, 1), :))
-        flatbuffer = reshape(buffer, (size(buffer, 1), :))
-        op(flatbuffer, mat, flatarr, workarr)
-    elseif dim == N
-        flatarr = reshape(arr, (:, size(arr, N)))
-        flatbuffer = reshape(buffer, (:, size(buffer, N)))
-        op(flatbuffer, flatarr, transpose(mat), workarr)
-    else
-        throw(DomainError("Dimension must be 1 or $N"))
-    end
-    return buffer
-end
-
-function div_noalloc!(buffer::AbstractArray{S,N}, mat::SVD, arr::AbstractArray{T,N}, workarr, dim) where {S,T,N}
     1 ≤ dim ≤ N || throw(DomainError(dim, "Dimension must be in [1, $N]"))
 
     if dim == 1
@@ -299,11 +263,13 @@ function div_noalloc!(buffer::AbstractArray{S,N}, mat::SVD, arr::AbstractArray{T
     return buffer
 end
 
-function ldiv_noalloc!(Y::AbstractMatrix, A::SVD, B::AbstractMatrix, workarr::AbstractVector)
+function ldiv_noalloc!(Y::AbstractMatrix, A::SVD, B::AbstractMatrix, workarr)
     # Setup work space
-    worksize = size(A.U, 2) * size(B, 2)
-    length(workarr) >= worksize || throw(DimensionMismatch("size(workarr)=$(size(workarr)), min worksize=$(worksize)"))
-    workarr_view = reshape(view(workarr, 1:worksize), size(A.U, 2), size(B, 2))
+    worksize = (size(A.U, 2), size(B, 2))
+    worklength = prod(worksize)
+    length(workarr) ≥ worklength ||
+        throw(DimensionMismatch("size(workarr)=$(size(workarr)), min worksize=$worklength"))
+    workarr_view = reshape(view(workarr, 1:worklength), worksize)
 
     mul!(workarr_view, A.U', B)
     workarr_view ./= A.S
@@ -312,11 +278,13 @@ end
 
 function rdiv_noalloc!(Y::AbstractMatrix, A::AbstractMatrix, B::SVD, workarr)
     # Setup work space
-    worksize = size(A, 1) * size(B.U, 2)
-    length(workarr) >= worksize || throw(DimensionMismatch("size(workarr)=$(size(workarr)), min worksize=$(worksize)"))
-    workarr_view = reshape(view(workarr, 1:worksize), size(A, 1), size(B.U, 2))
+    worksize = (size(A, 1), size(B.U, 2))
+    worklength = prod(worksize)
+    length(workarr) ≥ worklength ||
+        throw(DimensionMismatch("size(workarr)=$(size(workarr)), min worksize=$worklength"))
+    workarr_view = reshape(view(workarr, 1:worklength), worksize)
 
-    # Note: conj create a temporary matrix
+    # Note: conj creates a temporary matrix
     mul!(workarr_view, A, conj(B.U))
     workarr_view ./= reshape(B.S, 1, :)
     return mul!(Y, workarr_view, conj(B.Vt))
