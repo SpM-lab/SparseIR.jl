@@ -116,9 +116,10 @@ function evaluate(
 end
 
 """
-    evaluate!(buffer, sampling, al; dim=1)
+    evaluate!(buffer::AbstractArray{T,N}, sampling, al; dim=1) where {T,N}
 
 Like [`evaluate`](@ref), but write the result to `buffer`.
+Please use dim = 1 or N to avoid allocating large temporary arrays internally.
 """
 function evaluate!(buffer::AbstractArray, smpl::AbstractSampling, al; dim=1)
     bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 1), size(al)[(dim + 1):end]...)
@@ -130,9 +131,10 @@ function evaluate!(buffer::AbstractArray, smpl::AbstractSampling, al; dim=1)
 end
 
 """
-    fit(sampling, al; dim=1)
+    fit(sampling, al::AbstractArray{T,N}; dim=1)
 
 Fit basis coefficients from the sparse sampling points
+Please use dim = 1 or N to avoid allocating large temporary arrays internally.
 """
 function fit(
     smpl::AbstractSampling{S,Tmat}, al::AbstractArray{T,N}; dim=1
@@ -156,10 +158,11 @@ function workarrlength(smpl::AbstractSampling, al::AbstractArray; dim=1)
 end
 
 """
-    fit!(buffer, sampling, al; dim=1)
+    fit!(buffer, sampling, al::Array{T,N}; dim=1)
 
 Like [`fit`](@ref), but write the result to `buffer`.
-workarr must have the same eltype as buffer.
+Please use dim = 1 or N to avoid allocating large temporary arrays internally.
+The length of `workarry` cannot be smaller than the returned value of `workarrlengthfit`.
 """
 function fit!(
     buffer::Array{S,N}, smpl::AbstractSampling, al::Array{T,N};
@@ -184,11 +187,15 @@ dimensions unchanged.
 function movedim(arr::AbstractArray{T,N}, dims::Pair) where {T,N}
     src, dst = dims
     src == dst && return arr
+    return permutedims(arr, getperm(N, dims))
+end
 
+function getperm(N, dims::Pair)
+    src, dst = dims
     perm = collect(1:N)
     deleteat!(perm, src)
     insert!(perm, dst, src)
-    return permutedims(arr, perm)
+    return perm
 end
 
 """
@@ -204,10 +211,11 @@ function matop_along_dim!(buffer, mat, arr::AbstractArray{T,N}, dim, op) where {
         matop!(buffer, mat, arr, op, 1)
     elseif dim != N
         # Move the target dim to the first position
-        arr = movedim(arr, dim => 1)
-        buffer_perm = movedim(buffer, dim => 1)
-        matop!(buffer_perm, mat, arr, op, 1)
-        buffer = movedim(buffer_perm, 1 => dim)
+        perm = getperm(N, dim => 1)
+        arr_perm = permutedims(arr, perm)
+        buffer_perm = permutedims(buffer, perm)
+        matop!(buffer_perm, mat, arr_perm, op, 1)
+        permutedims!(buffer, buffer_perm, getperm(N, 1 => dim))
     else
         # Apply the operator to the last dimension
         matop!(buffer, mat, arr, op, N)

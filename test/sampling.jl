@@ -27,7 +27,8 @@ include("__conftest.jl")
         @test A \ y ≈ Ad \ y atol = 1e-14 * norm_A rtol = 0
     end
 
-    @testset "fit from tau with stat = $stat, Λ = $Λ" for stat in (boson, fermion), Λ in (10, 42)
+    @testset "fit from tau with stat = $stat, Λ = $Λ" for stat in (boson, fermion),
+        Λ in (10, 42)
         basis = DimensionlessBasis(stat, Λ; sve_result=sve_logistic[Λ])
         smpl = TauSampling(basis)
         @test issorted(smpl.sampling_points)
