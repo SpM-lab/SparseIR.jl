@@ -1,18 +1,18 @@
 name = "SparseIR"
 uuid = "4fe2279e-80f0-4adb-8463-ee114ff56b7d"
 authors = ["Samuel Badr <samuel.badr@gmail.com>", "Hiroshi Shinaoka <h.shinaoka@gmail.com>", "Markus Wallerberger <markus.wallerberger@tuwien.ac.at>"]
-version = "0.16.0"
+version = "0.17.1-DEV"
 
 [deps]
+QuadGK = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
 GenericLinearAlgebra = "14197337-ba66-59df-a3e3-ca00e7dcff7a"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MultiFloats = "bdf0d083-296b-4888-a5b6-7498122e68a5"
-QuadGK = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 
 [compat]
-GenericLinearAlgebra = "0.3.1"
-MultiFloats = "1"
 QuadGK = "2"
-SpecialFunctions = "2"
+GenericLinearAlgebra = "0.3.1"
 julia = "1.6"
+MultiFloats = "1"
+SpecialFunctions = "2"
