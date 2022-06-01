@@ -167,14 +167,15 @@ The length of `workarry` cannot be smaller than the returned value of `workarrle
 function fit!(
     buffer::Array{S,N}, smpl::AbstractSampling, al::Array{T,N};
     dim=1,
-    workarr::Vector{S}=Vector{S}(undef, workarrlengthfit(smpl, al, dim=dim))
+    workarr::Vector{S}=Vector{S}(undef, workarrlengthfit(smpl, al; dim=dim)),
 ) where {S,T,N}
     bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 2), size(al)[(dim + 1):end]...)
     if size(buffer) ≠ bufsize
         msg = "Buffer has the wrong size (got $(size(buffer)), expected $bufsize)"
         throw(DimensionMismatch(msg))
     end
-    length(workarr) >= workarrlengthfit(smpl, al, dim=dim) || throw(ArgumentError("Invalid size of workarr"))
+    length(workarr) >= workarrlengthfit(smpl, al; dim=dim) ||
+        throw(ArgumentError("Invalid size of workarr"))
     return div_noalloc!(buffer, smpl.matrix_svd, al, workarr, dim)
 end
 
@@ -263,7 +264,9 @@ function matop!(
     return buffer
 end
 
-function div_noalloc!(buffer::AbstractArray{S,N}, mat::SVD, arr::AbstractArray{T,N}, workarr, dim) where {S,T,N}
+function div_noalloc!(
+    buffer::AbstractArray{S,N}, mat::SVD, arr::AbstractArray{T,N}, workarr, dim
+) where {S,T,N}
     1 ≤ dim ≤ N || throw(DomainError(dim, "Dimension must be in [1, $N]"))
 
     if dim == 1
@@ -286,10 +289,13 @@ function div_noalloc!(buffer::AbstractArray{S,N}, mat::SVD, arr::AbstractArray{T
     return buffer
 end
 
-function ldiv_noalloc!(Y::AbstractMatrix, A::SVD, B::AbstractMatrix, workarr::AbstractVector)
+function ldiv_noalloc!(
+    Y::AbstractMatrix, A::SVD, B::AbstractMatrix, workarr::AbstractVector
+)
     # Setup work space
     worksize = size(A.U, 2) * size(B, 2)
-    length(workarr) >= worksize || throw(DimensionMismatch("size(workarr)=$(size(workarr)), min worksize=$(worksize)"))
+    length(workarr) >= worksize ||
+        throw(DimensionMismatch("size(workarr)=$(size(workarr)), min worksize=$(worksize)"))
     workarr_view = reshape(view(workarr, 1:worksize), size(A.U, 2), size(B, 2))
 
     mul!(workarr_view, A.U', B)
@@ -300,7 +306,8 @@ end
 function rdiv_noalloc!(Y::AbstractMatrix, A::AbstractMatrix, B::SVD, workarr)
     # Setup work space
     worksize = size(A, 1) * size(B.U, 2)
-    length(workarr) >= worksize || throw(DimensionMismatch("size(workarr)=$(size(workarr)), min worksize=$(worksize)"))
+    length(workarr) >= worksize ||
+        throw(DimensionMismatch("size(workarr)=$(size(workarr)), min worksize=$(worksize)"))
     workarr_view = reshape(view(workarr, 1:worksize), size(A, 1), size(B.U, 2))
 
     # Note: conj create a temporary matrix
