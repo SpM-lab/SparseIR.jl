@@ -367,7 +367,7 @@ function _discrete_extrema(f::Function, xgrid)
     # x[i+2]
     gx = diff(fx)
     sgx = signbit.(gx)
-    derivativesignchange = sgx[1:(end - 1)] .!= sgx[2:end]
+    derivativesignchange = sgx[1:(end - 1)] .≠ sgx[2:end]
     derivativesignchange_a = [derivativesignchange; false; false]
     derivativesignchange_b = [false; false; derivativesignchange]
 
@@ -380,10 +380,10 @@ function _discrete_extrema(f::Function, xgrid)
     # We consider the outer point to be extremua if there is a decrease
     # in magnitude or a sign change inwards
     sfx = signbit.(fx)
-    if absfx[begin] > absfx[begin + 1] || sfx[begin] != sfx[begin + 1]
+    if absfx[1] > absfx[2] || sfx[1] ≠ sfx[2]
         pushfirst!(res, first(xgrid))
     end
-    if absfx[end] > absfx[end - 1] || sfx[end] != sfx[end - 1]
+    if absfx[end] > absfx[end - 1] || sfx[end] ≠ sfx[end - 1]
         push!(res, last(xgrid))
     end
 

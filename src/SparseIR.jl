@@ -2,8 +2,9 @@
 module SparseIR
 
 using MultiFloats: Float64x2
-using LinearAlgebra: dot, svd, SVD, QRIteration, Factorization, factorize, cond, mul!, ldiv!
+using LinearAlgebra: dot, svd, SVD, QRIteration, Factorization, factorize, mul!, ldiv!
 import LinearAlgebra: cond
+import LinearAlgebra.BLAS: gemm!
 using QuadGK: gauss, kronrod, quadgk
 using SpecialFunctions: SpecialFunctions
 
@@ -19,7 +20,7 @@ export LegendreBasis, MatsubaraConstBasis
 export FiniteTempBasisSet
 export LogisticKernel, RegularizedBoseKernel
 export CompositeBasis, CompositeBasisFunction, CompositeBasisFunctionFT
-export TauSampling, MatsubaraSampling, evaluate, fit, evaluate!, fit!
+export TauSampling, MatsubaraSampling, evaluate, fit, evaluate!, fit!, workarrsizefit
 
 @enum Statistics boson fermion
 
