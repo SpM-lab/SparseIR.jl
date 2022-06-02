@@ -7,10 +7,11 @@ include("__conftest.jl")
 
 @testset "sampling.jl" begin
     @testset "alias" begin
-        beta = 1.0
-        wmax = 100.0
-        basis = FiniteTempBasis(fermion, beta, wmax, 1e-10)
+        beta = 1
+        wmax = 10
+        basis = FiniteTempBasis(fermion, beta, wmax; sve_result=sve_logistic[beta * wmax])
         @test MatsubaraSampling(basis) isa MatsubaraSampling64
+        @test TauSampling(basis) isa TauSampling64
     end
 
     @testset "decomp" begin

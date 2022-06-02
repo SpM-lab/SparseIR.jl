@@ -58,7 +58,11 @@ function TauSampling(
     return TauSampling(sampling_points, matrix, svd(matrix))
 end
 
-const TauSampling64 = TauSampling{Float64, Float64, SVD{Float64, Float64, Matrix{Float64}}}
+const TauSampling64 = @static if VERSION < v"1.9-"
+    TauSampling{Float64,Float64,SVD{Float64,Float64,Matrix{Float64}}}
+else
+    TauSampling{Float64,Float64,SVD{Float64,Float64,Matrix{Float64},Vector{Float64}}}
+end
 
 """
     MatsubaraSampling <: AbstractSampling
@@ -74,7 +78,13 @@ struct MatsubaraSampling{T,Tmat,F<:SVD} <: AbstractSampling{T,Tmat,F}
     matrix_svd::F
 end
 
-const MatsubaraSampling64 = MatsubaraSampling{Int64, ComplexF64, SVD{ComplexF64, Float64, Matrix{ComplexF64}}}
+const MatsubaraSampling64 = @static if VERSION < v"1.9-"
+    MatsubaraSampling{Int64,ComplexF64,SVD{ComplexF64,Float64,Matrix{ComplexF64}}}
+else
+    MatsubaraSampling{
+        Int64,ComplexF64,SVD{ComplexF64,Float64,Matrix{ComplexF64},Vector{Float64}}
+    }
+end
 
 """
     MatsubaraSampling(basis[, sampling_points])

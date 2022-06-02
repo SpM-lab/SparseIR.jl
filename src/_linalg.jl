@@ -1,6 +1,6 @@
 module _LinAlg
 
-using GenericLinearAlgebra: svd
+using GenericLinearAlgebra: svd!
 using LinearAlgebra: norm, lmul!, rmul!, triu!, Givens, I, SVD, reflector!, reflectorApply!,
     QRPivoted, QRPackedQ
 
@@ -82,7 +82,7 @@ rrqr(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat} = rrqr!(copy(A)
 function truncate_qr_result(qr::QRPivoted{T}, k::Integer) where {T}
     m, n = size(qr)
     0 ≤ k ≤ min(m, n) || throw(DomainError(k, "Invalid rank, must be in [0, $(min(m, n))]"))
-    Qfull = QRPackedQ((@view qr.factors[:, 1:k]), qr.τ[1:k])
+    Qfull = QRPackedQ(view(qr.factors, :, 1:k), qr.τ[1:k])
 
     Q = lmul!(Qfull, Matrix{T}(I, m, k))
     R = triu!(qr.factors[1:k, :])
@@ -109,7 +109,7 @@ function tsvd!(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat}
 
     # RRQR is an excellent preconditioner for Jacobi. One should then perform
     # Jacobi on RT
-    RT_svd = svd(R')
+    RT_svd = svd!(Matrix(R'))
 
     # Reconstruct A from QR
     U = Q * RT_svd.V

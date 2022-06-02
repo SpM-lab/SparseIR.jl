@@ -49,23 +49,22 @@ legvander(x, deg)
 
 Pseudo-Vandermonde matrix of degree `deg`.
 """
-function legvander(x::AbstractArray{T,N}, deg::Integer) where {T,N}
-    deg ≥ 0 || throw(DomainError(deg, "legvander needs a non-negative degree"))
+function legvander(x::AbstractVector{T}, deg::Integer) where {T}
+    deg ≥ 0 || throw(DomainError(deg, "degree needs to be non-negative"))
 
-    # leading dimensions
-    l = ntuple(_ -> :, N)
-
-    vsize = (size(x)..., deg + 1)
-    v = Array{T}(undef, vsize...)
+    vsize = (length(x), deg + 1)
+    v = Matrix{T}(undef, vsize...)
 
     # Use forward recursion to generate the entries. This is not as accurate
     # as reverse recursion in this application but it is more efficient.
-    v[l..., 1] .= one(T)
-    if deg > 0
-        v[l..., 2] .= x
-        @inbounds @views for i in 2:deg
-            invi = inv(i)
-            @. v[l..., i + 1] = v[l..., i] * x * (2 - invi) - v[l..., i - 1] * (1 - invi)
+    @inbounds begin
+        v[:, 1] .= one(T)
+        if deg > 0
+            v[:, 2] .= x
+            for i in 2:deg
+                invi = inv(i)
+                @views @. v[:, i + 1] = v[:, i] * x * (2 - invi) - v[:, i - 1] * (1 - invi)
+            end
         end
     end
 

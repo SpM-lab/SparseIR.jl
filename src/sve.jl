@@ -150,9 +150,7 @@ function compute_sve(
     svds = compute_svd.(matrices(sve); strategy=svd_strat)
     u_, s_, v_ = zip(svds...)
     u, s, v = truncate(u_, s_, v_, ε, n_sv)
-    return postprocess(
-        sve, u, s, v, T
-    )::Tuple{PiecewiseLegendrePolyVector{T},Vector{T},PiecewiseLegendrePolyVector{T}}
+    return postprocess(sve, u, s, v, T)
 end
 
 """
@@ -270,8 +268,8 @@ _choose_accuracy(::Nothing, ::Nothing) = sqrt(ε_MAX), T_MAX, :default
 Canonicalize basis.
 
 Each SVD `(u[l], v[l])` pair is unique only up to a global phase, which may
-differ from implementation to implementation and also platform.  We
-fix that gauge by demanding `u[l](1) > 0`.  This ensures a diffeomorphic
+differ from implementation to implementation and also platform. We
+fix that gauge by demanding `u[l](1) > 0`. This ensures a diffeomorphic
 connection to the Legendre polynomials as `Λ → 0`.
 """
 function _canonicalize!(ulx, vly)
@@ -296,15 +294,14 @@ function truncate(u, s, v, rtol=0, lmax::Integer=typemax(Int))
     lmax ≥ 0 || throw(DomainError(lmax, "lmax must be non-negative"))
     0 ≤ rtol ≤ 1 || throw(DomainError(rtol, "rtol must be in [0, 1]"))
 
-    sall = vcat(s...)
+    sall = sort!(vcat(s...); rev=true)
 
     # Determine singular value cutoff.  Note that by selecting a cutoff even
     # in the case of lmax, we make sure to never remove parts of a degenerate
     # singular value space, rather, we reduce the size of the basis.
-    ssort = sort(sall)
-    cutoff = rtol * last(ssort)
+    cutoff = rtol * first(sall)
     if lmax < length(sall)
-        cutoff = max(cutoff, s[end - lmax])
+        cutoff = max(cutoff, sall[lmax])
     end
 
     # Determine how many singular values survive in each group
