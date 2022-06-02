@@ -6,6 +6,13 @@ using Random, LinearAlgebra
 include("__conftest.jl")
 
 @testset "sampling.jl" begin
+    @testset "alias" begin
+        beta = 1.0
+        wmax = 100.0
+        basis = FiniteTempBasis(fermion, beta, wmax, 1e-10)
+        @test MatsubaraSampling(basis) isa MatsubaraSampling64
+    end
+
     @testset "decomp" begin
         Random.seed!(420)
         A = randn(49, 39)
