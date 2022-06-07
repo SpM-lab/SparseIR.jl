@@ -8,9 +8,9 @@ import LinearAlgebra.BLAS: gemm!
 using QuadGK: gauss, kronrod, quadgk
 using SpecialFunctions: SpecialFunctions
 
-Base.sinh(x::Float64x2) = Float64x2(sinh(big(x)))
-Base.cosh(x::Float64x2) = Float64x2(cosh(big(x)))
-Base.Math.hypot(x::Float64x2, y::Float64x2) = Base.Math._hypot(x, y) # TODO: only needed until MultiFloats is fixed
+Base.sinh(x::Float64x2) = setprecision(() -> Float64x2(sinh(big(x))), precision(Float64x2))
+Base.cosh(x::Float64x2) = setprecision(() -> Float64x2(cosh(big(x))), precision(Float64x2))
+Base.Math.hypot(x::Float64x2, y::Float64x2) = Base.Math._hypot(x, y) # FIXME: remove if MultiFloats is fixed
 
 export fermion, boson
 export DimensionlessBasis, FiniteTempBasis
@@ -20,7 +20,8 @@ export LegendreBasis, MatsubaraConstBasis
 export FiniteTempBasisSet
 export LogisticKernel, RegularizedBoseKernel
 export CompositeBasis, CompositeBasisFunction, CompositeBasisFunctionFT
-export TauSampling, MatsubaraSampling, TauSampling64, MatsubaraSampling64, evaluate, fit, evaluate!, fit!, workarrlengthfit
+export TauSampling, MatsubaraSampling, TauSampling64, MatsubaraSampling64, evaluate, fit,
+    evaluate!, fit!, workarrlengthfit
 
 @enum Statistics boson fermion
 

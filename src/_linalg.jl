@@ -121,9 +121,9 @@ end
 """Truncated singular value decomposition."""
 tsvd(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat} = tsvd!(copy(A); rtol)
 
-################################################################################################################
-### Everything below is currently not used in tsvd. (GenericLinearAlgebra.svd is used instead of svd_jacobi) ###
-################################################################################################################
+#################################################################################################################
+### Everything below is currently not used in tsvd. (GenericLinearAlgebra.svd! is used instead of svd_jacobi) ###
+#################################################################################################################
 
 """
 Compute Givens rotation `R` matrix that satisfies:

@@ -1,5 +1,9 @@
 # SparseIR
 
+[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://spm-lab.github.io/SparseIR.jl/stable/)
+[![](https://img.shields.io/badge/docs-latest-blue.svg)](https://spm-lab.github.io/SparseIR.jl/dev/)
+
+
 Pure Julia implementation of sparse-ir (`https://github.com/SpM-lab/sparse-ir`) for the intermediate representation of propagators.
 
 
