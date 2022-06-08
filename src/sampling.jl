@@ -51,11 +51,13 @@ function TauSampling(
     basis::AbstractBasis, sampling_points=default_tau_sampling_points(basis)
 )
     matrix = eval_matrix(TauSampling, basis, sampling_points)
-    if iswellconditioned(basis) && cond(matrix) > 1e8
+    sampling = TauSampling(sampling_points, matrix, svd(matrix))
+
+    if iswellconditioned(basis) && cond(sampling) > 1e8
         @warn "Sampling matrix is poorly conditioned (cond = $(cond(sampling)))."
     end
 
-    return TauSampling(sampling_points, matrix, svd(matrix))
+    return sampling
 end
 
 const TauSampling64 = @static if VERSION < v"1.9-"
