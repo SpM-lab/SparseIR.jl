@@ -135,16 +135,14 @@ Return tuple `(u, s, v)`, where:
 - `s::Vector`: singular values
 - `v::PiecewiseLegendrePoly`: the right singular functions
 """
+
 function compute_sve(
-    kernel::AbstractKernel; ε=nothing, n_sv=typemax(Int),
-    n_gauss=-1, T=Float64, Twork=nothing,
+    kernel::AbstractKernel; 
+    Twork=nothing, ε=nothing, n_sv=typemax(Int),
+    n_gauss=-1, T=Float64, svd_strat=:auto,
     sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE,
-    svd_strat=:default,
 )
-    if isnothing(ε) || isnothing(Twork) || isnothing(svd_strat)
-        ε, Twork, default_svd_strat = _choose_accuracy(ε, Twork)
-    end
-    svd_strat = (svd_strat == :default) ? default_svd_strat : svd_strat
+    ε, Twork, svd_strat = _choose_accuracy(ε, Twork, svd_strat)
 
     sve = sve_strat(kernel, Twork(ε); n_gauss, T=Twork)
     svds = compute_svd.(matrices(sve); strategy=svd_strat)
@@ -178,8 +176,8 @@ function postprocess(
     u_x = u ./ sve.sqrtw_x
     v_y = v ./ sve.sqrtw_y
 
-    u_x = reshape(u_x, (sve.n_gauss, length(sve.segs_x)-1, length(s)))
-    v_y = reshape(v_y, (sve.n_gauss, length(sve.segs_y)-1, length(s)))
+    u_x = reshape(u_x, (sve.n_gauss, length(sve.segs_x) - 1, length(s)))
+    v_y = reshape(v_y, (sve.n_gauss, length(sve.segs_y) - 1, length(s)))
 
     cmat = legendre_collocation(sve.rule)
     u_data = reshape(cmat * reshape(u_x, (size(u_x, 1), :)), (:, size(u_x)[2:3]...))
@@ -240,27 +238,41 @@ function postprocess(sve::CentrosymmSVE, u, s, v, T)
 end
 
 """
-    choose_accuracy(ε, Twork)
+    _choose_accuracy(ε, Twork[, svd_strat])
 
 Choose work type and accuracy based on specs and defaults
 """
-function _choose_accuracy(ε, Twork)
-    safe_ε = sqrt(eps(Twork))
-    if ε ≥ safe_ε
-        svd_strat = :default
-    else
-        svd_strat = :accurate
-        @warn """Basis cutoff is $ε, which is below sqrt(eps) with eps = $(safe_ε^2).
-        Expect singular values and basis functions for large l to have lower precision
-        than the cutoff."""
+function _choose_accuracy(ε, Twork, svd_strat)
+    ε, Twork, auto_svd_strat = _choose_accuracy(ε, Twork)
+    if svd_strat == :auto
+        svd_strat = auto_svd_strat
     end
     return ε, Twork, svd_strat
 end
-function _choose_accuracy(ε, ::Nothing)
-    ε ≥ sqrt(eps(Float64)) && return ε, Float64, :default
-    return _choose_accuracy(ε, T_MAX)
+function _choose_accuracy(ε, Twork)
+    if ε ≥ sqrt(eps(Twork))
+        return ε, Twork, :default
+    else
+        @warn """Basis cutoff is $ε, which is below sqrt(eps) with eps = $(eps(Twork)).
+        Expect singular values and basis functions for large l to have lower precision
+        than the cutoff."""
+        return ε, Twork, :accurate
+    end
 end
-_choose_accuracy(::Nothing, ::Nothing) = sqrt(ε_MAX), T_MAX, :default
+function _choose_accuracy(ε, ::Nothing)
+    if ε ≥ sqrt(eps(Float64))
+        return ε, Float64, :default
+    else
+        if ε < sqrt(eps(T_MAX))
+            @warn """Basis cutoff is $ε, which is below sqrt(eps) with eps = $(eps(T_MAX)).
+            Expect singular values and basis functions for large l to have lower precision
+            than the cutoff."""
+        end
+        return ε, T_MAX, :default
+    end
+end
+_choose_accuracy(::Nothing, Twork) = sqrt(eps(Twork)), Twork, :default
+_choose_accuracy(::Nothing, ::Nothing) = sqrt(eps(T_MAX)), T_MAX, :default
 
 """
     canonicalize!(u, v)
