@@ -52,7 +52,7 @@ function TauSampling(
 )
     matrix = eval_matrix(TauSampling, basis, sampling_points)
     if iswellconditioned(basis) && cond(matrix) > 1e8
-        @warn "Sampling matrix is poorly conditioned (cond = $(cond(sampling)))."
+        @warn "Sampling matrix is poorly conditioned (cond = $(cond(matrix)))."
     end
 
     return TauSampling(sampling_points, matrix, svd(matrix))
@@ -98,7 +98,7 @@ function MatsubaraSampling(
 )
     matrix = eval_matrix(MatsubaraSampling, basis, sampling_points)
     if iswellconditioned(basis) && cond(matrix) > 1e8
-        @warn "Sampling matrix is poorly conditioned (cond = $(cond(sampling)))."
+        @warn "Sampling matrix is poorly conditioned (cond = $(cond(matrix)))."
     end
 
     return MatsubaraSampling(sampling_points, matrix, svd(matrix))
