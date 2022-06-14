@@ -14,7 +14,7 @@ using SparseIR
         T_x = Float64
 
         rule = convert(SparseIR.Rule{T}, SparseIR.legendre(10))
-        hints = SparseIR.sve_hints(K, 2.2e-16)
+        hints = SparseIR.sve_hints(K, eps(T_x))
         gauss_x = SparseIR.piecewise(rule, SparseIR.segments_x(hints))
         gauss_y = SparseIR.piecewise(rule, SparseIR.segments_y(hints))
         ϵ = eps(T)
@@ -28,7 +28,7 @@ using SparseIR
 
         @test result ≈ result_x atol = 2magn * ϵ rtol = 0
         reldiff = @. ifelse(abs(result) < tiny, 1, result / result_x)
-        @test all(isapprox.(reldiff, 1, atol=100ϵ, rtol=0))
+        @test all(x -> isapprox(x, 1, atol=100ϵ, rtol=0), reldiff)
     end
 
     @testset "singularity with Λ = $Λ" for Λ in (10, 42, 10_000), x in 2rand(10) .- 1

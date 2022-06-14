@@ -11,7 +11,7 @@ Truncated rank-revealing QR decomposition with full column pivoting.
 
 Decomposes a `(m, n)` matrix `A` into the product:
 
-    A[:,piv] == Q @ R
+    A[:,piv] == Q * R
 
 where `Q` is an `(m, k)` isometric matrix, `R` is a `(k, n)` upper
 triangular matrix, `piv` is a permutation vector, and `k` is chosen such
@@ -92,9 +92,9 @@ end
 """
 Truncated singular value decomposition.
 
-Decomposes a `(m, n)` matrix `A` into the product:
+Decomposes an `(m, n)` matrix `A` into the product:
 
-    A == U @ (s[:,None] * VT)
+    A == U * (s .* VT)
 
 where `U` is a `(m, k)` matrix with orthogonal columns, `VT` is a `(k, n)`
 matrix with orthogonal rows and `s` are the singular values, a set of `k`

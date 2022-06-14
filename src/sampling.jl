@@ -1,7 +1,7 @@
 """
     AbstractSampling
 
-Abstract class for sparse sampling.
+Abstract type for sparse sampling.
 
 Encodes the "basis transformation" of a propagator from the truncated IR
 basis coefficients `G_ir[l]` to time/frequency sampled on sparse points

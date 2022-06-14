@@ -7,11 +7,11 @@ they used:
 
 where P_l[x] is the $l$-th Legendre polynomial.
 
-In this class, the basis functions are defined by
+In this type, the basis functions are defined by
 
     U_l(\tau) \equiv c_l (\sqrt{2l+1}/beta) * P_l[x(\tau)],
 
-where c_l are additional l-depenent constant factors.
+where c_l are additional l-dependent constant factors.
 By default, we take c_l = 1, which reduces to the original definition.
 """
 struct LegendreBasis{T<:AbstractFloat} <: AbstractBasis

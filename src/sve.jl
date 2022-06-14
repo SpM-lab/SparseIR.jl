@@ -33,8 +33,6 @@ struct SamplingSVE{T<:AbstractFloat,K<:AbstractKernel} <: AbstractSVE
     segs_y::Vector{T}
     gauss_x::Rule{T}
     gauss_y::Rule{T}
-    sqrtw_x::Vector{T}
-    sqrtw_y::Vector{T}
 end
 
 function SamplingSVE(kernel, ε; n_gauss=-1, T=Float64)
@@ -46,8 +44,7 @@ function SamplingSVE(kernel, ε; n_gauss=-1, T=Float64)
 
     return SamplingSVE(
         kernel, ε, n_gauss, nsvals(sve_hints_),
-        rule, segs_x, segs_y, gauss_x, gauss_y,
-        sqrt.(gauss_x.w), sqrt.(gauss_y.w),
+        rule, segs_x, segs_y, gauss_x, gauss_y
     )
 end
 
@@ -135,9 +132,8 @@ Return tuple `(u, s, v)`, where:
 - `s::Vector`: singular values
 - `v::PiecewiseLegendrePoly`: the right singular functions
 """
-
 function compute_sve(
-    kernel::AbstractKernel; 
+    kernel::AbstractKernel;
     Twork=nothing, ε=nothing, n_sv=typemax(Int),
     n_gauss=-1, T=Float64, svd_strat=:auto,
     sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE,
@@ -145,11 +141,19 @@ function compute_sve(
     ε, Twork, svd_strat = _choose_accuracy(ε, Twork, svd_strat)
 
     sve = sve_strat(kernel, Twork(ε); n_gauss, T=Twork)
+
+    @show sve.even.gauss_x.x == sve.odd.gauss_x.x
+
+    mats = matrices(sve)
+    
+
     svds = compute_svd.(matrices(sve); strategy=svd_strat)
     u_, s_, v_ = zip(svds...)
     u, s, v = truncate(u_, s_, v_, ε, n_sv)
     return postprocess(sve, u, s, v, T)
 end
+
+using LinearAlgebra
 
 """
     matrices(sve::AbstractSVE)
@@ -158,8 +162,8 @@ SVD problems underlying the SVE.
 """
 function matrices(sve::SamplingSVE)
     result = matrix_from_gauss(sve.kernel, sve.gauss_x, sve.gauss_y)
-    result .*= sve.sqrtw_x
-    result .*= transpose(sve.sqrtw_y)
+    result .*= sqrt.(sve.gauss_x.w)
+    result .*= sqrt.(transpose(sve.gauss_y.w))
     return (result,)
 end
 matrices(sve::CentrosymmSVE) = (only(matrices(sve.even)), only(matrices(sve.odd)))
@@ -173,8 +177,8 @@ function postprocess(
     sve::SamplingSVE, u, s, v, T=promote_type(eltype(u), eltype(s), eltype(v))
 )
     s = T.(s)
-    u_x = u ./ sve.sqrtw_x
-    v_y = v ./ sve.sqrtw_y
+    u_x = u ./ sqrt.(sve.gauss_x.w)
+    v_y = v ./ sqrt.(sve.gauss_y.w)
 
     u_x = reshape(u_x, (sve.n_gauss, length(sve.segs_x) - 1, length(s)))
     v_y = reshape(v_y, (sve.n_gauss, length(sve.segs_y) - 1, length(s)))

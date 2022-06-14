@@ -11,4 +11,5 @@ Documentation for [SparseIR](https://github.com/SpM-lab/SparseIR.jl).
 
 ```@autodocs
 Modules = [SparseIR]
+Private = false
 ```

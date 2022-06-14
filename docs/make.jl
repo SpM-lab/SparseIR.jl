@@ -4,7 +4,7 @@ using Documenter
 DocMeta.setdocmeta!(SparseIR, :DocTestSetup, :(using SparseIR); recursive=true)
 
 makedocs(;
-    modules=[SparseIR],
+    # modules=[SparseIR],
     authors="Samuel Badr <samuel.badr@gmail.com> and contributors",
     repo="https://github.com/SpM-lab/SparseIR.jl/blob/{commit}{path}#{line}",
     sitename="SparseIR.jl",

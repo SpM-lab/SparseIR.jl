@@ -8,7 +8,6 @@ intervals ``S[i] = [a[i], a[i+1]]``, where on each interval the function
 is expanded in scaled Legendre polynomials.
 """
 struct PiecewiseLegendrePoly{T} <: Function
-    nsegments::Int
     polyorder::Int
     xmin::T
     xmax::T
@@ -24,20 +23,21 @@ struct PiecewiseLegendrePoly{T} <: Function
     norm::Vector{T}
 
     function PiecewiseLegendrePoly(
-        nsegments, polyorder, xmin, xmax, knots, Δx, data, symm, l, xm, inv_xs, norm
+        polyorder::Integer, xmin::AbstractFloat, xmax::AbstractFloat, knots::AbstractVector,
+        Δx::AbstractVector, data::AbstractMatrix, symm::Integer, l::Integer,
+        xm::AbstractVector, inv_xs::AbstractVector, norm::AbstractVector,
     )
         !any(isnan, data) || error("data contains NaN")
-        size(knots) == (nsegments + 1,) || error("Invalid knots array")
         issorted(knots) || error("knots must be monotonically increasing")
         Δx ≈ diff(knots) || error("Δx must work with knots")
         return new{eltype(knots)}(
-            nsegments, polyorder, xmin, xmax, knots, Δx, data, symm, l, xm, inv_xs, norm
+            polyorder, xmin, xmax, knots, Δx, data, symm, l, xm, inv_xs, norm
         )
     end
 end
 
 function PiecewiseLegendrePoly(data, p::PiecewiseLegendrePoly; symm=0)
-    return PiecewiseLegendrePoly(p.nsegments, p.polyorder, p.xmin, p.xmax, p.knots, p.Δx,
+    return PiecewiseLegendrePoly(p.polyorder, p.xmin, p.xmax, p.knots, p.Δx,
         data, symm, p.l, p.xm, p.inv_xs, p.norm)
 end
 
@@ -50,7 +50,7 @@ function PiecewiseLegendrePoly(
     inv_xs = 2 ./ Δx
     norm = sqrt.(inv_xs)
 
-    return PiecewiseLegendrePoly(nsegments, polyorder, first(knots), last(knots), knots,
+    return PiecewiseLegendrePoly(polyorder, first(knots), last(knots), knots,
         Δx, data, symm, l, xm, inv_xs, norm)
 end
 
@@ -236,7 +236,7 @@ struct PowerModel{T<:AbstractFloat}
     moments::Vector{T}
 end
 
-const _DEFAULT_GRID = [
+const DEFAULT_GRID = [
     range(0; length=2^6)
     trunc.(Int, exp2.(range(6, 25; length=16 * (25 - 6) + 1)))
 ]
@@ -332,11 +332,11 @@ function hat(poly::PiecewiseLegendrePoly, freq; n_asymp=Inf)
 end
 
 """
-    findextrema(polyFT::PiecewiseLegendreFT, part=nothing, grid=_DEFAULT_GRID)
+    findextrema(polyFT::PiecewiseLegendreFT, part=nothing, grid=DEFAULT_GRID)
 
 Obtain extrema of fourier-transformed polynomial.
 """
-function findextrema(polyFT::PiecewiseLegendreFT, part=nothing, grid=_DEFAULT_GRID)
+function findextrema(polyFT::PiecewiseLegendreFT, part=nothing, grid=DEFAULT_GRID)
     f = _func_for_part(polyFT, part)
     x₀ = _discrete_extrema(f, grid)
     x₀ .= 2x₀ .+ polyFT.ζ
@@ -359,7 +359,7 @@ function _func_for_part(polyFT::PiecewiseLegendreFT, part=nothing)
 end
 
 function _discrete_extrema(f::Function, xgrid)
-    fx = f.(xgrid)
+    fx = Float64.(f.(xgrid))
     absfx = abs.(fx)
 
     # Forward differences: derivativesignchange[i] now means that the secant changes sign

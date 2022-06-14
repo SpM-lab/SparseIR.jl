@@ -1,9 +1,9 @@
 """
     FiniteTempBasisSet
 
-Class for holding IR bases and sparse-sampling objects.
+Type for holding IR bases and sparse-sampling objects.
 
-An object of this class holds IR bases for fermions and bosons
+An object of this type holds IR bases for fermions and bosons
 and associated sparse-sampling objects.
 
 # Fields

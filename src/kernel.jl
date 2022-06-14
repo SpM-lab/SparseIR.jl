@@ -111,7 +111,7 @@ on ``[0, 1] × [0, 1]`` that is given as either:
 ```math
     K_\mathrm{red}(x, y) = K(x, y) \pm K(x, -y)
 ```
-This kernel is what this class represents.  The full singular functions can
+This kernel is what this type represents.  The full singular functions can
 be reconstructed by (anti-)symmetrically continuing them to the negative
 axis.
 """

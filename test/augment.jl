@@ -6,7 +6,7 @@ using AssociatedLegendrePolynomials: Plm
     @testset "MatsubaraConstBasis with stat = $stat" for stat in (fermion, boson)
         beta = 2.0
         value = 1.1
-        b = MatsubaraConstBasis(stat, beta; value=value)
+        b = MatsubaraConstBasis(stat, beta; value)
         shift::Int = Dict(fermion => 1, boson => 0)[stat]
         n = 2 .* collect(1:10) .+ shift
         @test b.uhat(n) ≈ fill(value, 1, length(n))
@@ -16,7 +16,7 @@ using AssociatedLegendrePolynomials: Plm
         β = 1.0
         Nl = 10
         cl = sqrt.(2 * collect(0:(Nl - 1)) .+ 1)
-        basis = SparseIR.LegendreBasis(stat, β, Nl; cl=cl)
+        basis = SparseIR.LegendreBasis(stat, β, Nl; cl)
         @test size(basis) == (Nl,)
 
         τ = Float64[0, 0.1 * β, 0.4 * β, β]

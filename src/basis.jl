@@ -10,7 +10,7 @@ getstatistics(basis::AbstractBasis) = basis.statistics
 Intermediate representation (IR) basis in reduced variables.
 
 For a continuation kernel `K` from real frequencies, `ω ∈ [-ωmax, ωmax]`, to
-imaginary time, `τ ∈ [0, β]`, this class stores the truncated singular
+imaginary time, `τ ∈ [0, β]`, this type stores the truncated singular
 value expansion or IR basis:
 
     K(x, y) ≈ sum(u[l](x) * s[l] * v[l](y) for l in range(L))
@@ -66,7 +66,6 @@ struct DimensionlessBasis{K<:AbstractKernel,T<:AbstractFloat} <: AbstractBasis
     uhat::PiecewiseLegendreFTVector{T}
     s::Vector{T}
     v::PiecewiseLegendrePolyVector{T}
-    sampling_points_v::Vector{T}
     statistics::Statistics
 end
 
@@ -91,9 +90,7 @@ function DimensionlessBasis(
     # since it has lower relative error.
     even_odd = Dict(fermion => :odd, boson => :even)[statistics]
     û = hat.(u, even_odd; n_asymp=conv_radius(kernel))
-    rts = roots(last(v))
-    sampling_points_v = [v.xmin; (rts[begin:(end - 1)] .+ rts[(begin + 1):end]) / 2; v.xmax]
-    return DimensionlessBasis(kernel, u, û, s, v, sampling_points_v, statistics)
+    return DimensionlessBasis(kernel, u, û, s, v, statistics)
 end
 
 """
@@ -114,7 +111,7 @@ end
 Intermediate representation (IR) basis for given temperature.
 
 For a continuation kernel `K` from real frequencies, `ω ∈ [-ωmax, ωmax]`, to
-imaginary time, `τ ∈ [0, beta]`, this class stores the truncated singular
+imaginary time, `τ ∈ [0, beta]`, this type stores the truncated singular
 value expansion or IR basis:
 
     K(τ, ω) ≈ sum(u[l](τ) * s[l] * v[l](ω) for l in 1:L)
