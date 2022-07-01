@@ -109,7 +109,7 @@ legendre(n, T) = Rule(gauss(T, n)...)
 Generate collocation matrix from Gauss-Legendre rule.
 """
 function legendre_collocation(rule, n=length(rule.x))
-    res = (legvander(rule.x, n - 1) .* rule.w)'
+    res = transpose(legvander(rule.x, n - 1) .* rule.w)
     invnorm = range(0.5; length=n)
     res .*= invnorm
     return res

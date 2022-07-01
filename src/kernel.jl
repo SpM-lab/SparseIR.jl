@@ -111,9 +111,8 @@ on ``[0, 1] × [0, 1]`` that is given as either:
 ```math
     K_\mathrm{red}(x, y) = K(x, y) \pm K(x, -y)
 ```
-This kernel is what this type represents.  The full singular functions can
-be reconstructed by (anti-)symmetrically continuing them to the negative
-axis.
+This kernel is what this type represents. The full singular functions can be
+reconstructed by (anti-)symmetrically continuing them to the negative axis.
 """
 struct ReducedKernel{K<:AbstractKernel} <: AbstractReducedKernel
     inner::K
@@ -218,7 +217,7 @@ function compute(kernel::RegularizedBoseKernel, u₊, u₋, v)
 end
 
 """
-    segments_x(kernel)
+    segments_x(sve_hints::AbstractSVEHints)
 
 Segments for piecewise polynomials on the ``x`` axis.
 
@@ -226,19 +225,6 @@ List of segments on the ``x`` axis for the associated piecewise
 polynomial. Should reflect the approximate position of roots of a
 high-order singular function in ``x``.
 """
-function segments_x end
-
-"""
-    segments_y(kernel)
-
-Segments for piecewise polynomials on the ``y`` axis.
-
-List of segments on the ``y`` axis for the associated piecewise
-polynomial. Should reflect the approximate position of roots of a
-high-order singular function in ``y``.
-"""
-function segments_y end
-
 function segments_x(hints::SVEHintsLogistic)
     nzeros = max(round(Int, 15 * log10(hints.kernel.Λ)), 1)
     diffs = 1 ./ cosh.(0.143 * range(0; length=nzeros))
@@ -247,6 +233,15 @@ function segments_x(hints::SVEHintsLogistic)
     return [-reverse(zeros); 0; zeros]
 end
 
+"""
+    segments_y(sve_hints::AbstractSVEHints)
+
+Segments for piecewise polynomials on the ``y`` axis.
+
+List of segments on the ``y`` axis for the associated piecewise
+polynomial. Should reflect the approximate position of roots of a
+high-order singular function in ``y``.
+"""
 function segments_y(hints::SVEHintsLogistic)
     nzeros = max(round(Int, 20 * log10(hints.kernel.Λ)), 2)
 
@@ -419,10 +414,12 @@ end
 segments_x(hints::SVEHintsReduced) = symm_segments(segments_x(hints.inner_hints))
 segments_y(hints::SVEHintsReduced) = symm_segments(segments_y(hints.inner_hints))
 
-function symm_segments(x)
-    x ≈ -reverse(x) || error("segments must be symmetric")
+function symm_segments(x::T) where {T}
+    for (xi, revxi) in zip(x, Iterators.reverse(x))
+        xi ≈ -revxi || error("segments must be symmetric")
+    end
     xpos = x[(begin + length(x) ÷ 2):end]
-    iszero(first(xpos)) || (xpos = [0; xpos])
+    iszero(first(xpos)) || pushfirst!(xpos, zero(T))
     return xpos
 end
 

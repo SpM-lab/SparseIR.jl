@@ -142,11 +142,6 @@ function compute_sve(
 
     sve = sve_strat(kernel, Twork(ε); n_gauss, T=Twork)
 
-    @show sve.even.gauss_x.x == sve.odd.gauss_x.x
-
-    mats = matrices(sve)
-    
-
     svds = compute_svd.(matrices(sve); strategy=svd_strat)
     u_, s_, v_ = zip(svds...)
     u, s, v = truncate(u_, s_, v_, ε, n_sv)
