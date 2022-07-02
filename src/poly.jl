@@ -72,7 +72,7 @@ function _evaluate(poly::PiecewiseLegendrePoly, xs::AbstractVector)
 end
 
 """
-    overlap(poly::PiecewiseLegendrePoly, f)
+    overlap(poly::PiecewiseLegendrePoly, f; rtol=eps(T), return_error=false, maxevals=10^4, points=T[])
 
 Evaluate overlap integral of `poly` with arbitrary function `f`.
 
@@ -81,12 +81,16 @@ Given the function `f`, evaluate the integral::
     ∫ dx * f(x) * poly(x)
 
 using adaptive Gauss-Legendre quadrature.
+
+`points` is a sequence of break points in the integration interval
+where local difficulties of the integrand may occur
+(e.g., singularities, discontinuities)
 """
 function overlap(
-    poly::PiecewiseLegendrePoly{T}, f; rtol=eps(T), return_error=false, maxevals=10^4
+    poly::PiecewiseLegendrePoly{T}, f; rtol=eps(T), return_error=false, maxevals=10^4, points=T[]
 ) where {T}
     int_result, int_error = quadgk(
-        x -> poly(x) * f(x), poly.knots...; rtol, order=10, maxevals
+        x -> poly(x) * f(x), sort(unique([poly.knots; points]))...; rtol, order=10, maxevals
     )
     if return_error
         return int_result, int_error

@@ -72,6 +72,7 @@ using SparseIR
 
         @test overlap(u[1], u[1]) ≈ 1 rtol = 0 atol = atol
         @test overlap(u[1], u[2]) ≈ 0 rtol = 0 atol = atol
+        @test overlap(u[1], u[1], points=[0.1, 0.2]) ≈ 1 rtol = 0 atol = atol
 
         ref = float.(eachindex(s) .== 1)
         @test all(isapprox.(overlap(u[1], u), ref; rtol=0, atol))
