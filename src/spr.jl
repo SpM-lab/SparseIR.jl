@@ -1,11 +1,17 @@
 struct MatsubaraPoleBasis <: AbstractBasis
     β::Float64
+    statistics::Statistics
     poles::Vector{Float64}
 end
 
 function (basis::MatsubaraPoleBasis)(n::Vector{<:Integer})
-    iv = (im * π / getbeta(basis)) .* n
-    return 1 ./ (transpose(iv) .- basis.poles)
+    beta = getbeta(basis)
+    iv = (im * π / beta) .* n
+    if basis.statistics == fermion
+       return 1 ./ (transpose(iv) .- basis.poles)
+    else
+       return tanh.((0.5*beta) .* basis.poles) ./ (transpose(iv) .- basis.poles)
+    end
 end
 
 struct TauPoleBasis <: AbstractBasis
@@ -28,13 +34,7 @@ function (basis::TauPoleBasis)(tau::Vector{<:AbstractFloat})
     x = (2 / getbeta(basis)) .* tau .- 1
     y = basis.poles ./ getwmax(basis)
     Λ = getbeta(basis) * getwmax(basis)
-    if basis.statistics == fermion
-        res = -LogisticKernel(Λ).(x, transpose(y))
-    else
-        K = RegularizedBoseKernel(Λ)
-        res = -K.(x, transpose(y)) ./ transpose(y)
-    end
-    return transpose(res)
+    return -transpose(LogisticKernel(Λ).(x, transpose(y)))
 end
 
 """
@@ -57,11 +57,9 @@ end
 function SparsePoleRepresentation(
     basis::AbstractBasis, poles=default_omega_sampling_points(basis)
 )
-    y_sampling_points = poles ./ getwmax(basis)
     u = TauPoleBasis(getbeta(basis), basis.statistics, poles)
-    uhat = MatsubaraPoleBasis(getbeta(basis), poles)
-    weight = weight_func(basis.kernel, basis.statistics)(y_sampling_points)
-    fitmat = -basis.s .* basis.v(poles) .* transpose(weight)
+    uhat = MatsubaraPoleBasis(getbeta(basis), basis.statistics, poles)
+    fitmat = -basis.s .* basis.v(poles)
     matrix = svd(fitmat)
     return SparsePoleRepresentation(basis, poles, u, uhat, basis.statistics, fitmat, matrix)
 end
