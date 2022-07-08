@@ -87,7 +87,8 @@ where local difficulties of the integrand may occur
 (e.g., singularities, discontinuities)
 """
 function overlap(
-    poly::PiecewiseLegendrePoly{T}, f; rtol=eps(T), return_error=false, maxevals=10^4, points=T[]
+    poly::PiecewiseLegendrePoly{T}, f; rtol=eps(T), return_error=false, maxevals=10^4,
+    points=T[],
 ) where {T}
     int_result, int_error = quadgk(
         x -> poly(x) * f(x), sort(unique([poly.knots; points]))...; rtol, order=10, maxevals

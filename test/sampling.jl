@@ -37,6 +37,7 @@ include("__conftest.jl")
 
     @testset "fit from tau with stat = $stat, Λ = $Λ" for stat in (boson, fermion),
         Λ in (10, 42)
+
         basis = DimensionlessBasis(stat, Λ; sve_result=sve_logistic[Λ])
         smpl = TauSampling(basis)
         @test issorted(smpl.sampling_points)

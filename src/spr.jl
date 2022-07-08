@@ -8,9 +8,9 @@ function (basis::MatsubaraPoleBasis)(n::Vector{<:Integer})
     beta = getbeta(basis)
     iv = (im * π / beta) .* n
     if basis.statistics == fermion
-       return 1 ./ (transpose(iv) .- basis.poles)
+        return 1 ./ (transpose(iv) .- basis.poles)
     else
-       return tanh.((0.5*beta) .* basis.poles) ./ (transpose(iv) .- basis.poles)
+        return tanh.((0.5 * beta) .* basis.poles) ./ (transpose(iv) .- basis.poles)
     end
 end
 
