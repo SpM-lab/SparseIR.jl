@@ -60,13 +60,13 @@ These functions are stored as piecewise Legendre polynomials.
 
 See also [`FiniteTempBasis`](@ref) for a basis directly in time/frequency.
 """
-struct DimensionlessBasis{K<:AbstractKernel,T<:AbstractFloat} <: AbstractBasis
+struct DimensionlessBasis{K<:AbstractKernel,T<:AbstractFloat,S<:Statistics} <: AbstractBasis
     kernel::K
     u::PiecewiseLegendrePolyVector{T}
     uhat::PiecewiseLegendreFTVector{T}
     s::Vector{T}
     v::PiecewiseLegendrePolyVector{T}
-    statistics::Statistics
+    statistics::S
 end
 
 function Base.show(io::IO, a::DimensionlessBasis)
@@ -137,7 +137,7 @@ julia> giw = transpose(basis.uhat([1, 3, 5, 7])) * gl
 - `u::PiecewiseLegendrePolyVector`:
   Set of IR basis functions on the imaginary time (`tau`) axis.
   These functions are stored as piecewise Legendre polynomials.
-  
+
   To obtain the value of all basis functions at a point or a array of
   points `x`, you can call the function `u(x)`.  To obtain a single
   basis function, a slice or a subset `l`, you can use `u[l]`.
@@ -162,12 +162,12 @@ julia> giw = transpose(basis.uhat([1, 3, 5, 7])) * gl
   points `w`, you can call the function `v(w)`.  To obtain a single
   basis function, a slice or a subset `l`, you can use `v[l]`.
 """
-struct FiniteTempBasis{K,T} <: AbstractBasis
+struct FiniteTempBasis{K,T,S} <: AbstractBasis
     kernel::K
     sve_result::Tuple{
         PiecewiseLegendrePolyVector{T},Vector{T},PiecewiseLegendrePolyVector{T}
     }
-    statistics::Statistics
+    statistics::S
     β::T
     u::PiecewiseLegendrePolyVector{T}
     v::PiecewiseLegendrePolyVector{T}
@@ -218,7 +218,7 @@ function FiniteTempBasis(
     û_base = scale.(u, √β)
 
     conv_radius = 40 * kernel.Λ
-    even_odd = Dict(fermion => :odd, boson => :even)[statistics]
+    even_odd = Dict(Fermionic => :odd, Bosonic => :even)[typeof(statistics)]
     û = hat.(û_base, even_odd; n_asymp=conv_radius)
 
     return FiniteTempBasis(kernel, sve_result, statistics, float(β), u_, v_, s_, û)

@@ -14,8 +14,8 @@ In this type, the basis functions are defined by
 where c_l are additional l-dependent constant factors.
 By default, we take c_l = 1, which reduces to the original definition.
 """
-struct LegendreBasis{T<:AbstractFloat} <: AbstractBasis
-    statistics::Statistics
+struct LegendreBasis{T<:AbstractFloat, S<:Statistics} <: AbstractBasis
+    statistics::S
     β::Float64
     cl::Vector{T}
     u::PiecewiseLegendrePolyVector{T}
@@ -73,8 +73,8 @@ end
 """
 Constant term in matsubara-frequency domain
 """
-struct MatsubaraConstBasis{T<:AbstractFloat} <: AbstractBasis
-    statistics::Statistics
+struct MatsubaraConstBasis{T<:AbstractFloat,S<:Statistics} <: AbstractBasis
+    statistics::S
     β::Float64
     uhat::_ConstTerm{T}
 end

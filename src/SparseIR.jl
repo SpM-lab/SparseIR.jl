@@ -23,12 +23,14 @@ export CompositeBasis, CompositeBasisFunction, CompositeBasisFunctionFT
 export TauSampling, MatsubaraSampling, TauSampling64, MatsubaraSampling64, evaluate, fit,
     evaluate!, fit!, workarrlengthfit
 
-@enum Statistics boson fermion
-
 include("_linalg.jl")
 include("_roots.jl")
 include("_specfuncs.jl")
 using ._LinAlg: tsvd
+
+include("freq.jl")
+const boson = Bosonic()
+const fermion = Fermionic()
 
 include("svd.jl")
 include("gauss.jl")
