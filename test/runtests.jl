@@ -7,6 +7,7 @@ include("__conftest.jl")
 include("_util.jl")
 
 @testset verbose = true "SparseIR.jl" begin
+    include("freq.jl")
     include("gauss.jl")
     include("kernel.jl")
     include("poly.jl")

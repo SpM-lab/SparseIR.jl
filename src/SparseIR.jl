@@ -13,6 +13,7 @@ Base.cosh(x::Float64x2) = setprecision(() -> Float64x2(cosh(big(x))), precision(
 Base.Math.hypot(x::Float64x2, y::Float64x2) = Base.Math._hypot(x, y) # FIXME: remove if MultiFloats is fixed
 
 export fermion, boson
+export MatsubaraFreq, BosonicFreq, FermionicFreq, pioverbeta
 export DimensionlessBasis, FiniteTempBasis
 export SparsePoleRepresentation, to_IR, from_IR
 export overlap
