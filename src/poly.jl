@@ -291,13 +291,13 @@ function Base.getproperty(polyFTs::PiecewiseLegendreFTVector, sym::Symbol)
 end
 
 """
-    (polyFT::PiecewiseLegendreFT)(n)
+    (polyFT::PiecewiseLegendreFT)(ω)
 
-Obtain Fourier transform of polynomial for given frequency index `n`.
+Obtain Fourier transform of polynomial for given frequency `ω`.
 """
-function (polyFT::Union{PiecewiseLegendreFT,PiecewiseLegendreFTVector})(n::Integer)
-    n = check_reduced_matsubara(n, zeta(polyFT.stat))
-
+function (polyFT::Union{PiecewiseLegendreFT{T,S},
+                        PiecewiseLegendreFTVector{T,S}})(ω::MatsubaraFreq{S}) where {T,S}
+    n = Integer(ω)
     if abs(n) < polyFT.n_asymp
         return _compute_unl_inner(polyFT.poly, n)
     else
@@ -305,10 +305,12 @@ function (polyFT::Union{PiecewiseLegendreFT,PiecewiseLegendreFTVector})(n::Integ
     end
 end
 
+(polyFT::PiecewiseLegendreFT)(n::Integer) = polyFT(MatsubaraFreq(n))
+(polyFT::PiecewiseLegendreFTVector)(n::Integer) = polyFT(MatsubaraFreq(n))
+
 (polyFT::PiecewiseLegendreFT)(n::AbstractArray) = polyFT.(n)
-function (polyFTs::PiecewiseLegendreFTVector)(n::AbstractArray)
+(polyFTs::PiecewiseLegendreFTVector)(n::AbstractArray) =
     return reshape(reduce(vcat, polyFTs.(n)), (size(polyFTs)..., size(n)...))
-end
 
 """
     giw(polyFT, wn)
@@ -442,25 +444,6 @@ function power_model(stat, poly)
     return PowerModel(moments)
 end
 
-"""
-    check_reduced_matsubara(n[, ζ])
-
-Checks that `n` is a reduced Matsubara frequency.
-
-Check that the argument is a reduced Matsubara frequency, which is an
-integer obtained by scaling the freqency `ω[n]` as follows:
-
-    β / π * ω[n] == 2n + ζ
-
-Note that this means that instead of a fermionic frequency (`ζ == 1`),
-we expect an odd integer, while for a bosonic frequency (`ζ == 0`),
-we expect an even one.  If `ζ` is omitted, any one is fine.
-"""
-check_reduced_matsubara(n::Integer) = n
-function check_reduced_matsubara(n::Integer, ζ)
-    n & 1 == ζ || throw(DomainError(n, "n has the wrong parity"))
-    return n
-end
 
 ########################
 ### Helper Functions ###

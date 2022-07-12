@@ -62,12 +62,14 @@ function default_tau_sampling_points(basis::LegendreBasis)
     return (getbeta(basis) / 2) .* (x .+ 1)
 end
 
-struct _ConstTerm{T<:Number}
+struct _ConstTerm{T<:Number, S<:Statistics}
+    statistics::S
     value::T
 end
 
-(ct::_ConstTerm)(n::AbstractVector{<:Integer}) = fill(ct.value, (1, length(n)))
-(ct::_ConstTerm)(n::Integer) = ct([n])
+(ct::_ConstTerm{T,S})(::MatsubaraFreq{S}) where {T,S} = ct.value
+(ct::_ConstTerm)(n::Integer) = ct(MatsubaraFreq(n))
+(ct::_ConstTerm)(n::AbstractArray) = ct.(n)
 
 """
 Constant term in matsubara-frequency domain
@@ -75,12 +77,12 @@ Constant term in matsubara-frequency domain
 struct MatsubaraConstBasis{T<:AbstractFloat,S<:Statistics} <: AbstractBasis
     statistics::S
     β::Float64
-    uhat::_ConstTerm{T}
+    uhat::_ConstTerm{T,S}
 end
 
 function MatsubaraConstBasis(statistics::Statistics, beta::Float64; value=1)
     beta > 0 || throw(DomainError(beta, "inverse temperature beta must be positive"))
-    return MatsubaraConstBasis(statistics, beta, _ConstTerm(value))
+    return MatsubaraConstBasis(statistics, beta, _ConstTerm(statistics, value))
 end
 
 Base.size(::MatsubaraConstBasis) = (1,)

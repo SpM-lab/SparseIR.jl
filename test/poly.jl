@@ -52,7 +52,7 @@ using SparseIR
         u, s, v = sve_logistic[42]
         uhat = map(ui -> SparseIR.hat(ui, fermion), u)
 
-        n = [1, 3, 5, -1, -3, 5]
+        n = MatsubaraFreq.([1, 3, 5, -1, -3, 5])
         result1 = uhat[1](n)
         result = uhat(reshape(n, (3, 2)))
         result_iter = reshape(uhat(n), (:, 3, 2))

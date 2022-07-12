@@ -33,9 +33,13 @@ end
 """
 Evaluate basis function at frequency n
 """
-function (obj::CompositeBasisFunctionFT)(n::Union{Int,Vector{Int}})
-    return hcat(p(n) for p in obj.polys)
-end
+(obj::CompositeBasisFunctionFT)(n::MatsubaraFreq) = hcat(p(n) for p in obj.polys)
+(obj::CompositeBasisFunctionFT)(n::AbstractVector{MatsubaraFreq}) = hcat(p(n) for p in obj.polys)
+
+(obj::CompositeBasisFunctionFT)(n::Integer) = obj(MatsubaraFreq(n))
+(obj::CompositeBasisFunctionFT)(n::AbstractVector{Integer}) = obj(MatsubaraFreq.(n))
+
+
 
 struct CompositeBasis <: AbstractBasis
     beta::Float64
