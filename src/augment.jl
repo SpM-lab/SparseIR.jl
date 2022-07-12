@@ -19,7 +19,7 @@ struct LegendreBasis{T<:AbstractFloat, S<:Statistics} <: AbstractBasis
     β::Float64
     cl::Vector{T}
     u::PiecewiseLegendrePolyVector{T}
-    uhat::PiecewiseLegendreFTVector{T}
+    uhat::PiecewiseLegendreFTVector{T,S}
 end
 
 function LegendreBasis(
@@ -42,8 +42,7 @@ function LegendreBasis(
 
     # uhat
     uhat_base = PiecewiseLegendrePolyVector(sqrt(beta) .* data, Float64[-1, 1]; symm)
-    even_odd = Dict(fermion => :odd, boson => :even)[statistics]
-    uhat = hat.(uhat_base, even_odd)
+    uhat = map(ui -> PiecewiseLegendreFT(ui, statistics), uhat_base)
 
     return LegendreBasis(statistics, beta, cl, u, uhat)
 end

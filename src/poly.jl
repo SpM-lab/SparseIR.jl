@@ -260,10 +260,9 @@ The polynomial is continued either periodically (`freq=:even`), in which
 case `n` must be even, or antiperiodically (`freq=:odd`), in which case
 `n` must be odd.
 """
-struct PiecewiseLegendreFT{T} <: Function
+struct PiecewiseLegendreFT{T, S<:Statistics} <: Function
     poly::PiecewiseLegendrePoly{T}
-    freq::Symbol
-    ζ::Int
+    stat::S
     n_asymp::T
 
     model::PowerModel{T}
@@ -273,17 +272,16 @@ function Base.show(io::IO, p::PiecewiseLegendreFT)
     return print(io, "$(typeof(p))")
 end
 
-function PiecewiseLegendreFT(poly, freq=:even, n_asymp=Inf)
+function PiecewiseLegendreFT(poly::PiecewiseLegendrePoly{T}, stat::Statistics, n_asymp=Inf) where {T}
     (poly.xmin, poly.xmax) == (-1, 1) || error("Only interval [-1, 1] is supported")
-    ζ = Dict(:even => 0, :odd => 1)[freq]
-    model = power_model(freq, poly)
-    return PiecewiseLegendreFT(poly, freq, ζ, float(n_asymp), model)
+    model = power_model(stat, poly)
+    return PiecewiseLegendreFT(poly, stat, T(n_asymp), model)
 end
 
-const PiecewiseLegendreFTVector{T} = Vector{PiecewiseLegendreFT{T}}
+const PiecewiseLegendreFTVector{T,S} = Vector{PiecewiseLegendreFT{T,S}}
 
 function Base.getproperty(polyFTs::PiecewiseLegendreFTVector, sym::Symbol)
-    if sym ∈ (:freq, :ζ, :n_asymp)
+    if sym ∈ (:stat, :n_asymp)
         return getproperty(first(polyFTs), sym)
     elseif sym == :poly
         return map(poly -> poly.poly, polyFTs)
@@ -298,7 +296,7 @@ end
 Obtain Fourier transform of polynomial for given frequency index `n`.
 """
 function (polyFT::Union{PiecewiseLegendreFT,PiecewiseLegendreFTVector})(n::Integer)
-    n = check_reduced_matsubara(n, polyFT.ζ)
+    n = check_reduced_matsubara(n, zeta(polyFT.stat))
 
     if abs(n) < polyFT.n_asymp
         return _compute_unl_inner(polyFT.poly, n)
@@ -332,8 +330,8 @@ end
 
 Base.firstindex(::PiecewiseLegendreFT) = 1
 
-function hat(poly::PiecewiseLegendrePoly, freq; n_asymp=Inf)
-    return PiecewiseLegendreFT(poly, freq, n_asymp)
+function hat(poly::PiecewiseLegendrePoly, stat::Statistics; n_asymp=Inf)
+    return PiecewiseLegendreFT(poly, stat, n_asymp)
 end
 
 """
@@ -344,7 +342,7 @@ Obtain extrema of fourier-transformed polynomial.
 function findextrema(polyFT::PiecewiseLegendreFT, part=nothing, grid=DEFAULT_GRID)
     f = _func_for_part(polyFT, part)
     x₀ = _discrete_extrema(f, grid)
-    x₀ .= 2x₀ .+ polyFT.ζ
+    x₀ .= 2x₀ .+ zeta(polyFT.stat)
 
     return _symmetrize_matsubara(x₀)
 end
@@ -353,14 +351,14 @@ function _func_for_part(polyFT::PiecewiseLegendreFT, part=nothing)
     if isnothing(part)
         parity = polyFT.poly.symm
         if parity == 1
-            part = iszero(polyFT.ζ) ? real : imag
+            part = polyFT.stat == boson ? real : imag
         elseif parity == -1
-            part = iszero(polyFT.ζ) ? imag : real
+            part = polyFT.stat == boson ? imag : real
         else
             error("Cannot detect parity")
         end
     end
-    return n -> part(polyFT(2n + polyFT.ζ))
+    return n -> part(polyFT(2n + zeta(polyFT.stat)))
 end
 
 function _discrete_extrema(f::Function, xgrid)
@@ -432,7 +430,7 @@ function derivs(ppoly, x)
 end
 
 function power_moments(stat, deriv_x1, l)
-    statsign = (stat == :odd) ? -1 : 1
+    statsign = zeta(stat) == 1 ? -1 : 1
     mmax = length(deriv_x1)
     coeff_lm = @. ((-1)^(1:mmax) + statsign * (-1)^l) * deriv_x1
     return -statsign / √2 * coeff_lm

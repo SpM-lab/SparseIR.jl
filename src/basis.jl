@@ -88,8 +88,8 @@ function DimensionlessBasis(
     # The radius of convergence of the asymptotic expansion is Λ/2,
     # so for significantly larger frequencies we use the asymptotics,
     # since it has lower relative error.
-    even_odd = Dict(fermion => :odd, boson => :even)[statistics]
-    û = hat.(u, even_odd; n_asymp=conv_radius(kernel))
+    conv_radius = 40 * kernel.Λ
+    û = map(ui -> PiecewiseLegendreFT(ui, statistics, conv_radius), u)
     return DimensionlessBasis(kernel, u, û, s, v, statistics)
 end
 
@@ -172,7 +172,7 @@ struct FiniteTempBasis{K,T,S} <: AbstractBasis
     u::PiecewiseLegendrePolyVector{T}
     v::PiecewiseLegendrePolyVector{T}
     s::Vector{T}
-    uhat::PiecewiseLegendreFTVector{T}
+    uhat::PiecewiseLegendreFTVector{T,S}
 end
 
 const _DEFAULT_FINITE_TEMP_BASIS = FiniteTempBasis{LogisticKernel,Float64}
@@ -215,11 +215,8 @@ function FiniteTempBasis(
     # HACK: as we don't yet support Fourier transforms on anything but the
     # unit interval, we need to scale the underlying data.  This breaks
     # the correspondence between U.hat and Uhat though.
-    û_base = scale.(u, √β)
-
     conv_radius = 40 * kernel.Λ
-    even_odd = Dict(Fermionic => :odd, Bosonic => :even)[typeof(statistics)]
-    û = hat.(û_base, even_odd; n_asymp=conv_radius)
+    û = map(ui -> PiecewiseLegendreFT(scale(ui, √β), statistics, conv_radius), u)
 
     return FiniteTempBasis(kernel, sve_result, statistics, float(β), u_, v_, s_, û)
 end
