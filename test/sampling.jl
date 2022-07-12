@@ -10,7 +10,6 @@ include("__conftest.jl")
         beta = 1
         wmax = 10
         basis = FiniteTempBasis(fermion, beta, wmax; sve_result=sve_logistic[beta * wmax])
-        @test MatsubaraSampling(basis) isa MatsubaraSampling64
         @test TauSampling(basis) isa TauSampling64
     end
 

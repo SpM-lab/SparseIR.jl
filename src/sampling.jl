@@ -43,8 +43,8 @@ end
 """
     TauSampling(basis[, sampling_points])
 
-Construct a `TauSampling` object. If not given, the `sampling_points` are chosen as 
-the extrema of the highest-order basis function in imaginary time. This turns out 
+Construct a `TauSampling` object. If not given, the `sampling_points` are chosen as
+the extrema of the highest-order basis function in imaginary time. This turns out
 to be close to optimal with respect to conditioning for this size (within a few percent).
 """
 function TauSampling(
@@ -80,19 +80,11 @@ struct MatsubaraSampling{T,Tmat,F<:SVD} <: AbstractSampling{T,Tmat,F}
     matrix_svd::F
 end
 
-const MatsubaraSampling64 = @static if VERSION < v"1.9-"
-    MatsubaraSampling{Int64,ComplexF64,SVD{ComplexF64,Float64,Matrix{ComplexF64}}}
-else
-    MatsubaraSampling{
-        Int64,ComplexF64,SVD{ComplexF64,Float64,Matrix{ComplexF64},Vector{Float64}}
-    }
-end
-
 """
     MatsubaraSampling(basis[, sampling_points])
 
-Construct a `MatsubaraSampling` object. If not given, the `sampling_points` are chosen as 
-the (discrete) extrema of the highest-order basis function in Matsubara. This turns out 
+Construct a `MatsubaraSampling` object. If not given, the `sampling_points` are chosen as
+the (discrete) extrema of the highest-order basis function in Matsubara. This turns out
 to be close to optimal with respect to conditioning for this size (within a few percent).
 """
 function MatsubaraSampling(

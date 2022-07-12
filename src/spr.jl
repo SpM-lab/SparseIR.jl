@@ -4,15 +4,18 @@ struct MatsubaraPoleBasis{S <: Statistics} <: AbstractBasis
     poles::Vector{Float64}
 end
 
-function (basis::MatsubaraPoleBasis)(n::Vector{<:Integer})
+# FIXME: only works for vectors
+function (basis::MatsubaraPoleBasis{S})(n::AbstractVector{MatsubaraFreq{S}}) where {S}
     beta = getbeta(basis)
-    iv = (im * π / beta) .* n
+    iv = (im * π / beta) .* Integer.(n)
     if basis.statistics == fermion
         return 1 ./ (transpose(iv) .- basis.poles)
     else
         return tanh.((0.5 * beta) .* basis.poles) ./ (transpose(iv) .- basis.poles)
     end
 end
+
+(basis::MatsubaraPoleBasis)(n::AbstractVector{<:Integer}) = basis(MatsubaraFreq.(n))
 
 struct TauPoleBasis{S <: Statistics} <: AbstractBasis
     β::Float64

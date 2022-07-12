@@ -308,18 +308,19 @@ function _default_matsubara_sampling_points(uhat, mitigate=true)
     # the two sampling problems within a factor of 2.
     if mitigate
         wn_outer = [first(wn), last(wn)]
-        wn_diff = 2 * round.(Int, 0.025 * wn_outer)
+        wn_diff = BosonicFreq.(2 * round.(Int, 0.025 * Integer.(wn_outer)))
         length(wn) ≥ 20 && append!(wn, wn_outer - wn_diff)
         length(wn) ≥ 42 && append!(wn, wn_outer + wn_diff)
+        sort!(wn)
         unique!(wn)
     end
 
-    if iseven(first(wn))
+    # FIXME: I DONT UNDERSTAND THIS!?!  Why is this necessary?
+    if zeta(first(wn)) == false
         pushfirst!(wn, 0)
+        sort!(wn)
         unique!(wn)
     end
-
-    sort!(wn)
 
     return wn
 end

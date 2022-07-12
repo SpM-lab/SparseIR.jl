@@ -345,8 +345,8 @@ function findextrema(polyFT::PiecewiseLegendreFT, part=nothing, grid=DEFAULT_GRI
     f = _func_for_part(polyFT, part)
     x₀ = _discrete_extrema(f, grid)
     x₀ .= 2x₀ .+ zeta(polyFT.stat)
-
-    return _symmetrize_matsubara(x₀)
+    x₀ = _symmetrize_matsubara(x₀)
+    return map(xi -> MatsubaraFreq(polyFT.stat, xi), x₀)
 end
 
 function _func_for_part(polyFT::PiecewiseLegendreFT, part=nothing)
