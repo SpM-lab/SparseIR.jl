@@ -166,8 +166,8 @@ end
 @doc raw"""
     xrange(kernel)
 
-Return a tuple ``(x_\mathrm{min}, x_\mathrm{max})`` delimiting the range 
-of allowed `x` values.
+Return a tuple ``(x_\mathrm{min}, x_\mathrm{max})`` delimiting the range of allowed `x`
+values.
 """
 xrange(::AbstractKernel) = (-1, 1)
 xrange(kernel::AbstractReducedKernel) = (0, last(xrange(kernel.inner)))
@@ -175,8 +175,8 @@ xrange(kernel::AbstractReducedKernel) = (0, last(xrange(kernel.inner)))
 @doc raw"""
     yrange(kernel)
 
-Return a tuple ``(y_\mathrm{min}, y_\mathrm{max})`` delimiting the range
- of allowed `y` values.
+Return a tuple ``(y_\mathrm{min}, y_\mathrm{max})`` delimiting the range of allowed `y`
+values.
 """
 yrange(::AbstractKernel) = (-1, 1)
 yrange(kernel::AbstractReducedKernel) = (0, last(yrange(kernel.inner)))
@@ -221,9 +221,8 @@ end
 
 Segments for piecewise polynomials on the ``x`` axis.
 
-List of segments on the ``x`` axis for the associated piecewise
-polynomial. Should reflect the approximate position of roots of a
-high-order singular function in ``x``.
+List of segments on the ``x`` axis for the associated piecewise polynomial. Should reflect
+the approximate position of roots of a high-order singular function in ``x``.
 """
 function segments_x(hints::SVEHintsLogistic)
     nzeros = max(round(Int, 15 * log10(hints.kernel.Λ)), 1)
@@ -238,9 +237,8 @@ end
 
 Segments for piecewise polynomials on the ``y`` axis.
 
-List of segments on the ``y`` axis for the associated piecewise
-polynomial. Should reflect the approximate position of roots of a
-high-order singular function in ``y``.
+List of segments on the ``y`` axis for the associated piecewise polynomial. Should reflect
+the approximate position of roots of a high-order singular function in ``y``.
 """
 function segments_y(hints::SVEHintsLogistic)
     nzeros = max(round(Int, 20 * log10(hints.kernel.Λ)), 2)
@@ -283,7 +281,7 @@ Compute matrix for kernel from Gauss rules.
 """
 function matrix_from_gauss(kernel, gauss_x, gauss_y)
     # (1 ± x) is problematic around x = -1 and x = 1, where the quadrature
-    # nodes are clustered most tightly.  Thus we have the need for the
+    # nodes are clustered most tightly. Thus we have the need for the
     # matrix method.
     return @inbounds kernel.(
         gauss_x.x, transpose(gauss_y.x), gauss_x.x_forward, gauss_x.x_backward
@@ -319,9 +317,8 @@ Construct a symmetrized version of `kernel`, i.e. `kernel(x, y) + sign * kernel(
 
 !!! warning "Beware!"
 
-    By default, this returns a simple wrapper over the current instance
-    which naively performs the sum.  You may want to override this
-    to avoid cancellation.
+    By default, this returns a simple wrapper over the current instance which naively
+    performs the sum. You may want to override this to avoid cancellation.
 """
 get_symmetrized(kernel::AbstractKernel, sign) = ReducedKernel(kernel, sign)
 
@@ -341,7 +338,7 @@ function callreduced(kernel::AbstractReducedKernel, x, y, x₊, x₋)
     x, y = check_domain(kernel, x, y)
 
     # The reduced kernel is defined only over the interval [0, 1], which
-    # means we must add one to get the x_plus for the inner kernels.  We
+    # means we must add one to get the x_plus for the inner kernels. We
     # can compute this as 1 + x, since we are away from -1.
     x₊ = 1 + x₊
 
@@ -356,9 +353,8 @@ end
     is_centrosymmetric(kernel)
 
 Return `true` if `kernel(x, y) == kernel(-x, -y)` for all values of `x` and `y` 
-in range. This allows the kernel to be block-diagonalized,
-speeding up the singular value expansion by a factor of 4.  Defaults
-to `false`.
+in range. This allows the kernel to be block-diagonalized, speeding up the singular 
+value expansion by a factor of 4. Defaults to `false`.
 """
 iscentrosymmetric(::AbstractKernel) = false
 iscentrosymmetric(::LogisticKernel) = true
@@ -370,9 +366,9 @@ iscentrosymmetric(::AbstractReducedKernel) = false
 
 Evaluate `kernel` at point `(x, y)`.
 
-The parameters `x₊` and `x₋`, if given, shall contain the
-values of `x - xₘᵢₙ` and `xₘₐₓ - x`, respectively.  This is useful
-if either difference is to be formed and cancellation expected.
+The parameters `x₊` and `x₋`, if given, shall contain the values of `x - xₘᵢₙ` and 
+`xₘₐₓ - x`, respectively. This is useful if either difference is to be formed and 
+cancellation expected.
 """
 function (kernel::AbstractKernel)(
     x, y, x₊=x - first(xrange(kernel)), x₋=last(xrange(kernel)) - x

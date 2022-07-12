@@ -89,10 +89,11 @@ function CentrosymmSVE(kernel, ε; InnerSVE=SamplingSVE, n_gauss, T)
 end
 
 """
-    compute_sve(kernel; 
-        ε=nothing, n_sv=typemax(Int), n_gauss=nothing, T=Float64, Twork=nothing,
-        sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE,
-        svd_strat=nothing)
+    compute_sve(kernel::AbstractKernel;
+        Twork=nothing, ε=nothing, n_sv=typemax(Int),
+        n_gauss=-1, T=Float64, svd_strat=:auto,
+        sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE
+    )
 
 Perform truncated singular value expansion of a kernel.
 
@@ -111,7 +112,7 @@ by expanding the kernel in piecewise Legendre polynomials (by default by
 using a collocation).
 
 # Arguments
-- `eps::AbstractFloat`:  Relative cutoff for the singular values.
+- `ε::AbstractFloat`:  Relative cutoff for the singular values.
 - `n_sv::Integer`: Maximum basis size. If given, only at most the `n_sv` most
 significant singular values and associated singular functions are
 returned.
@@ -292,16 +293,16 @@ function _canonicalize!(ulx, vly)
 end
 
 """
-    truncate(u, s, v[, rtol][, lmax])
+    truncate(u, s, v, rtol=0, lmax=typemax(Int))
 
 Truncate singular value expansion.
 
 # Arguments
     - `u`, `s`, `v`: Thin singular value expansion
-    - `rtol` : If given, only singular values satisfying `s[l]/s[0] > rtol` are retained.
-    - `lmax` : If given, at most the `lmax` most significant singular values are retained.
+    - `rtol`: Only singular values satisfying `s[l]/s[1] > rtol` are retained.
+    - `lmax`: At most the `lmax` most significant singular values are retained.
 """
-function truncate(u, s, v, rtol=0, lmax::Integer=typemax(Int))
+function truncate(u, s, v, rtol=0, lmax=typemax(Int))
     lmax ≥ 0 || throw(DomainError(lmax, "lmax must be non-negative"))
     0 ≤ rtol ≤ 1 || throw(DomainError(rtol, "rtol must be in [0, 1]"))
 
