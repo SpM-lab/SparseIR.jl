@@ -269,7 +269,7 @@ Default sampling points on the imaginary time/`x` axis.
 default_tau_sampling_points(basis::AbstractBasis) = _default_sampling_points(basis.u)
 
 """
-    _default_matsubara_sampling_points(basis; mitigate=true)
+    default_matsubara_sampling_points(basis; mitigate=true)
 
 Default sampling points on the imaginary frequency axis.
 """
@@ -307,16 +307,17 @@ function _default_matsubara_sampling_points(uhat, mitigate=true)
     # frequency with two carefully chosen oversampling points, which brings
     # the two sampling problems within a factor of 2.
     if mitigate
-        wn_outer = [first(wn), last(wn)]
-        wn_diff = BosonicFreq.(2 * round.(Int, 0.025 * Integer.(wn_outer)))
-        length(wn) ≥ 20 && append!(wn, wn_outer - wn_diff)
-        length(wn) ≥ 42 && append!(wn, wn_outer + wn_diff)
+        for wn_max in (first(wn), last(wn))
+            wn_diff = BosonicFreq(2 * round(Int, 0.025 * Integer(wn_max)))
+            length(wn) ≥ 20 && push!(wn, wn_max - sign(wn_max) * wn_diff)
+            length(wn) ≥ 42 && push!(wn, wn_max + sign(wn_max) * wn_diff)
+        end
         sort!(wn)
         unique!(wn)
     end
 
-    # FIXME: I DONT UNDERSTAND THIS!?!  Why is this necessary?
-    if zeta(first(wn)) == false
+    # For bosonic function
+    if uhat.stat == Bosonic()
         pushfirst!(wn, 0)
         sort!(wn)
         unique!(wn)
