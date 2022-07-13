@@ -1,9 +1,3 @@
-export
-    MatsubaraFreq,
-    BosonicFreq,
-    FermionicFreq,
-    pioverbeta
-
 """
     Statistics(zeta)
 
@@ -11,7 +5,15 @@ Abstract type for quantum statistics (fermionic/bosonic/etc.)
 """
 abstract type Statistics end
 
-Statistics(zeta::Bool) = zeta ? Fermionic() : Bosonic()
+function Statistics(zeta::Integer)
+    if isone(zeta)
+        return Fermionic()
+    elseif iszero(zeta)
+        return Bosonic()
+    else
+        throw(DomainError(zeta, "does not correspond to known statistics"))
+    end
+end
 
 """Fermionic statistics."""
 struct Fermionic <: Statistics end
@@ -19,8 +21,11 @@ struct Fermionic <: Statistics end
 """Bosonic statistics."""
 struct Bosonic <: Statistics end
 
-zeta(::Fermionic) = true
-zeta(::Bosonic) = false
+zeta(::Fermionic) = 1
+zeta(::Bosonic) = 0
+
+allowed(::Fermionic, a::Integer) = isodd(a)
+allowed(::Bosonic, a::Integer) = iseven(a)
 
 Base.:+(::Fermionic, ::Bosonic)   = Fermionic()
 Base.:+(::Bosonic,   ::Fermionic) = Fermionic()
@@ -61,7 +66,7 @@ struct MatsubaraFreq{S <: Statistics} <: Number
 
     function MatsubaraFreq{S}(n::Integer) where {S <: Statistics}
         stat = S()
-        if isodd(n) != zeta(stat)
+        if !allowed(stat, n)
             throw(ArgumentError("Frequency $(n)π/β is not $stat"))
         end
         new{S}(stat, n)
@@ -99,13 +104,13 @@ Base.:*(a::FermionicFreq, c::Integer) = MatsubaraFreq(a.n * c)
 
 Base.:*(c::Integer, a::MatsubaraFreq) = a * c
 
+Base.sign(a::MatsubaraFreq) = sign(a.n)
+
 Base.zero(::MatsubaraFreq) = MatsubaraFreq(0)
 
-Base.iszero(self::MatsubaraFreq) = self.n == 0
+Base.iszero(self::MatsubaraFreq) = iszero(self.n)
 
 Base.isless(a::MatsubaraFreq, b::MatsubaraFreq) = isless(a.n, b.n)
-
-Base.isequal(a::MatsubaraFreq, b::MatsubaraFreq) = isequal(a.n, b.n)
 
 function Base.show(io::IO, self::MatsubaraFreq)
     if self.n == 0
