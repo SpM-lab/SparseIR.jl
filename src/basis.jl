@@ -60,13 +60,13 @@ These functions are stored as piecewise Legendre polynomials.
 
 See also [`FiniteTempBasis`](@ref) for a basis directly in time/frequency.
 """
-struct DimensionlessBasis{K<:AbstractKernel,T<:AbstractFloat} <: AbstractBasis
+struct DimensionlessBasis{K<:AbstractKernel,T<:AbstractFloat,S<:Statistics} <: AbstractBasis
     kernel::K
     u::PiecewiseLegendrePolyVector{T}
     uhat::PiecewiseLegendreFTVector{T}
     s::Vector{T}
     v::PiecewiseLegendrePolyVector{T}
-    statistics::Statistics
+    statistics::S
 end
 
 function Base.show(io::IO, a::DimensionlessBasis)
@@ -88,8 +88,8 @@ function DimensionlessBasis(
     # The radius of convergence of the asymptotic expansion is Λ/2,
     # so for significantly larger frequencies we use the asymptotics,
     # since it has lower relative error.
-    even_odd = Dict(fermion => :odd, boson => :even)[statistics]
-    û = hat.(u, even_odd; n_asymp=conv_radius(kernel))
+    û = map(ui -> PiecewiseLegendreFT(ui, statistics,
+                                      conv_radius(kernel)), u)
     return DimensionlessBasis(kernel, u, û, s, v, statistics)
 end
 
@@ -137,7 +137,7 @@ julia> giw = transpose(basis.uhat([1, 3, 5, 7])) * gl
 - `u::PiecewiseLegendrePolyVector`:
   Set of IR basis functions on the imaginary time (`tau`) axis.
   These functions are stored as piecewise Legendre polynomials.
-  
+
   To obtain the value of all basis functions at a point or a array of
   points `x`, you can call the function `u(x)`.  To obtain a single
   basis function, a slice or a subset `l`, you can use `u[l]`.
@@ -162,17 +162,17 @@ julia> giw = transpose(basis.uhat([1, 3, 5, 7])) * gl
   points `w`, you can call the function `v(w)`.  To obtain a single
   basis function, a slice or a subset `l`, you can use `v[l]`.
 """
-struct FiniteTempBasis{K,T} <: AbstractBasis
+struct FiniteTempBasis{K,T,S} <: AbstractBasis
     kernel::K
     sve_result::Tuple{
         PiecewiseLegendrePolyVector{T},Vector{T},PiecewiseLegendrePolyVector{T}
     }
-    statistics::Statistics
+    statistics::S
     β::T
     u::PiecewiseLegendrePolyVector{T}
     v::PiecewiseLegendrePolyVector{T}
     s::Vector{T}
-    uhat::PiecewiseLegendreFTVector{T}
+    uhat::PiecewiseLegendreFTVector{T,S}
 end
 
 const _DEFAULT_FINITE_TEMP_BASIS = FiniteTempBasis{LogisticKernel,Float64}
@@ -215,11 +215,8 @@ function FiniteTempBasis(
     # HACK: as we don't yet support Fourier transforms on anything but the
     # unit interval, we need to scale the underlying data.  This breaks
     # the correspondence between U.hat and Uhat though.
-    û_base = scale.(u, √β)
-
-    conv_radius = 40 * kernel.Λ
-    even_odd = Dict(fermion => :odd, boson => :even)[statistics]
-    û = hat.(û_base, even_odd; n_asymp=conv_radius)
+    û = map(ui -> PiecewiseLegendreFT(scale(ui, √β), statistics,
+                                      conv_radius(kernel)), u)
 
     return FiniteTempBasis(kernel, sve_result, statistics, float(β), u_, v_, s_, û)
 end
@@ -272,7 +269,7 @@ Default sampling points on the imaginary time/`x` axis.
 default_tau_sampling_points(basis::AbstractBasis) = _default_sampling_points(basis.u)
 
 """
-    _default_matsubara_sampling_points(basis; mitigate=true)
+    default_matsubara_sampling_points(basis; mitigate=true)
 
 Default sampling points on the imaginary frequency axis.
 """
@@ -310,19 +307,21 @@ function _default_matsubara_sampling_points(uhat, mitigate=true)
     # frequency with two carefully chosen oversampling points, which brings
     # the two sampling problems within a factor of 2.
     if mitigate
-        wn_outer = [first(wn), last(wn)]
-        wn_diff = 2 * round.(Int, 0.025 * wn_outer)
-        length(wn) ≥ 20 && append!(wn, wn_outer - wn_diff)
-        length(wn) ≥ 42 && append!(wn, wn_outer + wn_diff)
+        for wn_max in (first(wn), last(wn))
+            wn_diff = BosonicFreq(2 * round(Int, 0.025 * Integer(wn_max)))
+            length(wn) ≥ 20 && push!(wn, wn_max - sign(wn_max) * wn_diff)
+            length(wn) ≥ 42 && push!(wn, wn_max + sign(wn_max) * wn_diff)
+        end
+        sort!(wn)
         unique!(wn)
     end
 
-    if iseven(first(wn))
+    # For bosonic function
+    if uhat.stat == Bosonic()
         pushfirst!(wn, 0)
+        sort!(wn)
         unique!(wn)
     end
-
-    sort!(wn)
 
     return wn
 end

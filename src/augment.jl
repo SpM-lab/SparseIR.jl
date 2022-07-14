@@ -14,12 +14,12 @@ In this type, the basis functions are defined by
 where c_l are additional l-dependent constant factors.
 By default, we take c_l = 1, which reduces to the original definition.
 """
-struct LegendreBasis{T<:AbstractFloat} <: AbstractBasis
-    statistics::Statistics
+struct LegendreBasis{T<:AbstractFloat, S<:Statistics} <: AbstractBasis
+    statistics::S
     β::Float64
     cl::Vector{T}
     u::PiecewiseLegendrePolyVector{T}
-    uhat::PiecewiseLegendreFTVector{T}
+    uhat::PiecewiseLegendreFTVector{T,S}
 end
 
 function LegendreBasis(
@@ -42,8 +42,7 @@ function LegendreBasis(
 
     # uhat
     uhat_base = PiecewiseLegendrePolyVector(sqrt(beta) .* data, Float64[-1, 1]; symm)
-    even_odd = Dict(fermion => :odd, boson => :even)[statistics]
-    uhat = hat.(uhat_base, even_odd)
+    uhat = map(ui -> PiecewiseLegendreFT(ui, statistics), uhat_base)
 
     return LegendreBasis(statistics, beta, cl, u, uhat)
 end
@@ -63,25 +62,27 @@ function default_tau_sampling_points(basis::LegendreBasis)
     return (getbeta(basis) / 2) .* (x .+ 1)
 end
 
-struct _ConstTerm{T<:Number}
+struct _ConstTerm{T<:Number, S<:Statistics}
+    statistics::S
     value::T
 end
 
-(ct::_ConstTerm)(n::AbstractVector{<:Integer}) = fill(ct.value, (1, length(n)))
-(ct::_ConstTerm)(n::Integer) = ct([n])
+(ct::_ConstTerm{T,S})(::MatsubaraFreq{S}) where {T,S} = ct.value
+(ct::_ConstTerm)(n::Integer) = ct(MatsubaraFreq(n))
+(ct::_ConstTerm)(n::AbstractArray) = ct.(n)
 
 """
 Constant term in matsubara-frequency domain
 """
-struct MatsubaraConstBasis{T<:AbstractFloat} <: AbstractBasis
-    statistics::Statistics
+struct MatsubaraConstBasis{T<:AbstractFloat,S<:Statistics} <: AbstractBasis
+    statistics::S
     β::Float64
-    uhat::_ConstTerm{T}
+    uhat::_ConstTerm{T,S}
 end
 
 function MatsubaraConstBasis(statistics::Statistics, beta::Float64; value=1)
     beta > 0 || throw(DomainError(beta, "inverse temperature beta must be positive"))
-    return MatsubaraConstBasis(statistics, beta, _ConstTerm(value))
+    return MatsubaraConstBasis(statistics, beta, _ConstTerm(statistics, value))
 end
 
 Base.size(::MatsubaraConstBasis) = (1,)
