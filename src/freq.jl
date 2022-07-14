@@ -85,6 +85,15 @@ Integer(a::MatsubaraFreq) = a.n
 """Get prefactor `n` for the Matsubara frequency `ω = n*π/β`"""
 Int(a::MatsubaraFreq) = a.n
 
+"""Get value of the Matsubara frequency `ω = n*π/β`"""
+function value(a::MatsubaraFreq, beta::Real)
+    beta > 0 || throw(DomainError(beta, "beta must be positive"))
+    return a.n * (π/beta)
+end
+
+"""Get complex value of the Matsubara frequency `iω = iπ/β * n`"""
+valueim(a::MatsubaraFreq, beta::Real) = 1im * value(a, beta)
+
 """Get statistics `ζ` for Matsubara frequency `ω = (2*m+ζ)*π/β`"""
 zeta(a::MatsubaraFreq) = zeta(a.stat)
 

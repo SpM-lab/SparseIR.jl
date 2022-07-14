@@ -7,7 +7,7 @@ end
 # FIXME: only works for vectors
 function (basis::MatsubaraPoleBasis{S})(n::AbstractVector{MatsubaraFreq{S}}) where {S}
     beta = getbeta(basis)
-    iv = (im * π / beta) .* Integer.(n)
+    iv = valueim.(n, beta)
     if basis.statistics == fermion
         return 1 ./ (transpose(iv) .- basis.poles)
     else

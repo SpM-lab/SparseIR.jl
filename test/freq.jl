@@ -17,6 +17,10 @@ using SparseIR
 
     @test FermionicFreq(5) < BosonicFreq(6)
     @test BosonicFreq(6) >= BosonicFreq(6)
+
+    @test SparseIR.value(pioverbeta, 3) == π/3
+    @test SparseIR.valueim(2 * pioverbeta, 3) == 2im * π/3
+    @test_throws DomainError SparseIR.value(pioverbeta, -1)
 end
 
 @testset "freqadd" begin
