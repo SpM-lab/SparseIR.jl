@@ -172,7 +172,7 @@ end
 
 Like [`fit`](@ref), but write the result to `buffer`.
 Please use dim = 1 or N to avoid allocating large temporary arrays internally.
-The length of `workarry` cannot be smaller than the returned value of `workarrlengthfit`.
+The length of `workarry` cannot be smaller than the returned value of `workarrlength`.
 """
 function fit!(
     buffer::Array{S,N}, smpl::AbstractSampling, al::Array{T,N};

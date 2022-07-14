@@ -410,7 +410,7 @@ end
 segments_x(hints::SVEHintsReduced) = symm_segments(segments_x(hints.inner_hints))
 segments_y(hints::SVEHintsReduced) = symm_segments(segments_y(hints.inner_hints))
 
-function symm_segments(x::T) where {T}
+function symm_segments(x::AbstractVector{T}) where {T}
     for (xi, revxi) in zip(x, Iterators.reverse(x))
         xi ≈ -revxi || error("segments must be symmetric")
     end

@@ -21,8 +21,8 @@ export LegendreBasis, MatsubaraConstBasis
 export FiniteTempBasisSet
 export LogisticKernel, RegularizedBoseKernel
 export CompositeBasis, CompositeBasisFunction, CompositeBasisFunctionFT
-export TauSampling, MatsubaraSampling, TauSampling64, MatsubaraSampling64, evaluate, fit,
-    evaluate!, fit!, workarrlengthfit
+export TauSampling,
+    MatsubaraSampling, TauSampling64, evaluate, fit, evaluate!, fit!, workarrlength
 
 include("_linalg.jl")
 include("_roots.jl")

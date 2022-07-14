@@ -260,7 +260,7 @@ The polynomial is continued either periodically (`freq=:even`), in which
 case `n` must be even, or antiperiodically (`freq=:odd`), in which case
 `n` must be odd.
 """
-struct PiecewiseLegendreFT{T, S<:Statistics} <: Function
+struct PiecewiseLegendreFT{T,S<:Statistics} <: Function
     poly::PiecewiseLegendrePoly{T}
     stat::S
     n_asymp::T
@@ -272,7 +272,9 @@ function Base.show(io::IO, p::PiecewiseLegendreFT)
     return print(io, "$(typeof(p))")
 end
 
-function PiecewiseLegendreFT(poly::PiecewiseLegendrePoly{T}, stat::Statistics, n_asymp=Inf) where {T}
+function PiecewiseLegendreFT(
+    poly::PiecewiseLegendrePoly{T}, stat::Statistics, n_asymp=Inf
+) where {T}
     (poly.xmin, poly.xmax) == (-1, 1) || error("Only interval [-1, 1] is supported")
     model = power_model(stat, poly)
     return PiecewiseLegendreFT(poly, stat, T(n_asymp), model)
@@ -296,7 +298,9 @@ end
 Obtain Fourier transform of polynomial for given frequency `ω`.
 """
 function (polyFT::Union{PiecewiseLegendreFT{T,S},
-                        PiecewiseLegendreFTVector{T,S}})(ω::MatsubaraFreq{S}) where {T,S}
+    PiecewiseLegendreFTVector{T,S}})(
+    ω::MatsubaraFreq{S}
+) where {T,S}
     n = Integer(ω)
     if abs(n) < polyFT.n_asymp
         return _compute_unl_inner(polyFT.poly, n)
@@ -309,8 +313,9 @@ end
 (polyFT::PiecewiseLegendreFTVector)(n::Integer) = polyFT(MatsubaraFreq(n))
 
 (polyFT::PiecewiseLegendreFT)(n::AbstractArray) = polyFT.(n)
-(polyFTs::PiecewiseLegendreFTVector)(n::AbstractArray) =
+function (polyFTs::PiecewiseLegendreFTVector)(n::AbstractArray)
     return reshape(reduce(vcat, polyFTs.(n)), (size(polyFTs)..., size(n)...))
+end
 
 """
     giw(polyFT, wn)
@@ -443,7 +448,6 @@ function power_model(stat, poly)
     moments = power_moments(stat, deriv_x1, poly.l)
     return PowerModel(moments)
 end
-
 
 ########################
 ### Helper Functions ###

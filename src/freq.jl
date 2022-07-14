@@ -27,11 +27,10 @@ zeta(::Bosonic) = 0
 allowed(::Fermionic, a::Integer) = isodd(a)
 allowed(::Bosonic, a::Integer) = iseven(a)
 
-Base.:+(::Fermionic, ::Bosonic)   = Fermionic()
-Base.:+(::Bosonic,   ::Fermionic) = Fermionic()
+Base.:+(::Fermionic, ::Bosonic) = Fermionic()
+Base.:+(::Bosonic, ::Fermionic) = Fermionic()
 Base.:+(::Fermionic, ::Fermionic) = Bosonic()
-Base.:+(::Bosonic,   ::Bosonic)   = Bosonic()
-
+Base.:+(::Bosonic, ::Bosonic) = Bosonic()
 
 """
     MatsubaraFreq(n)
@@ -58,18 +57,18 @@ accordingly.
   - Bosonic frequency (`S == Fermionic`): `n` even (periodic in β)
   - Fermionic frequency (`S == Bosonic`): `n` odd (anti-periodic in β)
 """
-struct MatsubaraFreq{S <: Statistics} <: Number
+struct MatsubaraFreq{S<:Statistics} <: Number
     stat::S
     n::Int
 
     MatsubaraFreq(stat::Statistics, n::Integer) = new{typeof(stat)}(stat, n)
 
-    function MatsubaraFreq{S}(n::Integer) where {S <: Statistics}
+    function MatsubaraFreq{S}(n::Integer) where {S<:Statistics}
         stat = S()
         if !allowed(stat, n)
             throw(ArgumentError("Frequency $(n)π/β is not $stat"))
         end
-        new{S}(stat, n)
+        return new{S}(stat, n)
     end
 end
 
@@ -88,7 +87,7 @@ Int(a::MatsubaraFreq) = a.n
 """Get value of the Matsubara frequency `ω = n*π/β`"""
 function value(a::MatsubaraFreq, beta::Real)
     beta > 0 || throw(DomainError(beta, "beta must be positive"))
-    return a.n * (π/beta)
+    return a.n * (π / beta)
 end
 
 """Get complex value of the Matsubara frequency `iω = iπ/β * n`"""
@@ -138,7 +137,7 @@ Base.oneunit(::MatsubaraFreq) = pioverbeta
 """
 Dense grid of frequencies in an implicit representation
 """
-struct FreqRange{A<:Statistics} <: OrdinalRange{MatsubaraFreq{A}, BosonicFreq}
+struct FreqRange{A<:Statistics} <: OrdinalRange{MatsubaraFreq{A},BosonicFreq}
     start::MatsubaraFreq{A}
     stop::MatsubaraFreq{A}
 
@@ -146,7 +145,7 @@ struct FreqRange{A<:Statistics} <: OrdinalRange{MatsubaraFreq{A}, BosonicFreq}
         if stop < start
             stop = start - 2 * pioverbeta
         end
-        new{A}(start, stop)
+        return new{A}(start, stop)
     end
 end
 

@@ -14,7 +14,7 @@ In this type, the basis functions are defined by
 where c_l are additional l-dependent constant factors.
 By default, we take c_l = 1, which reduces to the original definition.
 """
-struct LegendreBasis{T<:AbstractFloat, S<:Statistics} <: AbstractBasis
+struct LegendreBasis{T<:AbstractFloat,S<:Statistics} <: AbstractBasis
     statistics::S
     β::Float64
     cl::Vector{T}
@@ -62,7 +62,7 @@ function default_tau_sampling_points(basis::LegendreBasis)
     return (getbeta(basis) / 2) .* (x .+ 1)
 end
 
-struct _ConstTerm{T<:Number, S<:Statistics}
+struct _ConstTerm{T<:Number,S<:Statistics}
     statistics::S
     value::T
 end

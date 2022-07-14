@@ -1,4 +1,4 @@
-struct MatsubaraPoleBasis{S <: Statistics} <: AbstractBasis
+struct MatsubaraPoleBasis{S<:Statistics} <: AbstractBasis
     β::Float64
     statistics::S
     poles::Vector{Float64}
@@ -17,7 +17,7 @@ end
 
 (basis::MatsubaraPoleBasis)(n::AbstractVector{<:Integer}) = basis(MatsubaraFreq.(n))
 
-struct TauPoleBasis{S <: Statistics} <: AbstractBasis
+struct TauPoleBasis{S<:Statistics} <: AbstractBasis
     β::Float64
     poles::Vector{Float64}
     statistics::S
@@ -43,7 +43,7 @@ end
 """
 Sparse pole representation
 """
-struct SparsePoleRepresentation{T<:AbstractFloat, S<:Statistics} <: AbstractBasis
+struct SparsePoleRepresentation{T<:AbstractFloat,S<:Statistics} <: AbstractBasis
     basis::AbstractBasis
     poles::Vector{T}
     u::TauPoleBasis

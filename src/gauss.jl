@@ -135,7 +135,7 @@ end
 
 function reseat(nrule::NestedRule, a, b)
     newrule = reseat(nrule.rule, a, b)
-    newv = (b - a) / (rule.b - rule.a) * nrule.v
+    newv = (b - a) / (nrule.rule.b - nrule.rule.a) * nrule.v
     return NestedRule(newrule, newv)
 end
 

@@ -23,7 +23,7 @@ function rrqr!(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat}
     k = min(m, n)
     Base.require_one_based_indexing(A)
 
-    jpvt = Vector(1:n)
+    jpvt = collect(1:n)
     taus = Vector{T}(undef, k)
     swapcol = Vector{T}(undef, m)
 
