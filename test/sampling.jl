@@ -98,6 +98,7 @@ include("__conftest.jl")
 
         basis = DimensionlessBasis(stat, Λ; sve_result=sve_logistic[Λ])
         smpl = MatsubaraSampling(basis)
+        @test smpl isa (stat == fermion ? MatsubaraSampling64F : MatsubaraSampling64B)
         @test issorted(smpl.sampling_points)
         Random.seed!(1312 + 161)
 

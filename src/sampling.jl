@@ -80,6 +80,10 @@ struct MatsubaraSampling{T,Tmat,F<:SVD} <: AbstractSampling{T,Tmat,F}
     matrix_svd::F
 end
 
+const MatsubaraSampling64F = MatsubaraSampling{FermionicFreq, ComplexF64, SVD{ComplexF64, Float64, Matrix{ComplexF64}}}
+
+const MatsubaraSampling64B = MatsubaraSampling{BosonicFreq, ComplexF64, SVD{ComplexF64, Float64, Matrix{ComplexF64}}}
+
 """
     MatsubaraSampling(basis[, sampling_points])
 
