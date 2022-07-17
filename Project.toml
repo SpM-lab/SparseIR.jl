@@ -1,7 +1,7 @@
 name = "SparseIR"
 uuid = "4fe2279e-80f0-4adb-8463-ee114ff56b7d"
 authors = ["Samuel Badr <samuel.badr@gmail.com>", "Hiroshi Shinaoka <h.shinaoka@gmail.com>", "Markus Wallerberger <markus.wallerberger@tuwien.ac.at>"]
-version = "0.93.0"
+version = "0.94.0"
 
 [deps]
 GenericLinearAlgebra = "14197337-ba66-59df-a3e3-ca00e7dcff7a"
