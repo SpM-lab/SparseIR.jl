@@ -75,15 +75,28 @@ end
 """
     legder
 """
-function legder(c::AbstractMatrix{T}) where {T}
-    c = copy(c)
+function legder(c::AbstractMatrix{T}, cnt=1) where {T}
+    cnt ≥ 0 || throw(DomainError(cnt, "The order of derivation needs to be non-negative"))
+    cnt == 0 && return c
+
+    c = deepcopy(c)
     n, m = size(c)
-    n -= 1
-    der = Matrix{T}(undef, n, m)
-    @views @inbounds for j in n:-1:2
-        @. der[j, :] = (2j - 1) * c[j + 1, :]
-        @. c[j - 1, :] += c[j + 1, :]
+    if cnt ≥ n
+        return zeros(T, (1, m))
+    else
+        @views @inbounds for _ in 1:cnt
+            n -= 1
+            der = Matrix{T}(undef, n, m)
+            for j in n:-1:3
+                @. der[j, :] = (2j - 1) * c[j + 1, :]
+                @. c[j - 1, :] += c[j + 1, :]
+            end
+            if n > 1
+                @. der[2, :] = 3c[3, :]
+            end
+            @. der[1, :] = c[2, :]
+            c = der
+        end
     end
-    @views @inbounds @. der[1, :] = c[2, :]
-    return der
+    return c
 end

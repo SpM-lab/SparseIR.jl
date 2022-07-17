@@ -3,8 +3,8 @@ function find_all(f, xgrid::AbstractVector)
     hit = iszero.(fx)
     x_hit = @view xgrid[hit]
 
-    sign_change = @. signbit(@view fx[1:(end - 1)]) ≠ signbit(@view fx[2:end])
-    @. sign_change &= ~(@view hit[1:(end - 1)]) & ~(@view hit[2:end])
+    sign_change = @views @. signbit(fx[begin:(end - 1)]) ≠ signbit(fx[(begin + 1):end])
+    @. @views sign_change &= ~hit[begin:(end - 1)] & ~hit[(begin + 1):end]
     any(sign_change) || return x_hit
 
     where_a = [sign_change; false]
@@ -32,12 +32,20 @@ function _bisect_cont(f, a, b, fa, fb)
     end
 end
 
-function _refine_grid(grid, alpha)
-    xbegin = @view grid[begin:(end - 1)]
-    xend = @view grid[(begin + 1):end]
+function _refine_grid(grid, ::Val{α}) where {α}
+    n = length(grid)
+    newn = α * (n - 1) + 1
+    newgrid = Vector{eltype(grid)}(undef, newn)
 
-    newgrid_iter = range.(xbegin, xend; length=alpha + 1)
-    newgrid = mapreduce(collect ∘ (x -> x[begin:(end - 1)]), vcat, newgrid_iter)
-    push!(newgrid, last(grid))
+    @inbounds for i in 1:(n - 1)
+        xb = grid[i]
+        xe = grid[i + 1]
+        Δx = (xe - xb) / α
+        newi = α * (i - 1)
+        @simd for j in 1:α
+            newgrid[newi + j] = xb + Δx * (j - 1)
+        end
+    end
+    newgrid[end] = last(grid)
     return newgrid
 end

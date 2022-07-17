@@ -149,8 +149,6 @@ function compute_sve(
     return postprocess(sve, u, s, v, T)
 end
 
-using LinearAlgebra
-
 """
     matrices(sve::AbstractSVE)
 

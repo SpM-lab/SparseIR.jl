@@ -67,13 +67,15 @@ function CompositeBasis(bases::Vector{AbstractBasis})
 end
 
 function default_tau_sampling_points(basis::CompositeBasis)
-    return sort(unique(vcat((default_tau_sampling_points(b) for b in basis.bases)...)))
+    return sort!(unique!(mapreduce(default_tau_sampling_points, vcat, basis.bases)))
 end
 
 function default_matsubara_sampling_points(basis::CompositeBasis; mitigate=true)
-    return sort(
-        unique(
-            vcat((default_matsubara_sampling_points(b; mitigate) for b in basis.bases)...)
+    return sort!(
+        unique!(
+            mapreduce(
+                b -> default_matsubara_sampling_points(b; mitigate), vcat, basis.bases
+            ),
         ),
     )
 end

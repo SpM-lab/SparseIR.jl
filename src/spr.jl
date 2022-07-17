@@ -8,7 +8,7 @@ end
 function (basis::MatsubaraPoleBasis{S})(n::AbstractVector{MatsubaraFreq{S}}) where {S}
     beta = getbeta(basis)
     iv = valueim.(n, beta)
-    if basis.statistics == fermion
+    if getstatistics(basis) isa Fermionic
         return 1 ./ (transpose(iv) .- basis.poles)
     else
         return tanh.((0.5 * beta) .* basis.poles) ./ (transpose(iv) .- basis.poles)
@@ -60,11 +60,13 @@ end
 function SparsePoleRepresentation(
     basis::AbstractBasis, poles=default_omega_sampling_points(basis)
 )
-    u = TauPoleBasis(getbeta(basis), basis.statistics, poles)
-    uhat = MatsubaraPoleBasis(getbeta(basis), basis.statistics, poles)
+    u = TauPoleBasis(getbeta(basis), getstatistics(basis), poles)
+    uhat = MatsubaraPoleBasis(getbeta(basis), getstatistics(basis), poles)
     fitmat = -basis.s .* basis.v(poles)
     matrix = svd(fitmat)
-    return SparsePoleRepresentation(basis, poles, u, uhat, basis.statistics, fitmat, matrix)
+    return SparsePoleRepresentation(
+        basis, poles, u, uhat, getstatistics(basis), fitmat, matrix
+    )
 end
 
 getbeta(obj::SparsePoleRepresentation) = getbeta(obj.basis)
@@ -94,7 +96,7 @@ gl:
     Expansion coefficients in IR
 """
 function from_IR(spr::SparsePoleRepresentation, gl::AbstractArray, dims=1)
-    return mapslices(i -> spr.matrix \ i, gl; dims)
+    return mapslices(sl -> spr.matrix \ sl, gl; dims)
 end
 
 """
@@ -104,5 +106,5 @@ g_spr:
     Expansion coefficients in SPR
 """
 function to_IR(spr::SparsePoleRepresentation, g_spr::AbstractArray, dims=1)
-    return mapslices(i -> spr.fitmat * i, g_spr; dims)
+    return mapslices(sl -> spr.fitmat * sl, g_spr; dims)
 end

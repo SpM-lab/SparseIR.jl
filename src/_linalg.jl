@@ -72,7 +72,7 @@ function rrqr!(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat}
             break
         end
     end
-    return QRPivoted{T,typeof(A)}(A, taus, jpvt), k
+    return QRPivoted(A, taus, jpvt), k
 end
 
 """Truncated rank-revealing QR decomposition with full column pivoting."""
@@ -289,7 +289,7 @@ function svd_jacobi!(U::AbstractMatrix{T}; rtol=eps(T), maxiter=20) where {T}
         offd < rtol * Unorm && break
     end
 
-    s = norm.(eachcol(U))
+    s = map(norm, eachcol(U))
     U ./= transpose(s)
     return SVD(U, s, VT)
 end

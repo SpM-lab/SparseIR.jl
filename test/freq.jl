@@ -1,7 +1,7 @@
 using Test
 using SparseIR
 
-@testset "freq" begin
+@testset "freq.jl" begin
 
 @testset "freq" begin
     @test SparseIR.zeta(MatsubaraFreq(2)) == 0

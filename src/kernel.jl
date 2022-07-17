@@ -494,17 +494,10 @@ conv_radius(kernel::AbstractReducedKernel) = conv_radius(kernel.inner)
 
 Return the weight function for the given statistics.
 """
-function weight_func(::AbstractKernel, ::Statistics)
-    return x -> ones(eltype(x), size(x))
-end
-function weight_func(kernel::LogisticKernel, statistics::Statistics)
-    if statistics == fermion
-        return y -> ones(eltype(y), size(y))
-    else
-        return y -> 1 ./ tanh.(0.5 * kernel.Λ * y)
-    end
-end
-function weight_func(::RegularizedBoseKernel, statistics::Statistics)
-    statistics == boson || error("Kernel is designed for bosonic functions")
-    return y -> 1 / y
-end
+weight_func(::AbstractKernel, ::Statistics) = one
+
+weight_func(::LogisticKernel, ::Fermionic) = one
+weight_func(kernel::LogisticKernel, ::Bosonic) = y -> 1 / tanh(0.5 * kernel.Λ * y)
+
+weight_func(::RegularizedBoseKernel, ::Fermionic) = error("Kernel is designed for bosonic functions")
+weight_func(::RegularizedBoseKernel, ::Bosonic) = inv

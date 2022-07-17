@@ -46,7 +46,7 @@ function PiecewiseLegendrePoly(
 )
     polyorder, nsegments = size(data)
     size(knots) == (nsegments + 1,) || error("Invalid knots array")
-    xm = @views (knots[1:(end - 1)] + knots[2:end]) / 2
+    xm = @views @. (knots[begin:(end - 1)] + knots[(begin + 1):end]) / 2
     inv_xs = 2 ./ Δx
     norm = sqrt.(inv_xs)
 
@@ -91,7 +91,8 @@ function overlap(
     points=T[],
 ) where {T}
     int_result, int_error = quadgk(
-        x -> poly(x) * f(x), sort(unique([poly.knots; points]))...; rtol, order=10, maxevals
+        x -> poly(x) * f(x), sort!(unique!([poly.knots; points]))...; rtol, order=10,
+        maxevals,
     )
     if return_error
         return int_result, int_error
@@ -105,12 +106,12 @@ end
 
 Get polynomial for the derivative.
 """
-function deriv(poly::PiecewiseLegendrePoly)
-    ddata = legder(poly.data)
+function deriv(poly::PiecewiseLegendrePoly, n=1)
+    ddata = legder(poly.data, n)
 
-    scale = poly.inv_xs
+    scale = poly.inv_xs .^ n
     ddata .*= transpose(scale)
-    return PiecewiseLegendrePoly(ddata, poly; symm=-poly.symm)
+    return PiecewiseLegendrePoly(ddata, poly; symm=(-1)^n * poly.symm)
 end
 
 """
@@ -118,7 +119,7 @@ end
 
 Find all roots of the piecewise polynomial `poly`.
 """
-function roots(poly::PiecewiseLegendrePoly; tol=1e-10, alpha=2)
+function roots(poly::PiecewiseLegendrePoly; tol=1e-10, alpha=Val(2))
     grid = poly.knots
     grid = _refine_grid(grid, alpha)
     return find_all(poly, grid)
@@ -201,7 +202,7 @@ end
 
 (polys::PiecewiseLegendrePolyVector)(x) = map(poly -> poly(x), polys)
 function (polys::PiecewiseLegendrePolyVector)(x::AbstractArray)
-    return reshape(reduce(vcat, polys.(x)), (size(polys)..., size(x)...))
+    return reshape(mapreduce(polys, vcat, x), (size(polys)..., size(x)...))
 end
 
 function Base.getproperty(polys::PiecewiseLegendrePolyVector, sym::Symbol)
@@ -209,8 +210,6 @@ function Base.getproperty(polys::PiecewiseLegendrePolyVector, sym::Symbol)
         return getproperty(first(polys), sym)
     elseif sym == :symm
         return map(poly -> poly.symm, polys)
-        # elseif sym == :data
-        #     return cat((poly.data for poly in polys)...; dims=3)
     else
         error("Unknown property $sym")
     end
@@ -292,6 +291,9 @@ function Base.getproperty(polyFTs::PiecewiseLegendreFTVector, sym::Symbol)
     end
 end
 
+getstatistics(poly::PiecewiseLegendreFT) = poly.stat
+getstatistics(polyFTs::PiecewiseLegendreFTVector) = getstatistics(first(polyFTs))
+
 """
     (polyFT::PiecewiseLegendreFT)(ω)
 
@@ -314,7 +316,7 @@ end
 
 (polyFT::PiecewiseLegendreFT)(n::AbstractArray) = polyFT.(n)
 function (polyFTs::PiecewiseLegendreFTVector)(n::AbstractArray)
-    return reshape(reduce(vcat, polyFTs.(n)), (size(polyFTs)..., size(n)...))
+    return reshape(mapreduce(polyFTs, vcat, n), (size(polyFTs)..., size(n)...))
 end
 
 """
@@ -349,27 +351,27 @@ Obtain extrema of fourier-transformed polynomial.
 function findextrema(polyFT::PiecewiseLegendreFT, part=nothing, grid=DEFAULT_GRID)
     f = _func_for_part(polyFT, part)
     x₀ = _discrete_extrema(f, grid)
-    x₀ .= 2x₀ .+ zeta(polyFT.stat)
+    x₀ .= 2x₀ .+ zeta(getstatistics(polyFT))
     x₀ = _symmetrize_matsubara(x₀)
-    return map(xi -> MatsubaraFreq(polyFT.stat, xi), x₀)
+    return map(xi -> MatsubaraFreq(getstatistics(polyFT), xi), x₀)
 end
 
 function _func_for_part(polyFT::PiecewiseLegendreFT, part=nothing)
     if isnothing(part)
         parity = polyFT.poly.symm
         if parity == 1
-            part = polyFT.stat == boson ? real : imag
+            part = getstatistics(polyFT) isa Bosonic ? real : imag
         elseif parity == -1
-            part = polyFT.stat == boson ? imag : real
+            part = getstatistics(polyFT) isa Bosonic ? imag : real
         else
             error("Cannot detect parity")
         end
     end
-    return n -> part(polyFT(2n + zeta(polyFT.stat)))
+    return n -> part(polyFT(2n + zeta(getstatistics(polyFT))))
 end
 
 function _discrete_extrema(f::Function, xgrid)
-    fx = Float64.(f.(xgrid))
+    fx = map(Float64 ∘ f, xgrid)
     absfx = abs.(fx)
 
     # Forward differences: derivativesignchange[i] now means that the secant changes sign
@@ -377,7 +379,7 @@ function _discrete_extrema(f::Function, xgrid)
     # x[i+2]
     gx = diff(fx)
     sgx = signbit.(gx)
-    derivativesignchange = sgx[1:(end - 1)] .≠ sgx[2:end]
+    derivativesignchange = @views (sgx[begin:(end - 1)] .≠ sgx[(begin + 1):end])
     derivativesignchange_a = [derivativesignchange; false; false]
     derivativesignchange_b = [false; false; derivativesignchange]
 
@@ -390,7 +392,7 @@ function _discrete_extrema(f::Function, xgrid)
     # We consider the outer point to be extremua if there is a decrease
     # in magnitude or a sign change inwards
     sfx = signbit.(fx)
-    if absfx[1] > absfx[2] || sfx[1] ≠ sfx[2]
+    if absfx[begin] > absfx[begin + 1] || sfx[begin] ≠ sfx[begin + 1]
         pushfirst!(res, first(xgrid))
     end
     if absfx[end] > absfx[end - 1] || sfx[end] ≠ sfx[end - 1]
@@ -429,6 +431,7 @@ end
 
 function derivs(ppoly, x)
     res = [ppoly(x)]
+    sizehint!(res, ppoly.polyorder)
     for _ in 1:(ppoly.polyorder - 1)
         ppoly = deriv(ppoly)
         push!(res, ppoly(x))
@@ -444,7 +447,7 @@ function power_moments(stat, deriv_x1, l)
 end
 
 function power_model(stat, poly)
-    deriv_x1 = derivs(poly, 1)
+    deriv_x1 = derivs(poly, 1.0)
     moments = power_moments(stat, deriv_x1, poly.l)
     return PowerModel(moments)
 end
@@ -471,7 +474,7 @@ function _Pqn(poly, wn)
     p = transpose(range(0; length=poly.polyorder))
     wred = π / 2 * wn
     phase_wi = _phase_stable(poly, wn)
-    return _get_tnl.(p, wred .* poly.Δx ./ 2) .* phase_wi ./ (√2 .* poly.norm)
+    return @. _get_tnl(p, wred * poly.Δx / 2) * phase_wi / (√2 * poly.norm)
 end
 
 """

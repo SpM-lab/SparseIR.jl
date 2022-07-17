@@ -101,7 +101,9 @@ Basis cutoff parameter `Λ = β * ωmax`.
 
 function Base.getindex(basis::DimensionlessBasis, i)
     sve_result = basis.u[i], basis.s[i], basis.v[i]
-    return DimensionlessBasis(basis.statistics, Λ(basis); kernel=basis.kernel, sve_result)
+    return DimensionlessBasis(
+        getstatistics(basis), Λ(basis); kernel=basis.kernel, sve_result
+    )
 end
 
 """
@@ -234,7 +236,8 @@ function Base.getindex(basis::FiniteTempBasis, i)
     u, s, v = basis.sve_result
     sve_result = u[i], s[i], v[i]
     return FiniteTempBasis(
-        basis.statistics, getbeta(basis), getwmax(basis); kernel=basis.kernel, sve_result
+        getstatistics(basis), getbeta(basis), getwmax(basis); kernel=basis.kernel,
+        sve_result,
     )
 end
 
@@ -315,7 +318,7 @@ function _default_matsubara_sampling_points(uhat, mitigate=true)
     end
 
     # For bosonic function
-    if uhat.stat == Bosonic()
+    if getstatistics(uhat) isa Bosonic
         pushfirst!(wn, 0)
         sort!(wn)
         unique!(wn)
