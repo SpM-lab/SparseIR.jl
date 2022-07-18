@@ -4,7 +4,6 @@
 |:-------------------------------------------------------------------------------:|:-----------------------------------------------------------------------------------------------:|
 | [![][docs-stable-img]][docs-stable-url] [![][docs-dev-img]][docs-dev-url] | [![][GHA-img]][GHA-url] [![][codecov-img]][codecov-url] |
 
-
 Pure Julia implementation of [sparse-ir](`https://github.com/SpM-lab/sparse-ir`) for the intermediate representation of propagators.
 
 ## Installation
@@ -39,7 +38,7 @@ More detailed tutorial and sample codes are available [online](https://spm-lab.g
 [GHA-img]: https://github.com/SpM-lab/SparseIR.jl/workflows/CI/badge.svg
 [GHA-url]: https://github.com/SpM-lab/SparseIR.jl/actions?query=workflows/CI
 
-[codecov-img]: https://codecov.io/gh/SpM-lab/SparseIR.jl/branch/master/graph/badge.svg
+[codecov-img]: https://codecov.io/gh/SpM-lab/SparseIR.jl/branch/main/graph/badge.svg?token=tdMvTruYa4
 [codecov-url]: https://codecov.io/gh/SpM-lab/SparseIR.jl
 
 [issues-url]: https://github.com/SpM-lab/SparseIR.jl/issues
