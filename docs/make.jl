@@ -1,7 +1,7 @@
 using SparseIR
 using Documenter
 
-DocMeta.setdocmeta!(SparseIR, :DocTestSetup, :(using SparseIR); recursive=true)
+DocMeta.setdocmeta!(SparseIR, :DocTestSetup, :(using SparseIR))
 
 makedocs(;
     modules=[SparseIR],
@@ -26,7 +26,7 @@ makedocs(;
            "Guide" => "guide.md",
            "Public" => "public.md",
            "Private" => "private.md"],
-    draft=true,
+    draft=get(ENV, "CI", "false") == "false",
 )
 
 deploydocs(;

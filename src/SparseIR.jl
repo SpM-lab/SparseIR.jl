@@ -10,7 +10,8 @@ using SpecialFunctions: SpecialFunctions
 
 Base.sinh(x::Float64x2) = setprecision(() -> Float64x2(sinh(big(x))), precision(Float64x2))
 Base.cosh(x::Float64x2) = setprecision(() -> Float64x2(cosh(big(x))), precision(Float64x2))
-Base.Math.hypot(x::Float64x2, y::Float64x2) = Base.Math._hypot(x, y) # FIXME: remove if MultiFloats is fixed
+# FIXME: remove if MultiFloats is fixed
+Base.Math.hypot(x::Float64x2, y::Float64x2) = Base.Math._hypot(x, y)
 
 export fermion, boson
 export MatsubaraFreq, BosonicFreq, FermionicFreq, pioverbeta
@@ -21,8 +22,8 @@ export LegendreBasis, MatsubaraConstBasis
 export FiniteTempBasisSet
 export LogisticKernel, RegularizedBoseKernel
 export CompositeBasis, CompositeBasisFunction, CompositeBasisFunctionFT
-export TauSampling,
-    MatsubaraSampling, MatsubaraSampling64F, MatsubaraSampling64B, TauSampling64, evaluate, fit, evaluate!, fit!, workarrlength
+export TauSampling, MatsubaraSampling, evaluate, fit, evaluate!, fit!,
+    MatsubaraSampling64F, MatsubaraSampling64B, TauSampling64
 
 include("_linalg.jl")
 include("_roots.jl")

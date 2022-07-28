@@ -1,4 +1,4 @@
-# Example usage and detailed explanation(@id guide)
+# [Example usage and detailed explanation](@id guide)
 
 We will explain the inner workings of `SparseIR.jl` by means of an example use case, adapted from the [`sparse-ir` paper](https://arxiv.org/abs/2206.11762).
 
@@ -30,7 +30,7 @@ Because we did not specify otherwise, the constructor chose the analytic continu
 ```
 for us, where 80.0 is the value of the scale parameter ``\Lambda = \beta\omega_\mathrm{max}``, shown below.
 ```@raw html
-<img src="assets/img/kernel.png" alt="Logistic Kernel" width="70%" class="center"/>
+<img src="../assets/img/kernel.png" alt="Logistic Kernel" width="70%" class="center"/>
 ```
 
 ### SVE

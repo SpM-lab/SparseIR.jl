@@ -4,7 +4,8 @@
 
 *.ipynb
 Manifest.toml
-/docs/build/
+docs/Manifest.toml
+docs/build/
 playground_pluto.jl
 
 !/.gitignore

@@ -21,26 +21,33 @@ kernel then only depends on a cutoff parameter `Λ = β * ωmax`.
 
 # Examples
 The following example code assumes the spectral function is a single
-pole at `x = 0.2`. We first compute an IR basis suitable for fermions and `β*W ≤ 42`. Then we get G(iw) on the first few Matsubara frequencies:
+pole at `x = 0.2`. We first compute an IR basis suitable for fermions and 
+`β*W ≤ 42`. Then we get G(iw) on the first few Matsubara frequencies:
 
-```julia-repl
-julia> using SparseIR
-
+```jldoctest
 julia> basis = DimensionlessBasis(fermion, 42);
 
 julia> gl = basis.s .* basis.v(0.2);
 
 julia> giw = transpose(basis.uhat([1, 3, 5, 7])) * gl
+4-element Vector{ComplexF64}:
+  0.14769927083929674 + 0.05523939812015521im
+  0.07453202388494327 + 0.08362473524789882im
+ 0.037438984571780944 + 0.07001073743367174im
+ 0.021436347558644788 + 0.056120226675030034im
 ```
 
 # Fields
-- `u::PiecewiseLegendrePolyVector`: Set of IR basis functions on the reduced imaginary time (`x`) axis. These functions are stored as piecewise Legendre polynomials.
+- `u::PiecewiseLegendrePolyVector`: Set of IR basis functions on the reduced 
+imaginary time (`x`) axis. These functions are stored as piecewise Legendre 
+polynomials.
 
   To obtain the value of all basis functions at a point or a array of
   points `x`, you can call the function `u(x)`.  To obtain a single
   basis function, a slice or a subset `l`, you can use `u[l]`.
 
-- `uhat::PiecewiseLegendreFTVector`: Set of IR basis functions on the Matsubara frequency (`wn`) axis.
+- `uhat::PiecewiseLegendreFTVector`: Set of IR basis functions on the Matsubara 
+frequency (`wn`) axis.
 These objects are stored as a set of Bessel functions.
 
   To obtain the value of all basis functions at a Matsubara frequency
@@ -51,7 +58,8 @@ These objects are stored as a set of Bessel functions.
 
 - `s`: Vector of singular values of the continuation kernel
 
-- `v::PiecewiseLegendrePolyVector`: Set of IR basis functions on the reduced real frequency (`y`) axis.
+- `v::PiecewiseLegendrePolyVector`: Set of IR basis functions on the reduced 
+real frequency (`y`) axis.
 These functions are stored as piecewise Legendre polynomials.
 
   To obtain the value of all basis functions at a point or a array of
@@ -74,7 +82,8 @@ function Base.show(io::IO, a::DimensionlessBasis)
 end
 
 """
-    DimensionlessBasis(statistics, Λ, ε=nothing; kernel=LogisticKernel(Λ), sve_result=compute_sve(kernel; ε))
+    DimensionlessBasis(statistics, Λ, ε=nothing; 
+        kernel=LogisticKernel(Λ), sve_result=compute_sve(kernel; ε))
 
 Construct an IR basis suitable for the given `statistics` and cutoff `Λ`.
 """
@@ -122,16 +131,21 @@ the variables.
 
 # Examples
 The following example code assumes the spectral function is a single
-pole at `ω = 2.5`. We first compute an IR basis suitable for fermions and `β = 10`, `W ≤ 4.2`. Then we get G(iw) on the first few Matsubara frequencies:
+pole at `ω = 2.5`. We first compute an IR basis suitable for fermions 
+and `β = 10`, `W ≤ 4.2`. Then we get G(iw) on the first few Matsubara 
+frequencies:
 
-```julia-repl
-julia> using SparseIR
-
+```jldoctest
 julia> basis = FiniteTempBasis(fermion, 42, 4.2);
 
 julia> gl = basis.s .* basis.v(2.5);
 
 julia> giw = transpose(basis.uhat([1, 3, 5, 7])) * gl
+4-element Vector{ComplexF64}:
+   0.399642239382796 + 0.011957267841039346im
+  0.3968030294483192 + 0.03561695663534318im
+  0.3912439389972188 + 0.05852995640548555im
+ 0.38319134666019244 + 0.08025540797245588im
 ```
 
 # Fields
@@ -185,9 +199,11 @@ function Base.show(io::IO, a::FiniteTempBasis{K,T}) where {K,T}
 end
 
 """
-    FiniteTempBasis(statistics, β, wmax, ε=nothing; kernel=LogisticKernel(β * wmax), sve_result=compute_sve(kernel; ε))
+    FiniteTempBasis(statistics, β, wmax, ε=nothing; 
+        kernel=LogisticKernel(β * wmax), sve_result=compute_sve(kernel; ε))
 
-Construct a finite temperature basis suitable for the given `statistics` and cutoffs `β` and `wmax`.
+Construct a finite temperature basis suitable for the given `statistics` and 
+cutoffs `β` and `wmax`.
 """
 function FiniteTempBasis(
     statistics::Statistics, β, wmax, ε=nothing;
@@ -251,7 +267,8 @@ getwmax(basis::FiniteTempBasis) = basis.kernel.Λ / getbeta(basis)
 """
     finite_temp_bases(β, wmax, ε, sve_result=compute_sve(LogisticKernel(β * wmax); ε))
 
-Construct FiniteTempBasis objects for fermion and bosons using the same LogisticKernel instance.
+Construct `FiniteTempBasis` objects for fermion and bosons using the same 
+`LogisticKernel` instance.
 """
 function finite_temp_bases(
     β::AbstractFloat, wmax::AbstractFloat, ε,

@@ -43,9 +43,10 @@ end
 """
     TauSampling(basis[, sampling_points])
 
-Construct a `TauSampling` object. If not given, the `sampling_points` are chosen as
-the extrema of the highest-order basis function in imaginary time. This turns out
-to be close to optimal with respect to conditioning for this size (within a few percent).
+Construct a `TauSampling` object. If not given, the `sampling_points` are chosen
+as the extrema of the highest-order basis function in imaginary time. This turns
+out to be close to optimal with respect to conditioning for this size (within a
+few percent).
 """
 function TauSampling(
     basis::AbstractBasis, sampling_points=default_tau_sampling_points(basis)
@@ -81,15 +82,19 @@ struct MatsubaraSampling{T,Tmat,F<:SVD} <: AbstractSampling{T,Tmat,F}
 end
 
 const MatsubaraSampling64F = @static if VERSION < v"1.9-"
-    MatsubaraSampling{FermionicFreq, ComplexF64, SVD{ComplexF64, Float64, Matrix{ComplexF64}}}
+    MatsubaraSampling{FermionicFreq,ComplexF64,SVD{ComplexF64,Float64,Matrix{ComplexF64}}}
 else
-    MatsubaraSampling{FermionicFreq, ComplexF64, SVD{ComplexF64, Float64, Matrix{ComplexF64}, Vector{Float64}}}
+    MatsubaraSampling{
+        FermionicFreq,ComplexF64,SVD{ComplexF64,Float64,Matrix{ComplexF64},Vector{Float64}}
+    }
 end
 
 const MatsubaraSampling64B = @static if VERSION < v"1.9-"
-    MatsubaraSampling{BosonicFreq, ComplexF64, SVD{ComplexF64, Float64, Matrix{ComplexF64}}}
+    MatsubaraSampling{BosonicFreq,ComplexF64,SVD{ComplexF64,Float64,Matrix{ComplexF64}}}
 else
-    MatsubaraSampling{BosonicFreq, ComplexF64, SVD{ComplexF64, Float64, Matrix{ComplexF64}, Vector{Float64}}}
+    MatsubaraSampling{
+        BosonicFreq,ComplexF64,SVD{ComplexF64,Float64,Matrix{ComplexF64},Vector{Float64}}
+    }
 end
 
 """
@@ -129,7 +134,9 @@ function evaluate(
     smpl::AbstractSampling{S,Tmat}, al::AbstractArray{T,N}; dim=1
 ) where {S,Tmat,T,N}
     if size(smpl.matrix, 2) ≠ size(al, dim)
-        msg = "Number of columns (got $(size(smpl.matrix, 2))) has to match al's size in dim (got $(size(al, dim)))"
+        msg =
+            "Number of columns (got $(size(smpl.matrix, 2)))" *
+            "has to match al's size in dim (got $(size(al, dim)))"
         throw(DimensionMismatch(msg))
     end
     bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 1), size(al)[(dim + 1):end]...)
@@ -162,7 +169,9 @@ function fit(
     smpl::AbstractSampling{S,Tmat}, al::AbstractArray{T,N}; dim=1
 ) where {S,Tmat,T,N}
     if size(smpl.matrix, 1) ≠ size(al, dim)
-        msg = "Number of rows (got $(size(smpl.matrix, 1))) has to match al's size in dim (got $(size(al, dim)))"
+        msg =
+            "Number of rows (got $(size(smpl.matrix, 1)))" *
+            "has to match al's size in dim (got $(size(al, dim)))"
         throw(DimensionMismatch(msg))
     end
     bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 2), size(al)[(dim + 1):N]...)
@@ -180,11 +189,12 @@ function workarrlength(smpl::AbstractSampling, al::AbstractArray; dim=1)
 end
 
 """
-    fit!(buffer, sampling, al::Array{T,N}; dim=1)
+    fit!(buffer::Array{S,N}, smpl::AbstractSampling, al::Array{T,N}; 
+        dim=1, workarr::Vector{S}) where {S,T,N}
 
 Like [`fit`](@ref), but write the result to `buffer`.
-Please use dim = 1 or N to avoid allocating large temporary arrays internally.
-The length of `workarry` cannot be smaller than the returned value of `workarrlength`.
+Use `dim = 1` or `dim = N` to avoid allocating large temporary arrays internally.
+The length of `workarr` cannot be smaller than [`SparseIR.workarrlength`](@ref)`(smpl, al)`.
 """
 function fit!(
     buffer::Array{S,N}, smpl::AbstractSampling, al::Array{T,N};

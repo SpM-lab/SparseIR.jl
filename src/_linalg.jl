@@ -1,8 +1,8 @@
 module _LinAlg
 
 using GenericLinearAlgebra: svd!
-using LinearAlgebra: norm, lmul!, rmul!, triu!, Givens, I, SVD, reflector!, reflectorApply!,
-    QRPivoted, QRPackedQ
+using LinearAlgebra: norm, lmul!, rmul!, triu!, Givens, I, SVD, reflector!,
+    reflectorApply!, QRPivoted, QRPackedQ
 
 export tsvd, tsvd!, svd_jacobi, svd_jacobi!, rrqr, rrqr!
 
@@ -121,9 +121,10 @@ end
 """Truncated singular value decomposition."""
 tsvd(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat} = tsvd!(copy(A); rtol)
 
-#################################################################################################################
-### Everything below is currently not used in tsvd. (GenericLinearAlgebra.svd! is used instead of svd_jacobi) ###
-#################################################################################################################
+#################################################################
+###      Everything below is currently not used in tsvd.      ###
+### (GenericLinearAlgebra.svd! is used instead of svd_jacobi) ###
+#################################################################
 
 """
 Compute Givens rotation `R` matrix that satisfies:

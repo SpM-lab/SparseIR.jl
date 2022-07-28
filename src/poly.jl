@@ -72,19 +72,19 @@ function _evaluate(poly::PiecewiseLegendrePoly, xs::AbstractVector)
 end
 
 """
-    overlap(poly::PiecewiseLegendrePoly, f; rtol=eps(T), return_error=false, maxevals=10^4, points=T[])
+    overlap(poly::PiecewiseLegendrePoly, f; 
+        rtol=eps(T), return_error=false, maxevals=10^4, points=T[])
 
 Evaluate overlap integral of `poly` with arbitrary function `f`.
 
-Given the function `f`, evaluate the integral::
+Given the function `f`, evaluate the integral
 
-    ∫ dx * f(x) * poly(x)
+    ∫ dx f(x) poly(x)
 
 using adaptive Gauss-Legendre quadrature.
 
-`points` is a sequence of break points in the integration interval
-where local difficulties of the integrand may occur
-(e.g., singularities, discontinuities)
+`points` is a sequence of break points in the integration interval where local
+difficulties of the integrand may occur (e.g. singularities, discontinuities).
 """
 function overlap(
     poly::PiecewiseLegendrePoly{T}, f; rtol=eps(T), return_error=false, maxevals=10^4,
@@ -200,7 +200,7 @@ function PiecewiseLegendrePolyVector(
     return polys_new
 end
 
-(polys::PiecewiseLegendrePolyVector)(x) = map(poly -> poly(x), polys)
+(polys::PiecewiseLegendrePolyVector)(x) = [poly(x) for poly in polys]
 function (polys::PiecewiseLegendrePolyVector)(x::AbstractArray)
     return reshape(mapreduce(polys, vcat, x), (size(polys)..., size(x)...))
 end
@@ -294,11 +294,11 @@ end
 getstatistics(poly::PiecewiseLegendreFT) = poly.stat
 getstatistics(polyFTs::PiecewiseLegendreFTVector) = getstatistics(first(polyFTs))
 
-"""
-    (polyFT::PiecewiseLegendreFT)(ω)
+# """
+#     (polyFT::PiecewiseLegendreFT)(ω)
 
-Obtain Fourier transform of polynomial for given frequency `ω`.
-"""
+# Obtain Fourier transform of polynomial for given `MatsubaraFreq` `ω`.
+# """
 function (polyFT::Union{PiecewiseLegendreFT{T,S},
     PiecewiseLegendreFTVector{T,S}})(
     ω::MatsubaraFreq{S}
@@ -374,9 +374,9 @@ function _discrete_extrema(f::Function, xgrid)
     fx = map(Float64 ∘ f, xgrid)
     absfx = abs.(fx)
 
-    # Forward differences: derivativesignchange[i] now means that the secant changes sign
-    # fx[i+1]. This means that the extremum is STRICTLY between x[i] and
-    # x[i+2]
+    # Forward differences: derivativesignchange[i] now means that the secant 
+    # changes sign fx[i+1]. This means that the extremum is STRICTLY between 
+    # x[i] and x[i+2].
     gx = diff(fx)
     sgx = signbit.(gx)
     derivativesignchange = @views (sgx[begin:(end - 1)] .≠ sgx[(begin + 1):end])
@@ -467,7 +467,7 @@ function _compute_unl_inner(poly::PiecewiseLegendrePoly, wn)
 end
 function _compute_unl_inner(polys::PiecewiseLegendrePolyVector, wn)
     t_pin = _Pqn(polys, wn)
-    return map(p -> dot(p.data, transpose(t_pin)), polys)
+    return [dot(poly.data, transpose(t_pin)) for poly in polys]
 end
 
 function _Pqn(poly, wn)
