@@ -3,15 +3,12 @@ using SparseIR
 
 @testset "poly.jl" begin
     @testset "typestability" begin
-        @test typestable(
-            SparseIR._evaluate, [SparseIR.PiecewiseLegendrePoly{Float64}, Float64];
-            checkonlyany=true,
-        )
-        @test typestable(
-            SparseIR._evaluate,
-            [SparseIR.PiecewiseLegendrePoly{Float64}, Vector{Float64}];
-            checkonlyany=true,
-        )
+        @test typestable(SparseIR._evaluate,
+                         [SparseIR.PiecewiseLegendrePoly{Float64}, Float64];
+                         checkonlyany=true)
+        @test typestable(SparseIR._evaluate,
+                         [SparseIR.PiecewiseLegendrePoly{Float64}, Vector{Float64}];
+                         checkonlyany=true)
     end
 
     @testset "shape" begin
@@ -67,12 +64,12 @@ using SparseIR
 
         # Keep only even number of polynomials
         u, s, v = u[1:(end - end % 2)],
-        s[1:(end - end % 2)],
-        v[1:(end - end % 2)]
+                  s[1:(end - end % 2)],
+                  v[1:(end - end % 2)]
 
-        @test overlap(u[1], u[1]) ≈ 1 rtol = 0 atol = atol
-        @test overlap(u[1], u[2]) ≈ 0 rtol = 0 atol = atol
-        @test overlap(u[1], u[1]; points=[0.1, 0.2]) ≈ 1 rtol = 0 atol = atol
+        @test overlap(u[1], u[1])≈1 rtol=0 atol=atol
+        @test overlap(u[1], u[2])≈0 rtol=0 atol=atol
+        @test overlap(u[1], u[1]; points=[0.1, 0.2])≈1 rtol=0 atol=atol
 
         ref = float.(eachindex(s) .== 1)
         @test all(isapprox.(overlap(u[1], u), ref; rtol=0, atol))

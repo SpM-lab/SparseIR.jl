@@ -22,20 +22,20 @@ include("__conftest.jl")
         @test all(isapprox.(A, Matrix(Ad), atol=1e-15 * norm_A, rtol=0))
 
         x = randn(39)
-        @test A * x ≈ Ad.U * Diagonal(Ad.S) * Ad.Vt * x atol = 1e-14 * norm_A rtol = 0
+        @test A * x≈Ad.U * Diagonal(Ad.S) * Ad.Vt * x atol=1e-14 * norm_A rtol=0
 
         x = randn(39, 3)
-        @test A * x ≈ Ad.U * Diagonal(Ad.S) * Ad.Vt * x atol = 2e-14 * norm_A rtol = 0
+        @test A * x≈Ad.U * Diagonal(Ad.S) * Ad.Vt * x atol=2e-14 * norm_A rtol=0
 
         y = randn(49)
-        @test A \ y ≈ Ad \ y atol = 1e-14 * norm_A rtol = 0
+        @test A \ y≈Ad \ y atol=1e-14 * norm_A rtol=0
 
         y = randn(49, 2)
-        @test A \ y ≈ Ad \ y atol = 1e-14 * norm_A rtol = 0
+        @test A \ y≈Ad \ y atol=1e-14 * norm_A rtol=0
     end
 
     @testset "fit from tau with stat = $stat, Λ = $Λ" for stat in (boson, fermion),
-        Λ in (10, 42)
+                                                          Λ in (10, 42)
 
         basis = DimensionlessBasis(stat, Λ; sve_result=sve_logistic[Λ])
         smpl = TauSampling(basis)
@@ -48,11 +48,9 @@ include("__conftest.jl")
         for dim in 1:ndims(rhol)
             gl = SparseIR.movedim(originalgl, 1 => dim)
             gtau = evaluate(smpl, gl; dim)
-            @test size(gtau) == (
-                size(gl)[1:(dim - 1)]...,
-                length(smpl.sampling_points),
-                size(gl)[(dim + 1):end]...,
-            )
+            @test size(gtau) == (size(gl)[1:(dim - 1)]...,
+                   length(smpl.sampling_points),
+                   size(gl)[(dim + 1):end]...)
 
             gl_from_tau = fit(smpl, gtau; dim)
             @test gl_from_tau ≈ gl
@@ -94,7 +92,7 @@ include("__conftest.jl")
     end
 
     @testset "iω noise with stat = $stat, Λ = $Λ" for stat in (boson, fermion),
-        Λ in (10, 42)
+                                                      Λ in (10, 42)
 
         basis = DimensionlessBasis(stat, Λ; sve_result=sve_logistic[Λ])
         smpl = MatsubaraSampling(basis)

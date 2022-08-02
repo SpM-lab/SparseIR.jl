@@ -62,7 +62,7 @@ and thus
 ```
 Here and in what follows, unless otherwise indicated, integrals are taken to be over the interval ``[-1,1]``.
 
-1. The function first calls the `_choose_accuracy` helper and thereby sets the appropriate working precision.
+1. The function first calls the `choose_accuracy` helper and thereby sets the appropriate working precision.
    Because we did not specify a working accuracy ``\varepsilon``, it chooses for us ``\varepsilon \approx 2.2 \times 10^{-16}`` and working type `Float64x2` - a 128 bits floating point type provided by the MultiFloats.jl package - because in computing the SVD we incur a precision loss of about half our input bits, leaving us with full double accuracy results only if we use quad precision during the computation.
 
 2. Then - by calling out to the `CentrosymmSVE` constructor - a support grid ``\{x_i\} \times \{y_j\}`` the kernel will later be evaluated on is built.

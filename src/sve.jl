@@ -23,16 +23,16 @@ be reconstructed from the singular vectors `u` and `v` as follows:
 [1] P. Hansen, Discrete Inverse Problems, Ch. 3.1
 """
 struct SamplingSVE{T<:AbstractFloat,K<:AbstractKernel} <: AbstractSVE
-    kernel::K
-    ε::T
-    n_gauss::Int
-    nsvals_hint::Int
+    kernel      :: K
+    ε           :: T
+    n_gauss     :: Int
+    nsvals_hint :: Int
 
-    rule::Rule{T}
-    segs_x::Vector{T}
-    segs_y::Vector{T}
-    gauss_x::Rule{T}
-    gauss_y::Rule{T}
+    rule    :: Rule{T}
+    segs_x  :: Vector{T}
+    segs_y  :: Vector{T}
+    gauss_x :: Rule{T}
+    gauss_y :: Rule{T}
 end
 
 function SamplingSVE(kernel, ε; n_gauss=-1, T=Float64)
@@ -42,10 +42,8 @@ function SamplingSVE(kernel, ε; n_gauss=-1, T=Float64)
     segs_x, segs_y = T.(segments_x(sve_hints_)), T.(segments_y(sve_hints_))
     gauss_x, gauss_y = piecewise(rule, segs_x), piecewise(rule, segs_y)
 
-    return SamplingSVE(
-        kernel, ε, n_gauss, nsvals(sve_hints_),
-        rule, segs_x, segs_y, gauss_x, gauss_y
-    )
+    return SamplingSVE(kernel, ε, n_gauss, nsvals(sve_hints_),
+                       rule, segs_x, segs_y, gauss_x, gauss_y)
 end
 
 """
@@ -73,13 +71,13 @@ Chebyshev system [1], then even and odd basis functions alternate.
 
 [1]: A. Karlin, Total Positivity (1968).
 """
-struct CentrosymmSVE{K<:AbstractKernel,T,SVEeven<:AbstractSVE,SVEodd<:AbstractSVE} <:
+struct CentrosymmSVE{K<:AbstractKernel,T,SVEEVEN<:AbstractSVE,SVEODD<:AbstractSVE} <:
        AbstractSVE
-    kernel::K
-    ε::T
-    even::SVEeven
-    odd::SVEodd
-    nsvals_hint::Int
+    kernel      :: K
+    ε           :: T
+    even        :: SVEEVEN
+    odd         :: SVEODD
+    nsvals_hint :: Int
 end
 
 function CentrosymmSVE(kernel, ε; InnerSVE=SamplingSVE, n_gauss, T)
@@ -112,34 +110,35 @@ by expanding the kernel in piecewise Legendre polynomials (by default by
 using a collocation).
 
 # Arguments
-- `ε::AbstractFloat`:  Relative cutoff for the singular values.
-- `n_sv::Integer`: Maximum basis size. If given, only at most the `n_sv` most
-significant singular values and associated singular functions are
-returned.
-- `n_gauss::Integer`: Order of Legendre polynomials. Defaults to hinted value
-by the kernel.
-- `T`: Data type of the result.
-- `Twork`: Working data type. Defaults to a data type with
-machine epsilon of at least `eps^2`, or otherwise most accurate data
-type available.
-- `sve_strat`: SVE to SVD translation strategy. Defaults to SamplingSVE.
-- `svd_strat`: SVD solver. Defaults to fast (ID/RRQR) based solution 
-when accuracy goals are moderate, and more accurate Jacobi-based 
-algorithm otherwise.
+
+  - `ε::AbstractFloat`:  Relative cutoff for the singular values.
+  - `n_sv::Integer`: Maximum basis size. If given, only at most the `n_sv` most
+    significant singular values and associated singular functions are
+    returned.
+  - `n_gauss::Integer`: Order of Legendre polynomials. Defaults to hinted value
+    by the kernel.
+  - `T`: Data type of the result.
+  - `Twork`: Working data type. Defaults to a data type with
+    machine epsilon of at least `eps^2`, or otherwise most accurate data
+    type available.
+  - `sve_strat`: SVE to SVD translation strategy. Defaults to SamplingSVE.
+  - `svd_strat`: SVD solver. Defaults to fast (ID/RRQR) based solution
+    when accuracy goals are moderate, and more accurate Jacobi-based
+    algorithm otherwise.
 
 # Return value
+
 Return tuple `(u, s, v)`, where:
-- `u::PiecewiseLegendrePoly`: the left singular functions
-- `s::Vector`: singular values
-- `v::PiecewiseLegendrePoly`: the right singular functions
+
+  - `u::PiecewiseLegendrePoly`: the left singular functions
+  - `s::Vector`: singular values
+  - `v::PiecewiseLegendrePoly`: the right singular functions
 """
-function compute_sve(
-    kernel::AbstractKernel;
-    Twork=nothing, ε=nothing, n_sv=typemax(Int),
-    n_gauss=-1, T=Float64, svd_strat=:auto,
-    sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE,
-)
-    ε, Twork, svd_strat = _choose_accuracy(ε, Twork, svd_strat)
+function compute_sve(kernel::AbstractKernel;
+                     Twork=nothing, ε=nothing, n_sv=typemax(Int),
+                     n_gauss=-1, T=Float64, svd_strat=:auto,
+                     sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE)
+    ε, Twork, svd_strat = choose_accuracy(ε, Twork, svd_strat)
 
     sve = sve_strat(kernel, Twork(ε); n_gauss, T=Twork)
 
@@ -167,9 +166,8 @@ matrices(sve::CentrosymmSVE) = (only(matrices(sve.even)), only(matrices(sve.odd)
 
 Construct the SVE result from the SVD.
 """
-function postprocess(
-    sve::SamplingSVE, u, s, v, T=promote_type(eltype(u), eltype(s), eltype(v))
-)
+function postprocess(sve::SamplingSVE, u, s, v,
+                     T=promote_type(eltype(u), eltype(s), eltype(v)))
     s = T.(s)
     u_x = u ./ sqrt.(sve.gauss_x.w)
     v_y = v ./ sqrt.(sve.gauss_y.w)
@@ -189,7 +187,7 @@ function postprocess(
     # Construct polynomials
     ulx = PiecewiseLegendrePolyVector(T.(u_data), T.(sve.segs_x))
     vly = PiecewiseLegendrePolyVector(T.(v_data), T.(sve.segs_y))
-    _canonicalize!(ulx, vly)
+    canonicalize!(ulx, vly)
     return ulx, s, vly
 end
 
@@ -236,18 +234,18 @@ function postprocess(sve::CentrosymmSVE, u, s, v, T)
 end
 
 """
-    _choose_accuracy(ε, Twork[, svd_strat])
+    choose_accuracy(ε, Twork[, svd_strat])
 
 Choose work type and accuracy based on specs and defaults
 """
-function _choose_accuracy(ε, Twork, svd_strat)
-    ε, Twork, auto_svd_strat = _choose_accuracy(ε, Twork)
+function choose_accuracy(ε, Twork, svd_strat)
+    ε, Twork, auto_svd_strat = choose_accuracy(ε, Twork)
     if svd_strat == :auto
         svd_strat = auto_svd_strat
     end
     return ε, Twork, svd_strat
 end
-function _choose_accuracy(ε, Twork)
+function choose_accuracy(ε, Twork)
     if ε ≥ sqrt(eps(Twork))
         return ε, Twork, :default
     else
@@ -257,7 +255,7 @@ function _choose_accuracy(ε, Twork)
         return ε, Twork, :accurate
     end
 end
-function _choose_accuracy(ε, ::Nothing)
+function choose_accuracy(ε, ::Nothing)
     if ε ≥ sqrt(eps(Float64))
         return ε, Float64, :default
     else
@@ -269,8 +267,8 @@ function _choose_accuracy(ε, ::Nothing)
         return ε, T_MAX, :default
     end
 end
-_choose_accuracy(::Nothing, Twork) = sqrt(eps(Twork)), Twork, :default
-_choose_accuracy(::Nothing, ::Nothing) = sqrt(eps(T_MAX)), T_MAX, :default
+choose_accuracy(::Nothing, Twork) = sqrt(eps(Twork)), Twork, :default
+choose_accuracy(::Nothing, ::Nothing) = sqrt(eps(T_MAX)), T_MAX, :default
 
 """
     canonicalize!(u, v)
@@ -282,7 +280,7 @@ differ from implementation to implementation and also platform. We
 fix that gauge by demanding `u[l](1) > 0`. This ensures a diffeomorphic
 connection to the Legendre polynomials as `Λ → 0`.
 """
-function _canonicalize!(ulx, vly)
+function canonicalize!(ulx, vly)
     for i in eachindex(ulx, vly)
         gauge = sign(ulx[i](1))
         ulx[i].data .*= gauge
@@ -296,6 +294,7 @@ end
 Truncate singular value expansion.
 
 # Arguments
+
     - `u`, `s`, `v`: Thin singular value expansion
     - `rtol`: Only singular values satisfying `s[l]/s[1] > rtol` are retained.
     - `lmax`: At most the `lmax` most significant singular values are retained.

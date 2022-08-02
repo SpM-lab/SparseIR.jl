@@ -2,14 +2,14 @@ using Test
 using SparseIR
 
 @testset "kernel.jl" begin
-    @testset "accuracy with K = $K" for K in (
-        LogisticKernel(9.0),
-        RegularizedBoseKernel(8.0),
-        LogisticKernel(120_000.0),
-        RegularizedBoseKernel(127_500.0),
-        SparseIR.get_symmetrized(LogisticKernel(40_000.0), -1),
-        SparseIR.get_symmetrized(RegularizedBoseKernel(35_000.0), -1),
-    )
+    @testset "accuracy with K = $K" for K in (LogisticKernel(9.0),
+                                              RegularizedBoseKernel(8.0),
+                                              LogisticKernel(120_000.0),
+                                              RegularizedBoseKernel(127_500.0),
+                                              SparseIR.get_symmetrized(LogisticKernel(40_000.0),
+                                                                       -1),
+                                              SparseIR.get_symmetrized(RegularizedBoseKernel(35_000.0),
+                                                                       -1))
         T = Float32
         T_x = Float64
 
@@ -21,12 +21,11 @@ using SparseIR
         tiny = floatmin(T) / ϵ
 
         result = SparseIR.matrix_from_gauss(K, gauss_x, gauss_y)
-        result_x = SparseIR.matrix_from_gauss(
-            K, convert(SparseIR.Rule{T_x}, gauss_x), convert(SparseIR.Rule{T_x}, gauss_y)
-        )
+        result_x = SparseIR.matrix_from_gauss(K, convert(SparseIR.Rule{T_x}, gauss_x),
+                                              convert(SparseIR.Rule{T_x}, gauss_y))
         magn = maximum(abs, result_x)
 
-        @test result ≈ result_x atol = 2magn * ϵ rtol = 0
+        @test result≈result_x atol=2magn * ϵ rtol=0
         reldiff = @. ifelse(abs(result) < tiny, 1, result / result_x)
         @test all(x -> isapprox(x, 1; atol=100ϵ, rtol=0), reldiff)
     end

@@ -18,7 +18,7 @@ function (obj::CompositeBasisFunction)(x::Real)
 end
 
 function (obj::CompositeBasisFunction)(x::Vector{T}) where {T<:Real}
-    return vcat((p(x) for p in obj.polys)...)
+    return reduce(vcat, p(x) for p in obj.polys)
 end
 
 """
@@ -33,25 +33,25 @@ end
 """
 Evaluate basis function at frequency n
 """
-(obj::CompositeBasisFunctionFT)(n::MatsubaraFreq) = hcat(p(n) for p in obj.polys)
-function (obj::CompositeBasisFunctionFT)(n::AbstractVector{MatsubaraFreq})
+function (obj::CompositeBasisFunctionFT)(n::Union{MatsubaraFreq,
+                                                  AbstractVector{MatsubaraFreq}})
     return hcat(p(n) for p in obj.polys)
 end
 
-(obj::CompositeBasisFunctionFT)(n::Integer) = obj(MatsubaraFreq(n))
+(obj::CompositeBasisFunctionFT)(n::Integer)                 = obj(MatsubaraFreq(n))
 (obj::CompositeBasisFunctionFT)(n::AbstractVector{Integer}) = obj(MatsubaraFreq.(n))
 
 struct CompositeBasis <: AbstractBasis
-    beta::Float64
-    bases::Vector{AbstractBasis}
-    u::Union{CompositeBasisFunction,Nothing}
-    v::Union{CompositeBasisFunction,Nothing}
-    uhat::Union{CompositeBasisFunctionFT,Nothing}
+    beta  :: Float64
+    bases :: Vector{AbstractBasis}
+    u     :: Union{CompositeBasisFunction,Nothing}
+    v     :: Union{CompositeBasisFunction,Nothing}
+    uhat  :: Union{CompositeBasisFunctionFT,Nothing}
 end
 
 iswellconditioned(basis::CompositeBasis) = false
 
-function _collect_polys(::Type{T}, polys) where {T}
+function collect_polys(::Type{T}, polys) where {T}
     if any(isnothing, polys)
         return nothing
     else
@@ -61,8 +61,8 @@ end
 
 function CompositeBasis(bases::Vector{AbstractBasis})
     u = CompositeBasisFunction([b.u for b in bases])
-    v = _collect_polys(CompositeBasisFunction, [b.v for b in bases])
-    uhat = _collect_polys(CompositeBasisFunctionFT, [b.uhat for b in bases])
+    v = collect_polys(CompositeBasisFunction, [b.v for b in bases])
+    uhat = collect_polys(CompositeBasisFunctionFT, [b.uhat for b in bases])
     return CompositeBasis(getbeta(first(bases)), bases, u, v, uhat)
 end
 
@@ -71,11 +71,6 @@ function default_tau_sampling_points(basis::CompositeBasis)
 end
 
 function default_matsubara_sampling_points(basis::CompositeBasis; mitigate=true)
-    return sort!(
-        unique!(
-            mapreduce(
-                b -> default_matsubara_sampling_points(b; mitigate), vcat, basis.bases
-            ),
-        ),
-    )
+    return sort!(unique!(mapreduce(b -> default_matsubara_sampling_points(b; mitigate),
+                                   vcat, basis.bases)))
 end

@@ -2,7 +2,7 @@ module _LinAlg
 
 using GenericLinearAlgebra: svd!
 using LinearAlgebra: norm, lmul!, rmul!, triu!, Givens, I, SVD, reflector!,
-    reflectorApply!, QRPivoted, QRPackedQ
+                     reflectorApply!, QRPivoted, QRPackedQ
 
 export tsvd, tsvd!, svd_jacobi, svd_jacobi!, rrqr, rrqr!
 
@@ -45,9 +45,7 @@ function rrqr!(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat}
 
         tau_i = reflector!(@view A[i:end, i])
         taus[i] = tau_i
-        reflectorApply!(
-            (@view A[i:end, i]), tau_i, @view A[i:end, (i + 1):end]
-        )
+        reflectorApply!((@view A[i:end, i]), tau_i, @view A[i:end, (i + 1):end])
 
         # Lapack Working Note 176.
         for j in (i + 1):n
@@ -75,10 +73,14 @@ function rrqr!(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat}
     return QRPivoted(A, taus, jpvt), k
 end
 
-"""Truncated rank-revealing QR decomposition with full column pivoting."""
+"""
+Truncated rank-revealing QR decomposition with full column pivoting.
+"""
 rrqr(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat} = rrqr!(copy(A); rtol)
 
-"""Truncate RRQR result low-rank"""
+"""
+Truncate RRQR result low-rank
+"""
 function truncate_qr_result(qr::QRPivoted{T}, k::Integer) where {T}
     m, n = size(qr)
     0 ≤ k ≤ min(m, n) || throw(DomainError(k, "Invalid rank, must be in [0, $(min(m, n))]"))
@@ -118,7 +120,9 @@ function tsvd!(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat}
     return SVD(U, s, V')
 end
 
-"""Truncated singular value decomposition."""
+"""
+Truncated singular value decomposition.
+"""
 tsvd(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat} = tsvd!(copy(A); rtol)
 
 #################################################################
@@ -261,7 +265,7 @@ function jacobi_sweep!(U::AbstractMatrix, VT::AbstractMatrix)
         for j in (i + 1):jj
             # Construct the 2x2 matrix to be diagonalized
             Hii = sum(abs2, @view U[:, i])
-            Hij = sum(k -> @inbounds(U[k, i] * U[k, j]), 1:ii)
+            Hij = sum(k -> @inbounds(U[k, i]*U[k, j]), 1:ii)
             Hjj = sum(abs2, @view U[:, j])
             offd += abs2(Hij)
 
@@ -277,7 +281,9 @@ function jacobi_sweep!(U::AbstractMatrix, VT::AbstractMatrix)
     return sqrt(offd)
 end
 
-"""Singular value decomposition using Jacobi rotations."""
+"""
+Singular value decomposition using Jacobi rotations.
+"""
 function svd_jacobi!(U::AbstractMatrix{T}; rtol=eps(T), maxiter=20) where {T}
     m, n = size(U)
     m ≥ n || throw(ArgumentError("matrix must be 'tall'"))
@@ -295,7 +301,9 @@ function svd_jacobi!(U::AbstractMatrix{T}; rtol=eps(T), maxiter=20) where {T}
     return SVD(U, s, VT)
 end
 
-"""Singular value decomposition using Jacobi rotations."""
+"""
+Singular value decomposition using Jacobi rotations.
+"""
 function svd_jacobi(U::AbstractMatrix{T}; rtol=eps(T), maxiter=20) where {T}
     return svd_jacobi!(copy(U); rtol, maxiter)
 end

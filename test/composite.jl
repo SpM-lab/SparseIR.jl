@@ -2,6 +2,7 @@ using Test
 using SparseIR
 
 @testset "composite.jl" begin
+
     @testset "Augmented basis with stat = $stat" for stat in (fermion, boson)
         wmax = 2.0
         β = 1e3
@@ -19,4 +20,5 @@ using SparseIR
         gτ_reconst = evaluate(τ_smpl, gl_from_τ)
         @test isapprox(gτ, gτ_reconst; atol=1e-14 * maximum(abs, gτ), rtol=0)
     end
+
 end

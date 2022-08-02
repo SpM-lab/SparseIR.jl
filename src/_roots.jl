@@ -14,12 +14,12 @@ function find_all(f, xgrid::AbstractVector)
     fa = @view fx[where_a]
     fb = @view fx[where_b]
 
-    x_bisect = _bisect_cont.(f, a, b, fa, fb)
+    x_bisect = bisect_cont.(f, a, b, fa, fb)
 
     return sort!([x_hit; x_bisect])
 end
 
-function _bisect_cont(f, a, b, fa, fb)
+function bisect_cont(f, a, b, fa, fb)
     while true
         mid = (a + b) / 2
         fmid = f(mid)
@@ -32,7 +32,7 @@ function _bisect_cont(f, a, b, fa, fb)
     end
 end
 
-function _refine_grid(grid, ::Val{α}) where {α}
+function refine_grid(grid, ::Val{α}) where {α}
     n = length(grid)
     newn = α * (n - 1) + 1
     newgrid = Vector{eltype(grid)}(undef, newn)

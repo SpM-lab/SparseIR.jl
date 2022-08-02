@@ -2,7 +2,9 @@ using Test
 using SparseIR
 
 @testset "composite.jl" begin
-    """Augmented bosonic basis"""
+    """
+    Augmented bosonic basis
+    """
     wmax = 2
     beta = 1e+3
     #startt = time_ns()

@@ -1,5 +1,19 @@
-"Intermediate representation (IR) for many-body propagators"
+"""
+Intermediate representation (IR) for many-body propagators
+"""
 module SparseIR
+
+export fermion, boson
+export MatsubaraFreq, BosonicFreq, FermionicFreq, pioverbeta
+export DimensionlessBasis, FiniteTempBasis
+export SparsePoleRepresentation, to_IR, from_IR
+export overlap
+export LegendreBasis, MatsubaraConstBasis
+export FiniteTempBasisSet
+export LogisticKernel, RegularizedBoseKernel
+export CompositeBasis, CompositeBasisFunction, CompositeBasisFunctionFT
+export TauSampling, MatsubaraSampling, evaluate, fit, evaluate!, fit!,
+       MatsubaraSampling64F, MatsubaraSampling64B, TauSampling64
 
 using MultiFloats: Float64x2
 using LinearAlgebra: dot, svd, SVD, QRIteration, mul!
@@ -12,18 +26,6 @@ Base.sinh(x::Float64x2) = setprecision(() -> Float64x2(sinh(big(x))), precision(
 Base.cosh(x::Float64x2) = setprecision(() -> Float64x2(cosh(big(x))), precision(Float64x2))
 # FIXME: remove if MultiFloats is fixed
 Base.Math.hypot(x::Float64x2, y::Float64x2) = Base.Math._hypot(x, y)
-
-export fermion, boson
-export MatsubaraFreq, BosonicFreq, FermionicFreq, pioverbeta
-export DimensionlessBasis, FiniteTempBasis
-export SparsePoleRepresentation, to_IR, from_IR
-export overlap
-export LegendreBasis, MatsubaraConstBasis
-export FiniteTempBasisSet
-export LogisticKernel, RegularizedBoseKernel
-export CompositeBasis, CompositeBasisFunction, CompositeBasisFunctionFT
-export TauSampling, MatsubaraSampling, evaluate, fit, evaluate!, fit!,
-    MatsubaraSampling64F, MatsubaraSampling64B, TauSampling64
 
 include("_linalg.jl")
 include("_roots.jl")

@@ -15,22 +15,26 @@ function Statistics(zeta::Integer)
     end
 end
 
-"""Fermionic statistics."""
+"""
+Fermionic statistics.
+"""
 struct Fermionic <: Statistics end
 
-"""Bosonic statistics."""
+"""
+Bosonic statistics.
+"""
 struct Bosonic <: Statistics end
 
 zeta(::Fermionic) = 1
-zeta(::Bosonic) = 0
+zeta(::Bosonic)   = 0
 
 allowed(::Fermionic, a::Integer) = isodd(a)
-allowed(::Bosonic, a::Integer) = iseven(a)
+allowed(::Bosonic, a::Integer)   = iseven(a)
 
-Base.:+(::Fermionic, ::Bosonic) = Fermionic()
-Base.:+(::Bosonic, ::Fermionic) = Fermionic()
+Base.:+(::Fermionic, ::Bosonic)   = Fermionic()
+Base.:+(::Bosonic, ::Fermionic)   = Fermionic()
 Base.:+(::Fermionic, ::Fermionic) = Bosonic()
-Base.:+(::Bosonic, ::Bosonic) = Bosonic()
+Base.:+(::Bosonic, ::Bosonic)     = Bosonic()
 
 """
     MatsubaraFreq(n)
@@ -58,8 +62,8 @@ accordingly.
   - Fermionic frequency (`S == Bosonic`): `n` odd (anti-periodic in β)
 """
 struct MatsubaraFreq{S<:Statistics} <: Number
-    stat::S
-    n::Int
+    stat :: S
+    n    :: Int
 
     MatsubaraFreq(stat::Statistics, n::Integer) = new{typeof(stat)}(stat, n)
 
@@ -72,52 +76,50 @@ struct MatsubaraFreq{S<:Statistics} <: Number
     end
 end
 
-const BosonicFreq = MatsubaraFreq{Bosonic}
-
+const BosonicFreq   = MatsubaraFreq{Bosonic}
 const FermionicFreq = MatsubaraFreq{Fermionic}
 
-MatsubaraFreq(n::Integer) = MatsubaraFreq(Statistics(isodd(n)), n)
+MatsubaraFreq(n::Integer) = MatsubaraFreq(Statistics(mod(n, 2)), n)
 
-"""Get prefactor `n` for the Matsubara frequency `ω = n*π/β`"""
+"""
+Get prefactor `n` for the Matsubara frequency `ω = n*π/β`
+"""
 Integer(a::MatsubaraFreq) = a.n
 
-"""Get prefactor `n` for the Matsubara frequency `ω = n*π/β`"""
+"""
+Get prefactor `n` for the Matsubara frequency `ω = n*π/β`
+"""
 Int(a::MatsubaraFreq) = a.n
 
-"""Get value of the Matsubara frequency `ω = n*π/β`"""
+"""
+Get value of the Matsubara frequency `ω = n*π/β`
+"""
 function value(a::MatsubaraFreq, beta::Real)
     beta > 0 || throw(DomainError(beta, "beta must be positive"))
     return a.n * (π / beta)
 end
 
-"""Get complex value of the Matsubara frequency `iω = iπ/β * n`"""
+"""
+Get complex value of the Matsubara frequency `iω = iπ/β * n`
+"""
 valueim(a::MatsubaraFreq, beta::Real) = 1im * value(a, beta)
 
-"""Get statistics `ζ` for Matsubara frequency `ω = (2*m+ζ)*π/β`"""
+"""
+Get statistics `ζ` for Matsubara frequency `ω = (2*m+ζ)*π/β`
+"""
 zeta(a::MatsubaraFreq) = zeta(a.stat)
 
-Base.:+(a::MatsubaraFreq, b::MatsubaraFreq) =
-    MatsubaraFreq(a.stat + b.stat, a.n + b.n)
+Base.:+(a::MatsubaraFreq, b::MatsubaraFreq) = MatsubaraFreq(a.stat + b.stat, a.n + b.n)
+Base.:-(a::MatsubaraFreq, b::MatsubaraFreq) = MatsubaraFreq(a.stat + b.stat, a.n - b.n)
+Base.:+(a::MatsubaraFreq)                   = a
+Base.:-(a::MatsubaraFreq)                   = MatsubaraFreq(a.stat, -a.n)
+Base.:*(a::BosonicFreq, c::Integer)         = MatsubaraFreq(a.stat, a.n * c)
+Base.:*(a::FermionicFreq, c::Integer)       = MatsubaraFreq(a.n * c)
+Base.:*(c::Integer, a::MatsubaraFreq)       = a * c
 
-Base.:-(a::MatsubaraFreq, b::MatsubaraFreq) =
-    MatsubaraFreq(a.stat + b.stat, a.n - b.n)
-
-Base.:+(a::MatsubaraFreq) = a
-
-Base.:-(a::MatsubaraFreq) = MatsubaraFreq(a.stat, -a.n)
-
-Base.:*(a::BosonicFreq, c::Integer) = MatsubaraFreq(a.stat, a.n * c)
-
-Base.:*(a::FermionicFreq, c::Integer) = MatsubaraFreq(a.n * c)
-
-Base.:*(c::Integer, a::MatsubaraFreq) = a * c
-
-Base.sign(a::MatsubaraFreq) = sign(a.n)
-
-Base.zero(::MatsubaraFreq) = MatsubaraFreq(0)
-
-Base.iszero(self::MatsubaraFreq) = iszero(self.n)
-
+Base.sign(a::MatsubaraFreq)                     = sign(a.n)
+Base.zero(::MatsubaraFreq)                      = MatsubaraFreq(0)
+Base.iszero(self::MatsubaraFreq)                = iszero(self.n)
 Base.isless(a::MatsubaraFreq, b::MatsubaraFreq) = isless(a.n, b.n)
 
 function Base.show(io::IO, self::MatsubaraFreq)
@@ -138,8 +140,8 @@ Base.oneunit(::MatsubaraFreq) = pioverbeta
 Dense grid of frequencies in an implicit representation
 """
 struct FreqRange{A<:Statistics} <: OrdinalRange{MatsubaraFreq{A},BosonicFreq}
-    start::MatsubaraFreq{A}
-    stop::MatsubaraFreq{A}
+    start :: MatsubaraFreq{A}
+    stop  :: MatsubaraFreq{A}
 
     function FreqRange(start::MatsubaraFreq{A}, stop::MatsubaraFreq{A}) where {A}
         if stop < start
@@ -149,12 +151,8 @@ struct FreqRange{A<:Statistics} <: OrdinalRange{MatsubaraFreq{A},BosonicFreq}
     end
 end
 
-Base.first(self::FreqRange) = self.start
-
-Base.last(self::FreqRange) = self.stop
-
-Base.step(::FreqRange) = BosonicFreq(2)
-
-Base.length(self::FreqRange) = Integer(self.stop - self.start) ÷ 2 + 1
-
+Base.first(self::FreqRange)                          = self.start
+Base.last(self::FreqRange)                           = self.stop
+Base.step(::FreqRange)                               = BosonicFreq(2)
+Base.length(self::FreqRange)                         = Integer(self.stop - self.start) ÷ 2 + 1
 Base.:(:)(start::MatsubaraFreq, stop::MatsubaraFreq) = FreqRange(start, stop)

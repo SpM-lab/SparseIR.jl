@@ -1,7 +1,7 @@
 abstract type AbstractBasis end
 
-Base.size(basis::AbstractBasis) = size(basis.u)
-getbeta(basis::AbstractBasis) = basis.β
+Base.size(basis::AbstractBasis)     = size(basis.u)
+getbeta(basis::AbstractBasis)       = basis.β
 getstatistics(basis::AbstractBasis) = basis.statistics
 
 """
@@ -20,8 +20,9 @@ The functions are given in reduced variables, `x = 2τ/β - 1` and
 kernel then only depends on a cutoff parameter `Λ = β * ωmax`.
 
 # Examples
+
 The following example code assumes the spectral function is a single
-pole at `x = 0.2`. We first compute an IR basis suitable for fermions and 
+pole at `x = 0.2`. We first compute an IR basis suitable for fermions and
 `β*W ≤ 42`. Then we get G(iw) on the first few Matsubara frequencies:
 
 ```jldoctest
@@ -38,43 +39,42 @@ julia> giw = transpose(basis.uhat([1, 3, 5, 7])) * gl
 ```
 
 # Fields
-- `u::PiecewiseLegendrePolyVector`: Set of IR basis functions on the reduced 
-imaginary time (`x`) axis. These functions are stored as piecewise Legendre 
-polynomials.
 
-  To obtain the value of all basis functions at a point or a array of
-  points `x`, you can call the function `u(x)`.  To obtain a single
-  basis function, a slice or a subset `l`, you can use `u[l]`.
+  - `u::PiecewiseLegendrePolyVector`: Set of IR basis functions on the reduced
+    imaginary time (`x`) axis. These functions are stored as piecewise Legendre
+    polynomials.
+    
+    To obtain the value of all basis functions at a point or a array of
+    points `x`, you can call the function `u(x)`.  To obtain a single
+    basis function, a slice or a subset `l`, you can use `u[l]`.
 
-- `uhat::PiecewiseLegendreFTVector`: Set of IR basis functions on the Matsubara 
-frequency (`wn`) axis.
-These objects are stored as a set of Bessel functions.
-
-  To obtain the value of all basis functions at a Matsubara frequency
-  or a array of points `wn`, you can call the function `uhat(wn)`.
-  Note that we expect reduced frequencies, which are simply even/odd
-  numbers for bosonic/fermionic objects. To obtain a single basis
-  function, a slice or a subset `l`, you can use `uhat[l]`.
-
-- `s`: Vector of singular values of the continuation kernel
-
-- `v::PiecewiseLegendrePolyVector`: Set of IR basis functions on the reduced 
-real frequency (`y`) axis.
-These functions are stored as piecewise Legendre polynomials.
-
-  To obtain the value of all basis functions at a point or a array of
-  points `y`, you can call the function `v(y)`.  To obtain a single
-  basis function, a slice or a subset `l`, you can use `v[l]`.
+  - `uhat::PiecewiseLegendreFTVector`: Set of IR basis functions on the Matsubara
+    frequency (`wn`) axis.
+    These objects are stored as a set of Bessel functions.
+    
+    To obtain the value of all basis functions at a Matsubara frequency
+    or a array of points `wn`, you can call the function `uhat(wn)`.
+    Note that we expect reduced frequencies, which are simply even/odd
+    numbers for bosonic/fermionic objects. To obtain a single basis
+    function, a slice or a subset `l`, you can use `uhat[l]`.
+  - `s`: Vector of singular values of the continuation kernel
+  - `v::PiecewiseLegendrePolyVector`: Set of IR basis functions on the reduced
+    real frequency (`y`) axis.
+    These functions are stored as piecewise Legendre polynomials.
+    
+    To obtain the value of all basis functions at a point or a array of
+    points `y`, you can call the function `v(y)`.  To obtain a single
+    basis function, a slice or a subset `l`, you can use `v[l]`.
 
 See also [`FiniteTempBasis`](@ref) for a basis directly in time/frequency.
 """
 struct DimensionlessBasis{K<:AbstractKernel,T<:AbstractFloat,S<:Statistics} <: AbstractBasis
-    kernel::K
-    u::PiecewiseLegendrePolyVector{T}
-    uhat::PiecewiseLegendreFTVector{T}
-    s::Vector{T}
-    v::PiecewiseLegendrePolyVector{T}
-    statistics::S
+    kernel     :: K
+    u          :: PiecewiseLegendrePolyVector{T}
+    uhat       :: PiecewiseLegendreFTVector{T}
+    s          :: Vector{T}
+    v          :: PiecewiseLegendrePolyVector{T}
+    statistics :: S
 end
 
 function Base.show(io::IO, a::DimensionlessBasis)
@@ -83,14 +83,12 @@ end
 
 """
     DimensionlessBasis(statistics, Λ, ε=nothing; 
-        kernel=LogisticKernel(Λ), sve_result=compute_sve(kernel; ε))
+                       kernel=LogisticKernel(Λ), sve_result=compute_sve(kernel; ε))
 
 Construct an IR basis suitable for the given `statistics` and cutoff `Λ`.
 """
-function DimensionlessBasis(
-    statistics::Statistics, Λ, ε=nothing;
-    kernel=LogisticKernel(Λ), sve_result=compute_sve(kernel; ε),
-)
+function DimensionlessBasis(statistics::Statistics, Λ::Number, ε=nothing;
+                            kernel=LogisticKernel(Λ), sve_result=compute_sve(kernel; ε))
     u, s, v = sve_result
     size(u) == size(s) == size(v) || throw(DimensionMismatch("Mismatched shapes in SVE"))
 
@@ -102,17 +100,16 @@ function DimensionlessBasis(
 end
 
 """
-    Λ(basis)
+    getΛ(basis)
 
 Basis cutoff parameter `Λ = β * ωmax`.
 """
-Λ(basis::DimensionlessBasis) = basis.kernel.Λ
+getΛ(basis::DimensionlessBasis) = basis.kernel.Λ
 
 function Base.getindex(basis::DimensionlessBasis, i)
     sve_result = basis.u[i], basis.s[i], basis.v[i]
-    return DimensionlessBasis(
-        getstatistics(basis), Λ(basis); kernel=basis.kernel, sve_result
-    )
+    return DimensionlessBasis(getstatistics(basis), getΛ(basis);
+                              kernel=basis.kernel, sve_result)
 end
 
 """
@@ -130,9 +127,10 @@ This basis is inferred from a reduced form by appropriate scaling of
 the variables.
 
 # Examples
+
 The following example code assumes the spectral function is a single
-pole at `ω = 2.5`. We first compute an IR basis suitable for fermions 
-and `β = 10`, `W ≤ 4.2`. Then we get G(iw) on the first few Matsubara 
+pole at `ω = 2.5`. We first compute an IR basis suitable for fermions
+and `β = 10`, `W ≤ 4.2`. Then we get G(iw) on the first few Matsubara
 frequencies:
 
 ```jldoctest
@@ -149,66 +147,59 @@ julia> giw = transpose(basis.uhat([1, 3, 5, 7])) * gl
 ```
 
 # Fields
-- `u::PiecewiseLegendrePolyVector`:
-  Set of IR basis functions on the imaginary time (`tau`) axis.
-  These functions are stored as piecewise Legendre polynomials.
 
-  To obtain the value of all basis functions at a point or a array of
-  points `x`, you can call the function `u(x)`.  To obtain a single
-  basis function, a slice or a subset `l`, you can use `u[l]`.
+  - `u::PiecewiseLegendrePolyVector`:
+    Set of IR basis functions on the imaginary time (`tau`) axis.
+    These functions are stored as piecewise Legendre polynomials.
+    
+    To obtain the value of all basis functions at a point or a array of
+    points `x`, you can call the function `u(x)`.  To obtain a single
+    basis function, a slice or a subset `l`, you can use `u[l]`.
 
-- `uhat::PiecewiseLegendreFT`:
-  Set of IR basis functions on the Matsubara frequency (`wn`) axis.
-  These objects are stored as a set of Bessel functions.
-
-  To obtain the value of all basis functions at a Matsubara frequency
-  or a array of points `wn`, you can call the function `uhat(wn)`.
-  Note that we expect reduced frequencies, which are simply even/odd
-  numbers for bosonic/fermionic objects. To obtain a single basis
-  function, a slice or a subset `l`, you can use `uhat[l]`.
-
-- `s`: Vector of singular values of the continuation kernel
-
-- `v::PiecewiseLegendrePoly`:
-  Set of IR basis functions on the real frequency (`w`) axis.
-  These functions are stored as piecewise Legendre polynomials.
-
-  To obtain the value of all basis functions at a point or a array of
-  points `w`, you can call the function `v(w)`.  To obtain a single
-  basis function, a slice or a subset `l`, you can use `v[l]`.
+  - `uhat::PiecewiseLegendreFT`:
+    Set of IR basis functions on the Matsubara frequency (`wn`) axis.
+    These objects are stored as a set of Bessel functions.
+    
+    To obtain the value of all basis functions at a Matsubara frequency
+    or a array of points `wn`, you can call the function `uhat(wn)`.
+    Note that we expect reduced frequencies, which are simply even/odd
+    numbers for bosonic/fermionic objects. To obtain a single basis
+    function, a slice or a subset `l`, you can use `uhat[l]`.
+  - `s`: Vector of singular values of the continuation kernel
+  - `v::PiecewiseLegendrePoly`:
+    Set of IR basis functions on the real frequency (`w`) axis.
+    These functions are stored as piecewise Legendre polynomials.
+    
+    To obtain the value of all basis functions at a point or a array of
+    points `w`, you can call the function `v(w)`.  To obtain a single
+    basis function, a slice or a subset `l`, you can use `v[l]`.
 """
 struct FiniteTempBasis{K,T,S} <: AbstractBasis
-    kernel::K
-    sve_result::Tuple{
-        PiecewiseLegendrePolyVector{T},Vector{T},PiecewiseLegendrePolyVector{T}
-    }
-    statistics::S
-    β::T
-    u::PiecewiseLegendrePolyVector{T}
-    v::PiecewiseLegendrePolyVector{T}
-    s::Vector{T}
-    uhat::PiecewiseLegendreFTVector{T,S}
+    kernel     :: K
+    sve_result :: Tuple{PiecewiseLegendrePolyVector{T},Vector{T},PiecewiseLegendrePolyVector{T}}
+    statistics :: S
+    β          :: T
+    u          :: PiecewiseLegendrePolyVector{T}
+    v          :: PiecewiseLegendrePolyVector{T}
+    s          :: Vector{T}
+    uhat       :: PiecewiseLegendreFTVector{T,S}
 end
 
 const _DEFAULT_FINITE_TEMP_BASIS = FiniteTempBasis{LogisticKernel,Float64}
 
 function Base.show(io::IO, a::FiniteTempBasis{K,T}) where {K,T}
-    return print(
-        io, "FiniteTempBasis{$K, $T}($(getstatistics(a)), $(getbeta(a)), $(getwmax(a)))"
-    )
+    print(io, "FiniteTempBasis{$K, $T}($(getstatistics(a)), $(getbeta(a)), $(getwmax(a)))")
 end
 
 """
     FiniteTempBasis(statistics, β, wmax, ε=nothing; 
-        kernel=LogisticKernel(β * wmax), sve_result=compute_sve(kernel; ε))
+                    kernel=LogisticKernel(β * wmax), sve_result=compute_sve(kernel; ε))
 
-Construct a finite temperature basis suitable for the given `statistics` and 
+Construct a finite temperature basis suitable for the given `statistics` and
 cutoffs `β` and `wmax`.
 """
-function FiniteTempBasis(
-    statistics::Statistics, β, wmax, ε=nothing;
-    kernel=LogisticKernel(β * wmax), sve_result=compute_sve(kernel; ε),
-)
+function FiniteTempBasis(statistics::Statistics, β::Number, wmax::Number, ε=nothing;
+                         kernel=LogisticKernel(β * wmax), sve_result=compute_sve(kernel; ε))
     β > 0 || throw(DomainError(β, "Inverse temperature β must be positive"))
     wmax ≥ 0 || throw(DomainError(wmax, "Frequency cutoff wmax must be non-negative"))
 
@@ -251,10 +242,8 @@ iswellconditioned(::FiniteTempBasis) = true
 function Base.getindex(basis::FiniteTempBasis, i)
     u, s, v = basis.sve_result
     sve_result = u[i], s[i], v[i]
-    return FiniteTempBasis(
-        getstatistics(basis), getbeta(basis), getwmax(basis); kernel=basis.kernel,
-        sve_result,
-    )
+    return FiniteTempBasis(getstatistics(basis), getbeta(basis), getwmax(basis);
+                           kernel=basis.kernel, sve_result)
 end
 
 """
@@ -267,13 +256,11 @@ getwmax(basis::FiniteTempBasis) = basis.kernel.Λ / getbeta(basis)
 """
     finite_temp_bases(β, wmax, ε, sve_result=compute_sve(LogisticKernel(β * wmax); ε))
 
-Construct `FiniteTempBasis` objects for fermion and bosons using the same 
+Construct `FiniteTempBasis` objects for fermion and bosons using the same
 `LogisticKernel` instance.
 """
-function finite_temp_bases(
-    β::AbstractFloat, wmax::AbstractFloat, ε,
-    sve_result=compute_sve(LogisticKernel(β * wmax); ε),
-)
+function finite_temp_bases(β::AbstractFloat, wmax::AbstractFloat, ε,
+                           sve_result=compute_sve(LogisticKernel(β * wmax); ε))
     basis_f = FiniteTempBasis(fermion, β, wmax, ε; sve_result)
     basis_b = FiniteTempBasis(boson, β, wmax, ε; sve_result)
     return basis_f, basis_b
@@ -284,7 +271,7 @@ end
 
 Default sampling points on the imaginary time/`x` axis.
 """
-default_tau_sampling_points(basis::AbstractBasis) = _default_sampling_points(basis.u)
+default_tau_sampling_points(basis::AbstractBasis) = default_sampling_points(basis.u)
 
 """
     default_matsubara_sampling_points(basis; mitigate=true)
@@ -292,7 +279,7 @@ default_tau_sampling_points(basis::AbstractBasis) = _default_sampling_points(bas
 Default sampling points on the imaginary frequency axis.
 """
 function default_matsubara_sampling_points(basis::AbstractBasis; mitigate=true)
-    return _default_matsubara_sampling_points(basis.uhat, mitigate)
+    return default_matsubara_sampling_points(basis.uhat, mitigate)
 end
 
 """
@@ -300,9 +287,9 @@ end
 
 Default sampling points on the real-frequency axis.
 """
-default_omega_sampling_points(basis::AbstractBasis) = _default_sampling_points(basis.v)
+default_omega_sampling_points(basis::AbstractBasis) = default_sampling_points(basis.v)
 
-function _default_sampling_points(u)
+function default_sampling_points(u)
     poly = last(u)
     maxima = roots(deriv(poly))
     left = (first(maxima) + poly.xmin) / 2
@@ -310,7 +297,7 @@ function _default_sampling_points(u)
     return [left; maxima; right]
 end
 
-function _default_matsubara_sampling_points(uhat, mitigate=true)
+function default_matsubara_sampling_points(uhat::PiecewiseLegendreFTVector, mitigate=true)
     # Use the (discrete) extrema of the corresponding highest-order basis
     # function in Matsubara.  This turns out to be close to optimal with
     # respect to conditioning for this size (within a few percent).
@@ -344,7 +331,7 @@ function _default_matsubara_sampling_points(uhat, mitigate=true)
     return wn
 end
 
-function _get_kernel(Λ, kernel)
+function getkernel(Λ, kernel)
     if isnothing(kernel)
         kernel = LogisticKernel(Λ)
     elseif kernel.Λ ≉ Λ

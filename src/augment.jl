@@ -15,19 +15,15 @@ where c_l are additional l-dependent constant factors.
 By default, we take c_l = 1, which reduces to the original definition.
 """
 struct LegendreBasis{T<:AbstractFloat,S<:Statistics} <: AbstractBasis
-    statistics::S
-    β::Float64
-    cl::Vector{T}
-    u::PiecewiseLegendrePolyVector{T}
-    uhat::PiecewiseLegendreFTVector{T,S}
+    statistics :: S
+    β          :: Float64
+    cl         :: Vector{T}
+    u          :: PiecewiseLegendrePolyVector{T}
+    uhat       :: PiecewiseLegendreFTVector{T,S}
 end
 
-function LegendreBasis(
-    statistics::Statistics,
-    beta::Float64,
-    size::Int;
-    cl::Vector{Float64}=ones(Float64, size),
-)
+function LegendreBasis(statistics::Statistics, beta::Float64, size::Int;
+                       cl::Vector{Float64}=ones(Float64, size))
     beta > 0 || throw(DomainError(beta, "inverse temperature beta must be positive"))
     size > 0 || throw(DomainError(size, "size of basis must be positive"))
 
@@ -63,21 +59,21 @@ function default_tau_sampling_points(basis::LegendreBasis)
 end
 
 struct _ConstTerm{T<:Number,S<:Statistics}
-    statistics::S
-    value::T
+    statistics :: S
+    value      :: T
 end
 
 (ct::_ConstTerm{T,S})(::MatsubaraFreq{S}) where {T,S} = ct.value
-(ct::_ConstTerm)(n::Integer) = ct(MatsubaraFreq(n))
-(ct::_ConstTerm)(n::AbstractArray) = ct.(n)
+(ct::_ConstTerm)(n::Integer)                          = ct(MatsubaraFreq(n))
+(ct::_ConstTerm)(n::AbstractArray)                    = ct.(n)
 
 """
 Constant term in matsubara-frequency domain
 """
 struct MatsubaraConstBasis{T<:AbstractFloat,S<:Statistics} <: AbstractBasis
-    statistics::S
-    β::Float64
-    uhat::_ConstTerm{T,S}
+    statistics :: S
+    β          :: Float64
+    uhat       :: _ConstTerm{T,S}
 end
 
 function MatsubaraConstBasis(statistics::Statistics, beta::Float64; value=1)

@@ -37,7 +37,7 @@ using MultiFloats
         U, S, V = SparseIR._LinAlg.tsvd(A; rtol=tol)
         k = length(S)
 
-        @test U * Diagonal(S) * V' ≈ A rtol = 0 atol = tol * norm(A)
+        @test U * Diagonal(S) * V'≈A rtol=0 atol=tol * norm(A)
         @test U'U ≈ I
         @test V'V ≈ I
         @test issorted(S; rev=true)

@@ -82,13 +82,13 @@ Discretization hints for singular value expansion of a given kernel.
 abstract type AbstractSVEHints end
 
 struct SVEHintsLogistic{T} <: AbstractSVEHints
-    kernel::LogisticKernel
-    ε::T
+    kernel :: LogisticKernel
+    ε      :: T
 end
 
 struct SVEHintsRegularizedBose{T} <: AbstractSVEHints
-    kernel::RegularizedBoseKernel
-    ε::T
+    kernel :: RegularizedBoseKernel
+    ε      :: T
 end
 
 struct SVEHintsReduced{T<:AbstractSVEHints} <: AbstractSVEHints
@@ -115,8 +115,8 @@ This kernel is what this type represents. The full singular functions can be
 reconstructed by (anti-)symmetrically continuing them to the negative axis.
 """
 struct ReducedKernel{K<:AbstractKernel} <: AbstractReducedKernel
-    inner::K
-    sign::Int
+    inner :: K
+    sign  :: Int
 end
 
 @doc raw"""
@@ -131,8 +131,8 @@ integral kernel is a function on ``[-1, 1] × [-1, 1]``:
 ```
 """
 struct LogisticKernelOdd <: AbstractReducedKernel
-    inner::LogisticKernel
-    sign::Int
+    inner :: LogisticKernel
+    sign  :: Int
 
     function LogisticKernelOdd(inner::LogisticKernel, sign)
         iscentrosymmetric(inner) || error("inner kernel must be centrosymmetric")
@@ -153,8 +153,8 @@ integral kernel is a function on ``[-1, 1] × [-1, 1]``:
 ```
 """
 struct RegularizedBoseKernelOdd <: AbstractReducedKernel
-    inner::RegularizedBoseKernel
-    sign::Int
+    inner :: RegularizedBoseKernel
+    sign  :: Int
 
     function RegularizedBoseKernelOdd(inner::RegularizedBoseKernel, sign)
         iscentrosymmetric(inner) || error("inner kernel must be centrosymmetric")
@@ -169,7 +169,8 @@ end
 Return a tuple ``(x_\mathrm{min}, x_\mathrm{max})`` delimiting the range of allowed `x`
 values.
 """
-xrange(::AbstractKernel) = (-1, 1)
+function xrange end
+xrange(::AbstractKernel)              = (-1, 1)
 xrange(kernel::AbstractReducedKernel) = (0, last(xrange(kernel.inner)))
 
 @doc raw"""
@@ -178,7 +179,8 @@ xrange(kernel::AbstractReducedKernel) = (0, last(xrange(kernel.inner)))
 Return a tuple ``(y_\mathrm{min}, y_\mathrm{max})`` delimiting the range of allowed `y`
 values.
 """
-yrange(::AbstractKernel) = (-1, 1)
+function yrange end
+yrange(::AbstractKernel)              = (-1, 1)
 yrange(kernel::AbstractReducedKernel) = (0, last(yrange(kernel.inner)))
 
 function compute(::LogisticKernel, u₊, u₋, v)
@@ -191,7 +193,7 @@ function compute(::LogisticKernel, u₊, u₋, v)
     # We need to use the upper equation for v ≥ 0 and the lower one for
     # v < 0 to avoid overflowing both numerator and denominator
 
-    enum = exp(-abs(v) * (v ≥ 0 ? u₊ : u₋))
+    enum  = exp(-abs(v) * (v ≥ 0 ? u₊ : u₋))
     denom = 1 + exp(-abs(v))
     return enum / denom
 end
@@ -283,9 +285,8 @@ function matrix_from_gauss(kernel, gauss_x, gauss_y)
     # (1 ± x) is problematic around x = -1 and x = 1, where the quadrature
     # nodes are clustered most tightly. Thus we have the need for the
     # matrix method.
-    return @inbounds kernel.(
-        gauss_x.x, transpose(gauss_y.x), gauss_x.x_forward, gauss_x.x_backward
-    )
+    return @inbounds kernel.(gauss_x.x, transpose(gauss_y.x),
+                             gauss_x.x_forward, gauss_x.x_backward)
 end
 
 """
@@ -293,7 +294,7 @@ end
 
 Check that `(x, y)` lies within `kernel`'s domain and return it.
 """
-function check_domain(kernel, x, y)
+@inline function check_domain(kernel, x, y)
     xmin, xmax = xrange(kernel)
     xmin ≤ x ≤ xmax || throw(DomainError(x, "x value not in range [$xmin, $xmax]"))
 
@@ -316,7 +317,7 @@ end
 Construct a symmetrized version of `kernel`, i.e. `kernel(x, y) + sign * kernel(x, -y)`.
 
 !!! warning "Beware!"
-
+    
     By default, this returns a simple wrapper over the current instance which naively
     performs the sum. You may want to override this to avoid cancellation.
 """
@@ -352,12 +353,13 @@ end
 """
     is_centrosymmetric(kernel)
 
-Return `true` if `kernel(x, y) == kernel(-x, -y)` for all values of `x` and `y` 
-in range. This allows the kernel to be block-diagonalized, speeding up the singular 
+Return `true` if `kernel(x, y) == kernel(-x, -y)` for all values of `x` and `y`
+in range. This allows the kernel to be block-diagonalized, speeding up the singular
 value expansion by a factor of 4. Defaults to `false`.
 """
-iscentrosymmetric(::AbstractKernel) = false
-iscentrosymmetric(::LogisticKernel) = true
+function iscentrosymmetric end
+iscentrosymmetric(::AbstractKernel)        = false
+iscentrosymmetric(::LogisticKernel)        = true
 iscentrosymmetric(::RegularizedBoseKernel) = true
 iscentrosymmetric(::AbstractReducedKernel) = false
 
@@ -366,43 +368,43 @@ iscentrosymmetric(::AbstractReducedKernel) = false
 
 Evaluate `kernel` at point `(x, y)`.
 
-The parameters `x₊` and `x₋`, if given, shall contain the values of `x - xₘᵢₙ` and 
-`xₘₐₓ - x`, respectively. This is useful if either difference is to be formed and 
+The parameters `x₊` and `x₋`, if given, shall contain the values of `x - xₘᵢₙ` and
+`xₘₐₓ - x`, respectively. This is useful if either difference is to be formed and
 cancellation expected.
 """
-function (kernel::AbstractKernel)(
-    x, y, x₊=x - first(xrange(kernel)), x₋=last(xrange(kernel)) - x
-)
+function (kernel::AbstractKernel)(x, y,
+                                  x₊=x - first(xrange(kernel)),
+                                  x₋=last(xrange(kernel)) - x)
     @boundscheck x, y = check_domain(kernel, x, y)
     u₊, u₋, v = compute_uv(kernel.Λ, x, y, x₊, x₋)
     return compute(kernel, u₊, u₋, v)
 end
 
-function (kernel::LogisticKernelOdd)(
-    x, y, x₊=x - first(xrange(kernel)), x₋=last(xrange(kernel)) - x
-)
+function (kernel::LogisticKernelOdd)(x, y,
+                                     x₊=x - first(xrange(kernel)),
+                                     x₋=last(xrange(kernel)) - x)
     result = callreduced(kernel, x, y, x₊, x₋)
 
     # For x * y around 0, antisymmetrization introduces cancellation, which
     # reduces the relative precision. To combat this, we replace the
     # values with the explicit form
-    v_half = kernel.inner.Λ / 2 * y
-    xy_small = x * v_half < 1
+    v_half      = kernel.inner.Λ / 2 * y
+    xy_small    = x * v_half < 1
     cosh_finite = v_half < 85
     return (xy_small && cosh_finite) ? -sinh(v_half * x) / cosh(v_half) : result
 end
 
-function (kernel::RegularizedBoseKernelOdd)(
-    x, y, x₊=x - first(xrange(kernel)), x₋=last(xrange(kernel)) - x
-)
+function (kernel::RegularizedBoseKernelOdd)(x, y,
+                                            x₊=x - first(xrange(kernel)),
+                                            x₋=last(xrange(kernel)) - x)
     result = callreduced(kernel, x, y, x₊, x₋)
 
     # For x * y around 0, antisymmetrization introduces cancellation, which
     # reduces the relative precision.  To combat this, we replace the
     # values with the explicit form
-    v_half = kernel.inner.Λ / 2 * y
-    xv_half = x * v_half
-    xy_small = xv_half < 1
+    v_half     = kernel.inner.Λ / 2 * y
+    xv_half    = x * v_half
+    xy_small   = xv_half < 1
     sinh_range = 1e-200 < v_half < 85
     return xy_small && sinh_range ? -y * sinh(xv_half) / sinh(v_half) : result
 end
@@ -430,8 +432,7 @@ tranforming the (infinite) SVE into an (finite) SVD problem.
 See also [`AbstractSVEHints`](@ref).
 """
 function sve_hints end
-
-sve_hints(kernel::LogisticKernel, ε) = SVEHintsLogistic(kernel, ε)
+sve_hints(kernel::LogisticKernel, ε)        = SVEHintsLogistic(kernel, ε)
 sve_hints(kernel::RegularizedBoseKernel, ε) = SVEHintsRegularizedBose(kernel, ε)
 sve_hints(kernel::AbstractReducedKernel, ε) = SVEHintsReduced(sve_hints(kernel.inner, ε))
 
@@ -443,7 +444,6 @@ Upper bound for number of singular values.
 Upper bound on the number of singular values above the given threshold, i.e. where
 `s[l] ≥ ε * first(s)`.
 """
-function nsvals end
 function nsvals(hints::SVEHintsLogistic)
     log10_Λ = max(1, log10(hints.kernel.Λ))
     return round(Int, (25 + log10_Λ) * log10_Λ)
@@ -461,17 +461,19 @@ end
 
 Gauss-Legendre order to use to guarantee accuracy.
 """
-ngauss(hints::SVEHintsLogistic) = hints.ε ≥ 1e-8 ? 10 : 16
+function ngauss end
+ngauss(hints::SVEHintsLogistic)        = hints.ε ≥ 1e-8 ? 10 : 16
 ngauss(hints::SVEHintsRegularizedBose) = hints.ε ≥ 1e-8 ? 10 : 16
-ngauss(hints::SVEHintsReduced) = ngauss(hints.inner_hints)
+ngauss(hints::SVEHintsReduced)         = ngauss(hints.inner_hints)
 
 """
     ypower(kernel)
 
 Power with which the ``y`` coordinate scales.
 """
-ypower(::AbstractKernel) = 0
-ypower(::RegularizedBoseKernel) = 1
+function ypower end
+ypower(::AbstractKernel)              = 0
+ypower(::RegularizedBoseKernel)       = 1
 ypower(kernel::AbstractReducedKernel) = ypower(kernel.inner)
 
 """
@@ -481,11 +483,12 @@ Convergence radius of the Matsubara basis asymptotic model.
 
 For improved relative numerical accuracy, the IR basis functions on the
 Matsubara axis `uhat(basis, n)` can be evaluated from an asymptotic
-expression for `abs(n) > conv_radius`.  If `isinf(conv_radius)`, then 
+expression for `abs(n) > conv_radius`.  If `isinf(conv_radius)`, then
 the asymptotics are unused (the default).
 """
-conv_radius(::AbstractKernel) = Inf
-conv_radius(kernel::LogisticKernel) = 40 * kernel.Λ
+function conv_radius end
+conv_radius(::AbstractKernel)              = Inf
+conv_radius(kernel::LogisticKernel)        = 40 * kernel.Λ
 conv_radius(kernel::RegularizedBoseKernel) = 40 * kernel.Λ
 conv_radius(kernel::AbstractReducedKernel) = conv_radius(kernel.inner)
 
@@ -494,10 +497,9 @@ conv_radius(kernel::AbstractReducedKernel) = conv_radius(kernel.inner)
 
 Return the weight function for the given statistics.
 """
-weight_func(::AbstractKernel, ::Statistics) = one
-
-weight_func(::LogisticKernel, ::Fermionic) = one
-weight_func(kernel::LogisticKernel, ::Bosonic) = y -> 1 / tanh(0.5 * kernel.Λ * y)
-
+function weight_func end
+weight_func(::AbstractKernel, ::Statistics)       = one
+weight_func(::LogisticKernel, ::Fermionic)        = one
+weight_func(kernel::LogisticKernel, ::Bosonic)    = y -> 1 / tanh(0.5 * kernel.Λ * y)
 weight_func(::RegularizedBoseKernel, ::Fermionic) = error("Kernel is designed for bosonic functions")
-weight_func(::RegularizedBoseKernel, ::Bosonic) = inv
+weight_func(::RegularizedBoseKernel, ::Bosonic)   = inv

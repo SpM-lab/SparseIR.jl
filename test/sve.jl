@@ -3,7 +3,7 @@ using SparseIR
 
 include("__conftest.jl")
 
-function _check_smooth(u, s, uscale, fudge_factor)
+function check_smooth(u, s, uscale, fudge_factor)
     ε = eps(eltype(s))
     x = u.knots[(begin + 1):(end - 1)]
 
@@ -21,8 +21,8 @@ end
 @testset "sve.jl" begin
     @testset "smooth with Λ = $Λ" for Λ in (10, 42, 10_000)
         basis = DimensionlessBasis(fermion, Λ; sve_result=sve_logistic[Λ])
-        _check_smooth(basis.u, basis.s, 2 * maximum(basis.u(1)), 24)
-        _check_smooth(basis.v, basis.s, 50, 20)
+        check_smooth(basis.u, basis.s, 2 * maximum(basis.u(1)), 24)
+        check_smooth(basis.v, basis.s, 50, 20)
     end
 
     @testset "num roots u with Λ = $Λ" for Λ in (10, 42, 10_000)
@@ -34,7 +34,7 @@ end
     end
 
     @testset "num roots û with stat = $stat, Λ = $Λ" for stat in (fermion, boson),
-        Λ in (10, 42, 10_000)
+                                                          Λ in (10, 42, 10_000)
 
         basis = DimensionlessBasis(stat, Λ; sve_result=sve_logistic[Λ])
         for i in [1, 2, 8, 11]

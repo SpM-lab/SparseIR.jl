@@ -11,13 +11,12 @@ where we generally have superexponential convergence for smooth ``f(x)`` in
 the number of quadrature points.
 """
 struct Rule{T}
-    x::Vector{T}
-    w::Vector{T}
-    a::T
-    b::T
-
-    x_forward::Vector{T}
-    x_backward::Vector{T}
+    x          :: Vector{T}
+    w          :: Vector{T}
+    a          :: T
+    b          :: T
+    x_forward  :: Vector{T}
+    x_backward :: Vector{T}
 
     function Rule(x, w, a=-1, b=1, x_forward=x .- a, x_backward=b .- x)
         a ≤ b || error("a must be ≤ b")
@@ -35,9 +34,7 @@ end
 
 Approximate `f`'s integral.
 """
-function quadrature(rule, f)
-    return sum(rule.w .* f.(rule.x))
-end
+quadrature(rule, f) = sum(rule.w .* f.(rule.x))
 
 """
     reseat(rule, a, b)
@@ -69,7 +66,7 @@ Piecewise quadrature with the same quadrature rule, but scaled.
 """
 function piecewise(rule, edges::Vector)
     start = edges[begin:(end - 1)]
-    stop = edges[(begin + 1):end]
+    stop  = edges[(begin + 1):end]
     issorted(edges) || error("edges must be monotonically increasing")
     return joinrules([reseat(rule, a, b) for (a, b) in zip(start, stop)])
 end
@@ -89,7 +86,7 @@ function joinrules(rules::AbstractVector{Rule{T}}) where {T<:AbstractFloat}
     a = first(rules).a
     b = last(rules).b
 
-    x_forward = reduce(vcat, rule.x_forward .+ (rule.a - a) for rule in rules)
+    x_forward  = reduce(vcat, rule.x_forward .+ (rule.a - a) for rule in rules)
     x_backward = reduce(vcat, rule.x_backward .+ (b - rule.b) for rule in rules)
 
     return Rule(x, w, a, b, x_forward, x_backward)
@@ -116,11 +113,8 @@ function legendre_collocation(rule, n=length(rule.x))
 end
 
 function Base.convert(::Type{Rule{T}}, rule::Rule) where {T}
-    return Rule(
-        T.(rule.x), T.(rule.w),
-        T(rule.a), T(rule.b),
-        T.(rule.x_forward), T.(rule.x_backward),
-    )
+    return Rule(T.(rule.x), T.(rule.w), T(rule.a), T(rule.b),
+                T.(rule.x_forward), T.(rule.x_backward))
 end
 
 """
@@ -129,8 +123,8 @@ end
 Nested quadrature rule.
 """
 struct NestedRule{T}
-    rule::Rule{T}
-    v::Vector{T}
+    rule :: Rule{T}
+    v    :: Vector{T}
 end
 
 function reseat(nrule::NestedRule, a, b)

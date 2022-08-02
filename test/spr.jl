@@ -3,9 +3,8 @@
         beta = 10_000
         wmax = 1.0
         eps = 1e-12
-        basis = FiniteTempBasis(
-            stat, float(beta), wmax, eps; sve_result=sve_logistic[(beta, eps)]
-        )
+        basis = FiniteTempBasis(stat, float(beta), wmax, eps;
+                                sve_result=sve_logistic[(beta, eps)])
         spr = SparsePoleRepresentation(basis)
 
         Random.seed!(4711)

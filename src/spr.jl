@@ -1,7 +1,7 @@
 struct MatsubaraPoleBasis{S<:Statistics} <: AbstractBasis
-    β::Float64
-    statistics::S
-    poles::Vector{Float64}
+    β          :: Float64
+    statistics :: S
+    poles      :: Vector{Float64}
 end
 
 # FIXME: only works for vectors
@@ -18,10 +18,10 @@ end
 (basis::MatsubaraPoleBasis)(n::AbstractVector{<:Integer}) = basis(MatsubaraFreq.(n))
 
 struct TauPoleBasis{S<:Statistics} <: AbstractBasis
-    β::Float64
-    poles::Vector{Float64}
-    statistics::S
-    wmax::Float64
+    β          :: Float64
+    poles      :: Vector{Float64}
+    statistics :: S
+    wmax       :: Float64
 end
 
 getwmax(basis::TauPoleBasis) = basis.wmax
@@ -44,29 +44,27 @@ end
 Sparse pole representation
 """
 struct SparsePoleRepresentation{T<:AbstractFloat,S<:Statistics} <: AbstractBasis
-    basis::AbstractBasis
-    poles::Vector{T}
-    u::TauPoleBasis
-    uhat::MatsubaraPoleBasis
-    statistics::S
-    fitmat::Matrix{Float64}
-    matrix::SVD
+    basis      :: AbstractBasis
+    poles      :: Vector{T}
+    u          :: TauPoleBasis
+    uhat       :: MatsubaraPoleBasis
+    statistics :: S
+    fitmat     :: Matrix{Float64}
+    matrix     :: SVD
 end
 
 function Base.show(io::IO, obj::SparsePoleRepresentation{T}) where {T<:AbstractFloat}
     return print(io, "SparsePoleRepresentation for $(obj.basis) with poles at $(obj.poles)")
 end
 
-function SparsePoleRepresentation(
-    basis::AbstractBasis, poles=default_omega_sampling_points(basis)
-)
+function SparsePoleRepresentation(basis::AbstractBasis,
+                                  poles=default_omega_sampling_points(basis))
     u = TauPoleBasis(getbeta(basis), getstatistics(basis), poles)
     uhat = MatsubaraPoleBasis(getbeta(basis), getstatistics(basis), poles)
     fitmat = -basis.s .* basis.v(poles)
     matrix = svd(fitmat)
-    return SparsePoleRepresentation(
-        basis, poles, u, uhat, getstatistics(basis), fitmat, matrix
-    )
+    return SparsePoleRepresentation(basis, poles, u, uhat, getstatistics(basis), fitmat,
+                                    matrix)
 end
 
 getbeta(obj::SparsePoleRepresentation) = getbeta(obj.basis)
@@ -93,7 +91,7 @@ iswellconditioned(::SparsePoleRepresentation) = false
 From IR to SPR
 
 gl:
-    Expansion coefficients in IR
+Expansion coefficients in IR
 """
 function from_IR(spr::SparsePoleRepresentation, gl::AbstractArray, dims=1)
     return mapslices(sl -> spr.matrix \ sl, gl; dims)
@@ -103,7 +101,7 @@ end
 From SPR to IR
 
 g_spr:
-    Expansion coefficients in SPR
+Expansion coefficients in SPR
 """
 function to_IR(spr::SparsePoleRepresentation, g_spr::AbstractArray, dims=1)
     return mapslices(sl -> spr.fitmat * sl, g_spr; dims)
