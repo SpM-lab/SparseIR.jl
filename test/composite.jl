@@ -7,6 +7,7 @@ using SparseIR
         wmax = 2.0
         β = 1e3
         ϵ = 1e-6
+
         basis = FiniteTempBasis(stat, β, wmax, ϵ)
         basis_legg = LegendreBasis(stat, β, 2)
         basis_comp = CompositeBasis([basis_legg, basis])
@@ -22,7 +23,7 @@ using SparseIR
         @test isapprox(gτ, gτ_reconst; atol=1e-14 * maximum(abs, gτ), rtol=0)
 
         sgn = SparseIR.significance(basis_comp)
-        @test issorted(reverse(sgn))
+        @test issorted(sgn; rev=true)
         @test all(<=(1), sgn)
         @test all(>=(ϵ), sgn)
     end

@@ -86,4 +86,4 @@ end
 
 Base.size(::MatsubaraConstBasis) = (1,)
 
-significance(::MatsubaraConstBasis) = (1,)
+significance(::MatsubaraConstBasis) = [1.0]

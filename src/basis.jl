@@ -54,7 +54,7 @@ julia> giw = transpose(basis.uhat([1, 3, 5, 7])) * gl
   - `u::PiecewiseLegendrePolyVector`: Set of IR basis functions on the reduced
     imaginary time (`x`) axis. These functions are stored as piecewise Legendre
     polynomials.
-
+    
     To obtain the value of all basis functions at a point or a array of
     points `x`, you can call the function `u(x)`.  To obtain a single
     basis function, a slice or a subset `l`, you can use `u[l]`.
@@ -62,7 +62,7 @@ julia> giw = transpose(basis.uhat([1, 3, 5, 7])) * gl
   - `uhat::PiecewiseLegendreFTVector`: Set of IR basis functions on the Matsubara
     frequency (`wn`) axis.
     These objects are stored as a set of Bessel functions.
-
+    
     To obtain the value of all basis functions at a Matsubara frequency
     or a array of points `wn`, you can call the function `uhat(wn)`.
     Note that we expect reduced frequencies, which are simply even/odd
@@ -72,7 +72,7 @@ julia> giw = transpose(basis.uhat([1, 3, 5, 7])) * gl
   - `v::PiecewiseLegendrePolyVector`: Set of IR basis functions on the reduced
     real frequency (`y`) axis.
     These functions are stored as piecewise Legendre polynomials.
-
+    
     To obtain the value of all basis functions at a point or a array of
     points `y`, you can call the function `v(y)`.  To obtain a single
     basis function, a slice or a subset `l`, you can use `v[l]`.
@@ -125,7 +125,6 @@ end
 
 significance(basis::DimensionlessBasis) = basis.s ./ first(basis.s)
 
-
 """
     FiniteTempBasis <: AbstractBasis
 
@@ -165,7 +164,7 @@ julia> giw = transpose(basis.uhat([1, 3, 5, 7])) * gl
   - `u::PiecewiseLegendrePolyVector`:
     Set of IR basis functions on the imaginary time (`tau`) axis.
     These functions are stored as piecewise Legendre polynomials.
-
+    
     To obtain the value of all basis functions at a point or a array of
     points `x`, you can call the function `u(x)`.  To obtain a single
     basis function, a slice or a subset `l`, you can use `u[l]`.
@@ -173,7 +172,7 @@ julia> giw = transpose(basis.uhat([1, 3, 5, 7])) * gl
   - `uhat::PiecewiseLegendreFT`:
     Set of IR basis functions on the Matsubara frequency (`wn`) axis.
     These objects are stored as a set of Bessel functions.
-
+    
     To obtain the value of all basis functions at a Matsubara frequency
     or a array of points `wn`, you can call the function `uhat(wn)`.
     Note that we expect reduced frequencies, which are simply even/odd
@@ -183,7 +182,7 @@ julia> giw = transpose(basis.uhat([1, 3, 5, 7])) * gl
   - `v::PiecewiseLegendrePoly`:
     Set of IR basis functions on the real frequency (`w`) axis.
     These functions are stored as piecewise Legendre polynomials.
-
+    
     To obtain the value of all basis functions at a point or a array of
     points `w`, you can call the function `v(w)`.  To obtain a single
     basis function, a slice or a subset `l`, you can use `v[l]`.
@@ -243,7 +242,6 @@ function FiniteTempBasis(statistics::Statistics, β::Number, wmax::Number, ε=no
 end
 
 significance(basis::FiniteTempBasis) = basis.s ./ first(basis.s)
-
 
 Base.firstindex(::AbstractBasis) = 1
 Base.length(basis::AbstractBasis) = length(basis.s)
