@@ -6,7 +6,8 @@ using SparseIR
     @testset "Augmented basis with stat = $stat" for stat in (fermion, boson)
         wmax = 2.0
         β = 1e3
-        basis = FiniteTempBasis(stat, β, wmax, 1e-6)
+        ϵ = 1e-6
+        basis = FiniteTempBasis(stat, β, wmax, ϵ)
         basis_legg = LegendreBasis(stat, β, 2)
         basis_comp = CompositeBasis([basis_legg, basis])
 
@@ -19,6 +20,11 @@ using SparseIR
 
         gτ_reconst = evaluate(τ_smpl, gl_from_τ)
         @test isapprox(gτ, gτ_reconst; atol=1e-14 * maximum(abs, gτ), rtol=0)
+
+        sgn = SparseIR.significance(basis_comp)
+        @test issorted(reverse(sgn))
+        @test all(<=(1), sgn)
+        @test all(>=(ϵ), sgn)
     end
 
 end
