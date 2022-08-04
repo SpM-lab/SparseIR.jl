@@ -51,6 +51,9 @@ function Base.getproperty(obj::LegendreBasis, d::Symbol)
     end
 end
 
+# TODO
+significance(basis::LegendreBasis) = ones(size(basis))
+
 iswellconditioned(basis::LegendreBasis) = true
 
 function default_tau_sampling_points(basis::LegendreBasis)
@@ -82,3 +85,5 @@ function MatsubaraConstBasis(statistics::Statistics, beta::Float64; value=1)
 end
 
 Base.size(::MatsubaraConstBasis) = (1,)
+
+significance(::MatsubaraConstBasis) = [1.0]

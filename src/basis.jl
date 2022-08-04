@@ -5,6 +5,17 @@ getbeta(basis::AbstractBasis)       = basis.β
 getstatistics(basis::AbstractBasis) = basis.statistics
 
 """
+    significance(basis::AbstractBasis)
+
+Return vector `σ`, where `0 ≤ σ[i] ≤ 1` is the significance level of the `i`-th
+basis function.  If `ϵ` is the desired accuracy to which to represent a
+propagator, then any basis function where `σ[i] < ϵ` can be neglected.
+
+For the IR basis, we simply have that `σ[i] = s[i] / first(s)`.
+"""
+function significance end
+
+"""
     DimensionlessBasis <: AbstractBasis
 
 Intermediate representation (IR) basis in reduced variables.
@@ -82,7 +93,7 @@ function Base.show(io::IO, a::DimensionlessBasis)
 end
 
 """
-    DimensionlessBasis(statistics, Λ, ε=nothing; 
+    DimensionlessBasis(statistics, Λ, ε=nothing;
                        kernel=LogisticKernel(Λ), sve_result=compute_sve(kernel; ε))
 
 Construct an IR basis suitable for the given `statistics` and cutoff `Λ`.
@@ -111,6 +122,8 @@ function Base.getindex(basis::DimensionlessBasis, i)
     return DimensionlessBasis(getstatistics(basis), getΛ(basis);
                               kernel=basis.kernel, sve_result)
 end
+
+significance(basis::DimensionlessBasis) = basis.s ./ first(basis.s)
 
 """
     FiniteTempBasis <: AbstractBasis
@@ -192,7 +205,7 @@ function Base.show(io::IO, a::FiniteTempBasis{K,T}) where {K,T}
 end
 
 """
-    FiniteTempBasis(statistics, β, wmax, ε=nothing; 
+    FiniteTempBasis(statistics, β, wmax, ε=nothing;
                     kernel=LogisticKernel(β * wmax), sve_result=compute_sve(kernel; ε))
 
 Construct a finite temperature basis suitable for the given `statistics` and
@@ -227,6 +240,8 @@ function FiniteTempBasis(statistics::Statistics, β::Number, wmax::Number, ε=no
 
     return FiniteTempBasis(kernel, sve_result, statistics, float(β), u_, v_, s_, û)
 end
+
+significance(basis::FiniteTempBasis) = basis.s ./ first(basis.s)
 
 Base.firstindex(::AbstractBasis) = 1
 Base.length(basis::AbstractBasis) = length(basis.s)

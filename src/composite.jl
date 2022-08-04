@@ -74,3 +74,5 @@ function default_matsubara_sampling_points(basis::CompositeBasis; mitigate=true)
     return sort!(unique!(mapreduce(b -> default_matsubara_sampling_points(b; mitigate),
                                    vcat, basis.bases)))
 end
+
+significance(self::CompositeBasis) = mapreduce(significance, vcat, self.bases)
