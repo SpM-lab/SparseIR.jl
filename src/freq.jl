@@ -122,6 +122,20 @@ Base.zero(::MatsubaraFreq)                      = MatsubaraFreq(0)
 Base.iszero(self::MatsubaraFreq)                = iszero(self.n)
 Base.isless(a::MatsubaraFreq, b::MatsubaraFreq) = isless(a.n, b.n)
 
+# This is to get rid of the weird "promotion failed to change any of the types"
+# errors you get when mixing frequencies and numbers.  These originate from the
+# `promote_rule(<:Number, <:Number) = Number` default, together with the fact
+# that `@(x::Number, y::Number) = @(promote(x,y)...)` for most operations.
+# Let's make this error more explicit instead.
+Base.promote_rule(::Type{<: MatsubaraFreq}, ::Type{<:MatsubaraFreq}) = MatsubaraFreq
+Base.promote_rule(::Type{T1}, ::Type{T2}) where {T1<:MatsubaraFreq, T2<:Number} =
+    throw(ArgumentError("""
+        Will not promote (automatically convert) $T2 and $T1.
+
+        You were probably mixing a number ($T2) and a Matsubara frequency ($T1)
+        in an additive or comparative expression, e.g., `MatsubaraFreq(0) + 1`.
+        We disallow this.  Please use `$T1(x)` explicitly."""))
+
 function Base.show(io::IO, self::MatsubaraFreq)
     if self.n == 0
         print(io, "0")

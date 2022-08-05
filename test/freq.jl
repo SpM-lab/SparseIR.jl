@@ -41,4 +41,9 @@ using SparseIR
         @test collect(BosonicFreq(0):BosonicFreq(4)) == (0:2:4) .* pioverbeta
         @test collect(FermionicFreq(-3):FermionicFreq(1)) == (-3:2:1) .* pioverbeta
     end
+
+    @testset "freqinvalid" begin
+        @test_throws ArgumentError BosonicFreq(2) == 2
+        @test_throws ArgumentError FermionicFreq(1) - 1
+    end
 end
