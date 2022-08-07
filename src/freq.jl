@@ -94,10 +94,7 @@ Int(a::MatsubaraFreq) = a.n
 """
 Get value of the Matsubara frequency `ω = n*π/β`
 """
-function value(a::MatsubaraFreq, beta::Real)
-    beta > 0 || throw(DomainError(beta, "beta must be positive"))
-    return a.n * (π / beta)
-end
+value(a::MatsubaraFreq, beta::Real) = Int(a) * (π / beta)
 
 """
 Get complex value of the Matsubara frequency `iω = iπ/β * n`

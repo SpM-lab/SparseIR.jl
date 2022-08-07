@@ -350,8 +350,8 @@ end
 end
 
 function discrete_extrema(f::Function, xgrid)
-    fx    = map(Float64 ∘ f, xgrid)
-    absfx = abs.(fx)
+    fx::Vector{Float64} = f.(xgrid)
+    absfx               = abs.(fx)
 
     # Forward differences: derivativesignchange[i] now means that the secant 
     # changes sign fx[i+1]. This means that the extremum is STRICTLY between 

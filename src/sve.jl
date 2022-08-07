@@ -299,7 +299,7 @@ Truncate singular value expansion.
     - `rtol`: Only singular values satisfying `s[l]/s[1] > rtol` are retained.
     - `lmax`: At most the `lmax` most significant singular values are retained.
 """
-function truncate(u, s, v, rtol=0, lmax=typemax(Int))
+function truncate(u, s, v, rtol=0.0, lmax=typemax(Int))
     lmax ≥ 0 || throw(DomainError(lmax, "lmax must be non-negative"))
     0 ≤ rtol ≤ 1 || throw(DomainError(rtol, "rtol must be in [0, 1]"))
 
