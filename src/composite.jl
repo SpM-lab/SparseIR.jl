@@ -37,8 +37,8 @@ Evaluate basis function at frequency n
 (obj::CompositeBasisFunctionFT)(x::AbstractVector{<:MatsubaraFreq}) =
     mapreduce(p -> p(x), vcat, obj.polys)
 
-(obj::CompositeBasisFunctionFT)(n::Integer)                 = obj(MatsubaraFreq(n))
-(obj::CompositeBasisFunctionFT)(n::AbstractVector{Integer}) = obj(MatsubaraFreq.(n))
+(obj::CompositeBasisFunctionFT)(n::Integer) = obj(MatsubaraFreq(n))
+(obj::CompositeBasisFunctionFT)(n::AbstractVector{<:Integer}) = obj(MatsubaraFreq.(n))
 
 
 struct CompositeBasis <: AbstractBasis
