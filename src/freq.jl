@@ -153,17 +153,19 @@ Dense grid of frequencies in an implicit representation
 struct FreqRange{A<:Statistics} <: OrdinalRange{MatsubaraFreq{A},BosonicFreq}
     start :: MatsubaraFreq{A}
     stop  :: MatsubaraFreq{A}
+    step  :: BosonicFreq
 
-    function FreqRange(start::MatsubaraFreq{A}, stop::MatsubaraFreq{A}) where {A}
+    function FreqRange(start::MatsubaraFreq{A}, stop::MatsubaraFreq{A}, step::BosonicFreq) where {A}
         if stop < start
-            stop = start - 2 * pioverbeta
+            stop = start - step
         end
-        return new{A}(start, stop)
+        return new{A}(start, stop, step)
     end
 end
 
 Base.first(self::FreqRange)                          = self.start
 Base.last(self::FreqRange)                           = self.stop
-Base.step(::FreqRange)                               = BosonicFreq(2)
-Base.length(self::FreqRange)                         = Integer(self.stop - self.start) ÷ 2 + 1
-Base.:(:)(start::MatsubaraFreq, stop::MatsubaraFreq) = FreqRange(start, stop)
+Base.step(self::FreqRange)                           = self.step
+Base.length(self::FreqRange)                         = Int(last(self) - first(self)) ÷ Int(step(self)) + 1
+Base.:(:)(start::MatsubaraFreq, stop::MatsubaraFreq) = start:BosonicFreq(2):stop
+Base.:(:)(start::MatsubaraFreq, step::BosonicFreq, stop::MatsubaraFreq) = FreqRange(start, stop, step)

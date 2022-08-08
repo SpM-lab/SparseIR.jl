@@ -39,6 +39,12 @@ using SparseIR
         @test collect(BosonicFreq(2):BosonicFreq(-2)) == []
         @test collect(BosonicFreq(0):BosonicFreq(4)) == (0:2:4) .* pioverbeta
         @test collect(FermionicFreq(-3):FermionicFreq(1)) == (-3:2:1) .* pioverbeta
+        
+        @test length(FermionicFreq(37):BosonicFreq(10):FermionicFreq(87)) == 6
+        @test collect(BosonicFreq(-10):BosonicFreq(4):BosonicFreq(58)) == (-10:4:58) .* pioverbeta
+        @test length(BosonicFreq(-10):BosonicFreq(4):BosonicFreq(60)) == 18
+        @test length(FermionicFreq(1):BosonicFreq(100):FermionicFreq(3)) == 1
+        @test length(FermionicFreq(1):BosonicFreq(100):FermionicFreq(-1001)) == 0
     end
 
     @testset "freqinvalid" begin
