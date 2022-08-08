@@ -63,10 +63,10 @@ RUN mkdir -p ${HOME}/.julia/config && \
 
 USER ${USER}
 
-WORKDIR /workspace/SparseIR.jl
+WORKDIR /workspaces/SparseIR.jl
 
 USER root
-RUN chown -R ${NB_UID} /workspace/SparseIR.jl
+RUN chown -R ${NB_UID} /workspaces/SparseIR.jl
 USER ${USER}
 
 
@@ -76,7 +76,7 @@ USER ${USER}
 # Install dependencies in a smarter way
 RUN julia -e 'import Pkg; Pkg.add(["Revise", "Plots", "BenchmarkTools", "AssociatedLegendrePolynomials"])'
 RUN julia -e 'import Pkg; Pkg.add(["LinearAlgebra", "QuadGK", "Bessels", "MultiFloats"])'
-RUN julia -e 'import Pkg; Pkg.develop(path="/workspaces/SparseIR.jl")'
+#RUN julia -e 'import Pkg; Pkg.develop(path="/workspaces/SparseIR.jl")'
 
 EXPOSE 8000
 
