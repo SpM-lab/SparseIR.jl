@@ -74,7 +74,7 @@ WORKDIR ${HOME}
 USER ${USER}
 # FIXME
 # Install dependencies in a smarter way
-RUN julia -e 'import Pkg; Pkg.add(["Revise", "Plots", "BenchmarkTools"])'
+RUN julia -e 'import Pkg; Pkg.add(["Revise", "Plots", "BenchmarkTools", "AssociatedLegendrePolynomials"])'
 RUN julia -e 'import Pkg; Pkg.add(["LinearAlgebra", "QuadGK", "Bessels", "MultiFloats"])'
 RUN julia -e 'import Pkg; Pkg.develop(path="/workspaces/SparseIR.jl")'
 
