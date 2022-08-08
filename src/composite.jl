@@ -13,13 +13,11 @@ end
 
 Evaluate basis function at position `x`
 """
-function (obj::CompositeBasisFunction)(x::Real)
-    return vcat(p(x) for p in obj.polys)
-end
+(obj::CompositeBasisFunction)(x::Real) =
+    mapreduce(p -> p(x), vcat, obj.polys)
 
-function (obj::CompositeBasisFunction)(x::Vector{T}) where {T<:Real}
-    return reduce(vcat, p(x) for p in obj.polys)
-end
+(obj::CompositeBasisFunction)(x::AbstractVector{<:Real}) =
+    mapreduce(p -> p(x), vcat, obj.polys)
 
 """
     CompositeBasisFunctionFT
@@ -33,13 +31,15 @@ end
 """
 Evaluate basis function at frequency n
 """
-function (obj::CompositeBasisFunctionFT)(n::Union{MatsubaraFreq,
-                                                  AbstractVector{MatsubaraFreq}})
-    return hcat(p(n) for p in obj.polys)
-end
+(obj::CompositeBasisFunctionFT)(x::MatsubaraFreq) =
+    mapreduce(p -> p(x), vcat, obj.polys)
 
-(obj::CompositeBasisFunctionFT)(n::Integer)                 = obj(MatsubaraFreq(n))
-(obj::CompositeBasisFunctionFT)(n::AbstractVector{Integer}) = obj(MatsubaraFreq.(n))
+(obj::CompositeBasisFunctionFT)(x::AbstractVector{<:MatsubaraFreq}) =
+    mapreduce(p -> p(x), vcat, obj.polys)
+
+(obj::CompositeBasisFunctionFT)(n::Integer) = obj(MatsubaraFreq(n))
+(obj::CompositeBasisFunctionFT)(n::AbstractVector{<:Integer}) = obj(MatsubaraFreq.(n))
+
 
 struct CompositeBasis <: AbstractBasis
     beta  :: Float64
