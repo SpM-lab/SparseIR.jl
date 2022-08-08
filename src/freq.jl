@@ -155,11 +155,12 @@ struct FreqRange{A<:Statistics} <: OrdinalRange{MatsubaraFreq{A},BosonicFreq}
     stop  :: MatsubaraFreq{A}
     step  :: BosonicFreq
 
-    function FreqRange(start::MatsubaraFreq{A}, stop::MatsubaraFreq{A}, step::BosonicFreq) where {A}
-        if stop < start
-            stop = start - step
-        end
-        return new{A}(start, stop, step)
+    function FreqRange(start::MatsubaraFreq{A}, stop::MatsubaraFreq{A}, step_::BosonicFreq) where {A}
+        range = Int(start):Int(step_):Int(stop)
+        start = MatsubaraFreq{A}(first(range))
+        step_ = BosonicFreq(step(range))
+        stop = iszero(length(range)) ? start - step_ : MatsubaraFreq{A}(last(range))
+        return new{A}(start, stop, step_)
     end
 end
 

@@ -42,6 +42,7 @@ using SparseIR
         
         @test length(FermionicFreq(37):BosonicFreq(10):FermionicFreq(87)) == 6
         @test collect(BosonicFreq(-10):BosonicFreq(4):BosonicFreq(58)) == (-10:4:58) .* pioverbeta
+        @test collect(BosonicFreq(-10):BosonicFreq(4):BosonicFreq(60)) == (-10:4:58) .* pioverbeta
         @test length(BosonicFreq(-10):BosonicFreq(4):BosonicFreq(60)) == 18
         @test length(FermionicFreq(1):BosonicFreq(100):FermionicFreq(3)) == 1
         @test length(FermionicFreq(1):BosonicFreq(100):FermionicFreq(-1001)) == 0
