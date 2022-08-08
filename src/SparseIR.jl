@@ -1,5 +1,5 @@
 """
-Intermediate representation (IR) for many-body propagators
+Intermediate representation (IR) for many-body propagators.
 """
 module SparseIR
 
@@ -20,7 +20,7 @@ using LinearAlgebra: dot, svd, SVD, QRIteration, mul!
 import LinearAlgebra: cond
 import LinearAlgebra.BLAS: gemm!
 using QuadGK: gauss, kronrod, quadgk
-using SpecialFunctions: SpecialFunctions
+using Bessels: besselj
 
 Base.sinh(x::Float64x2) = setprecision(() -> Float64x2(sinh(big(x))), precision(Float64x2))
 Base.cosh(x::Float64x2) = setprecision(() -> Float64x2(cosh(big(x))), precision(Float64x2))

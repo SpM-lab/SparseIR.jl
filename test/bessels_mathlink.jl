@@ -1,12 +1,7 @@
 using MathLink
 sphericalbesselj_M(n, x) = weval(W"SphericalBesselJ"(W"n", W"x"); n, x)
 
-@testset "_bessels.jl" begin
-    @testset "domain" begin
-        @test_throws DomainError SparseIR.sphericalbesselj(-2, 0.3)
-        @test !isnan(SparseIR.sphericalbesselj(4, 1e20))
-    end
-
+@testset "bessels_mathlink.jl" begin
     @testset "accuracy of sphericalbesselj(2^$pn, 2^$px)" for pn in 0:7, px in -1:25
         n = 2^pn
         x = 2.0^px
