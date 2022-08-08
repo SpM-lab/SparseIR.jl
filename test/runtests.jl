@@ -20,7 +20,7 @@ include("_util.jl")
     include("spr.jl")
     include("_linalg.jl")
     # Works only if Mathematica and MathLink.jl are available.
-    # include("_bessels.jl")
+    include("bessels_mathlink.jl")
 end
 
 nothing
