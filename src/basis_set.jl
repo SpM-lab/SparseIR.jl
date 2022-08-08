@@ -29,24 +29,32 @@ struct FiniteTempBasisSet{TSF<:TauSampling,MSF<:MatsubaraSampling,TSB<:TauSampli
     smpl_tau_b :: TSB
     smpl_wn_f  :: MSF
     smpl_wn_b  :: MSB
-end
 
-"""
-    FiniteTempBasisSet(β, wmax, ε; sve_result=compute_sve(LogisticKernel(β * wmax); ε))
+    """
+        FiniteTempBasisSet(β, wmax, ε; sve_result=compute_sve(LogisticKernel(β * wmax); ε))
 
-Create basis sets for fermion and boson and
-associated sampling objects.
-Fermion and bosonic bases are constructed by SVE of the logistic kernel.
-"""
-function FiniteTempBasisSet(β::AbstractFloat, wmax::AbstractFloat, ε;
-                            sve_result=compute_sve(LogisticKernel(β * wmax); ε))
-    # Create bases using the given sve results
-    basis_f = FiniteTempBasis(fermion, β, wmax, ε; sve_result)
-    basis_b = FiniteTempBasis(boson, β, wmax, ε; sve_result)
+    Create basis sets for fermion and boson and
+    associated sampling objects.
+    Fermion and bosonic bases are constructed by SVE of the logistic kernel.
+    """
+    function FiniteTempBasisSet(β::AbstractFloat, wmax::AbstractFloat, ε;
+                                sve_result=compute_sve(LogisticKernel(β * wmax); ε))
+        # Create bases using the given sve results
+        basis_f = FiniteTempBasis(fermion, β, wmax, ε; sve_result)
+        basis_b = FiniteTempBasis(boson, β, wmax, ε; sve_result)
 
-    return FiniteTempBasisSet(basis_f, basis_b,
-                              TauSampling(basis_f), TauSampling(basis_b),
-                              MatsubaraSampling(basis_f), MatsubaraSampling(basis_b))
+        tau_sampling_f = TauSampling(basis_f)
+        tau_sampling_b = TauSampling(basis_b)
+        matsubara_sampling_f = MatsubaraSampling(basis_f)
+        matsubara_sampling_b = MatsubaraSampling(basis_b)
+
+        new{typeof(tau_sampling_f),typeof(matsubara_sampling_f),
+            typeof(tau_sampling_b),typeof(matsubara_sampling_b)}(basis_f, basis_b,
+                                                                 tau_sampling_f,
+                                                                 tau_sampling_b,
+                                                                 matsubara_sampling_f,
+                                                                 matsubara_sampling_b)
+    end
 end
 
 getbeta(bset::FiniteTempBasisSet) = getbeta(bset.basis_f)
