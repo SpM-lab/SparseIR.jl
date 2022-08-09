@@ -13,11 +13,8 @@ end
 
 Evaluate basis function at position `x`
 """
-(obj::CompositeBasisFunction)(x::Real) =
-    mapreduce(p -> p(x), vcat, obj.polys)
-
-(obj::CompositeBasisFunction)(x::AbstractVector{<:Real}) =
-    mapreduce(p -> p(x), vcat, obj.polys)
+(obj::CompositeBasisFunction)(x::Real) = mapreduce(p -> p(x), vcat, obj.polys)
+(obj::CompositeBasisFunction)(x::AbstractVector{<:Real}) = mapreduce(p -> p(x), vcat, obj.polys)
 
 """
     CompositeBasisFunctionFT
@@ -31,15 +28,11 @@ end
 """
 Evaluate basis function at frequency n
 """
-(obj::CompositeBasisFunctionFT)(x::MatsubaraFreq) =
-    mapreduce(p -> p(x), vcat, obj.polys)
-
-(obj::CompositeBasisFunctionFT)(x::AbstractVector{<:MatsubaraFreq}) =
-    mapreduce(p -> p(x), vcat, obj.polys)
+(obj::CompositeBasisFunctionFT)(x::MatsubaraFreq) = mapreduce(p -> p(x), vcat, obj.polys)
+(obj::CompositeBasisFunctionFT)(x::AbstractVector{<:MatsubaraFreq}) = mapreduce(p -> p(x), vcat, obj.polys)
 
 (obj::CompositeBasisFunctionFT)(n::Integer) = obj(MatsubaraFreq(n))
 (obj::CompositeBasisFunctionFT)(n::AbstractVector{<:Integer}) = obj(MatsubaraFreq.(n))
-
 
 struct CompositeBasis <: AbstractBasis
     beta  :: Float64
@@ -76,3 +69,5 @@ function default_matsubara_sampling_points(basis::CompositeBasis; mitigate=true)
 end
 
 significance(self::CompositeBasis) = mapreduce(significance, vcat, self.bases)
+
+getstatistics(self::CompositeBasis) = only(unique!(getstatistics.(self.bases)))

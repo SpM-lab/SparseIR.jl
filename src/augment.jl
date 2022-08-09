@@ -79,7 +79,7 @@ struct MatsubaraConstBasis{T<:AbstractFloat,S<:Statistics} <: AbstractBasis
     uhat       :: _ConstTerm{T,S}
 end
 
-function MatsubaraConstBasis(statistics::Statistics, beta::Float64; value=1)
+function MatsubaraConstBasis(statistics::Statistics, beta::Float64; value=1.0)
     beta > 0 || throw(DomainError(beta, "inverse temperature beta must be positive"))
     return MatsubaraConstBasis(statistics, beta, _ConstTerm(statistics, value))
 end
@@ -87,3 +87,11 @@ end
 Base.size(::MatsubaraConstBasis) = (1,)
 
 significance(::MatsubaraConstBasis) = [1.0]
+
+function Base.getproperty(obj::MatsubaraConstBasis, d::Symbol)
+    if d === :v || d === :u
+        return nothing
+    else
+        return getfield(obj, d)
+    end
+end
