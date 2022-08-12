@@ -7,9 +7,9 @@ function check_smooth(u, s, uscale, fudge_factor)
     ε = eps(eltype(s))
     x = u.knots[(begin + 1):(end - 1)]
 
-    jump = @. abs(u(x + ε) - u(x - ε))
-    compare_below = @. abs(u(x - ε) - u(x - 3ε))
-    compare_above = @. abs(u(x + 3ε) - u(x + ε))
+    jump = abs.(u(x .+ ε) - u(x .- ε))
+    compare_below = abs.(u(x .- ε) - u(x .- 3ε))
+    compare_above = abs.(u(x .+ 3ε) - u(x .+ ε))
     compare = min.(compare_below, compare_above)
     compare = max.(compare, uscale * ε)
 

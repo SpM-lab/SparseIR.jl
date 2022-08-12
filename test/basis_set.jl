@@ -1,7 +1,12 @@
 using Test
 using SparseIR
+using Documenter
+
+DocMeta.setdocmeta!(SparseIR, :DocTestSetup, :(using SparseIR))
 
 @testset "basis.jl" begin
+    doctest(SparseIR; manual = false)
+
     @testset "consistency" begin
         β = 2.0
         wmax = 5.0
