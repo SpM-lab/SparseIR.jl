@@ -36,19 +36,6 @@ The following example code assumes the spectral function is a single
 pole at `x = 0.2`. We first compute an IR basis suitable for fermions and
 `β*W ≤ 42`. Then we get G(iw) on the first few Matsubara frequencies:
 
-```jldoctest
-julia> basis = DimensionlessBasis(fermion, 42);
-
-julia> gl = basis.s .* basis.v(0.2);
-
-julia> giw = transpose(basis.uhat([1, 3, 5, 7])) * gl
-4-element Vector{ComplexF64}:
-  0.14769927083929674 + 0.05523939812015521im
-  0.07453202388494327 + 0.08362473524789882im
-  0.03743898457178094 + 0.07001073743367174im
- 0.021436347558644788 + 0.056120226675030034im
-```
-
 # Fields
 
   - `u::PiecewiseLegendrePolyVector`: Set of IR basis functions on the reduced
@@ -138,26 +125,6 @@ value expansion or IR basis:
 
 This basis is inferred from a reduced form by appropriate scaling of
 the variables.
-
-# Examples
-
-The following example code assumes the spectral function is a single
-pole at `ω = 2.5`. We first compute an IR basis suitable for fermions
-and `β = 10`, `W ≤ 4.2`. Then we get G(iw) on the first few Matsubara
-frequencies:
-
-```jldoctest
-julia> basis = FiniteTempBasis(fermion, 42, 4.2);
-
-julia> gl = basis.s .* basis.v(2.5);
-
-julia> giw = transpose(basis.uhat([1, 3, 5, 7])) * gl
-4-element Vector{ComplexF64}:
-   0.399642239382796 + 0.011957267841039346im
-  0.3968030294483192 + 0.03561695663534318im
-  0.3912439389972189 + 0.05852995640548555im
- 0.38319134666019244 + 0.08025540797245588im
-```
 
 # Fields
 

@@ -2,7 +2,6 @@ name = "SparseIR Tests"
 
 [deps]
 AssociatedLegendrePolynomials = "2119f1ac-fb78-50f5-8cc0-dda848ebdb19"
-Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MultiFloats = "bdf0d083-296b-4888-a5b6-7498122e68a5"
 QuadGK = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
