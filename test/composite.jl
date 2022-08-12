@@ -23,7 +23,7 @@ end
         l = length(s)
 
         u_comp = CompositeBasisFunction([u, u])
-        check_composite_poly(u_comp, [u, u], range(-1, 1, 10))
+        check_composite_poly(u_comp, [u, u], range(-1, 1; length=10))
 
         uhat = SparseIR.PiecewiseLegendreFTVector(u, fermion)
         uhat_comp = CompositeBasisFunction([uhat, uhat])
