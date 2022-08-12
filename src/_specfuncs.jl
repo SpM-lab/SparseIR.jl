@@ -1,12 +1,3 @@
-function sphericalbesselj(n::Real, x::T) where {T<:AbstractFloat}
-    isnan(x) && return x
-    n < 0 && throw(DomainError(n, "n must be non-negative"))
-    isinf(x) && return zero(T)
-    iszero(x) && return iszero(n) ? one(T) : zero(T)
-
-    return T(sqrt(π / 2x) * besselj(n + 0.5, x))
-end
-
 # Adapted from https://github.com/numpy/numpy/blob/4adc87dff15a247e417d50f10cc4def8e1c17a03/numpy/polynomial/legendre.py#L832-L914
 function legval(x, c::AbstractVector)
     nd = length(c)

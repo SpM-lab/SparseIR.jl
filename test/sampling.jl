@@ -3,7 +3,7 @@ using SparseIR
 
 using Random, LinearAlgebra
 
-include("__conftest.jl")
+include("_conftest.jl")
 
 @testset "sampling.jl" begin
     @testset "alias" begin

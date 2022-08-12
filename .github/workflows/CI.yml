@@ -3,11 +3,11 @@ on:
   push:
     branches:
       - main
-      - develop
-      - ci #debug
-      #- julia1.6 #debug
     tags: '*'
   pull_request:
+    branches:
+      - main
+    tags: '*'
 concurrency:
   # Skip intermediate builds: always.
   # Cancel intermediate builds: only if it is a pull request build.
@@ -23,8 +23,11 @@ jobs:
         version:
           - '1.6'
           - '1'
+          - 'nightly'
         os:
-          - ubuntu-latest
+#          - ubuntu-latest
+          - macOS-latest
+#          - windows-latest
         arch:
           - x64
     steps:
@@ -35,7 +38,8 @@ jobs:
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v1
       - uses: julia-actions/julia-buildpkg@v1
-      - uses: julia-actions/julia-runtest@v1
+      - uses: julia-actions/julia-runtest@latest
+        continue-on-error: ${{ matrix.version == 'nightly' }}
       - uses: julia-actions/julia-processcoverage@v1
       - uses: codecov/codecov-action@v3
   docs:

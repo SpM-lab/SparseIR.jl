@@ -417,8 +417,7 @@ end
 
 function derivs(ppoly, x)
     res = [ppoly(x)]
-    sizehint!(res, ppoly.polyorder)
-    for _ in 1:(ppoly.polyorder - 1)
+    for _ in 2:ppoly.polyorder
         ppoly = deriv(ppoly)
         push!(res, ppoly(x))
     end

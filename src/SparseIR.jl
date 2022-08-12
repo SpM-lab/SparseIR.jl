@@ -20,7 +20,7 @@ using LinearAlgebra: dot, svd, SVD, QRIteration, mul!
 import LinearAlgebra: cond
 import LinearAlgebra.BLAS: gemm!
 using QuadGK: gauss, kronrod, quadgk
-using Bessels: besselj
+using Bessels: sphericalbesselj
 
 Base.sinh(x::Float64x2) = setprecision(() -> Float64x2(sinh(big(x))), precision(Float64x2))
 Base.cosh(x::Float64x2) = setprecision(() -> Float64x2(cosh(big(x))), precision(Float64x2))

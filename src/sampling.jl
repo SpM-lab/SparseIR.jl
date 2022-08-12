@@ -59,10 +59,10 @@ function TauSampling(basis::AbstractBasis,
     return sampling
 end
 
-const TauSampling64 = @static if VERSION < v"1.9-"
-    TauSampling{Float64,Float64,SVD{Float64,Float64,Matrix{Float64}}}
-else
+const TauSampling64 = @static if VERSION ≥ v"1.8-"
     TauSampling{Float64,Float64,SVD{Float64,Float64,Matrix{Float64},Vector{Float64}}}
+else
+    TauSampling{Float64,Float64,SVD{Float64,Float64,Matrix{Float64}}}
 end
 
 """
@@ -79,18 +79,18 @@ struct MatsubaraSampling{T,TMAT,F<:SVD} <: AbstractSampling{T,TMAT,F}
     matrix_svd      :: F
 end
 
-const MatsubaraSampling64F = @static if VERSION < v"1.9-"
-    MatsubaraSampling{FermionicFreq,ComplexF64,SVD{ComplexF64,Float64,Matrix{ComplexF64}}}
-else
+const MatsubaraSampling64F = @static if VERSION ≥ v"1.8-"
     MatsubaraSampling{FermionicFreq,ComplexF64,
                       SVD{ComplexF64,Float64,Matrix{ComplexF64},Vector{Float64}}}
+else
+    MatsubaraSampling{FermionicFreq,ComplexF64,SVD{ComplexF64,Float64,Matrix{ComplexF64}}}
 end
 
-const MatsubaraSampling64B = @static if VERSION < v"1.9-"
-    MatsubaraSampling{BosonicFreq,ComplexF64,SVD{ComplexF64,Float64,Matrix{ComplexF64}}}
-else
+const MatsubaraSampling64B = @static if VERSION ≥ v"1.8-"
     MatsubaraSampling{BosonicFreq,ComplexF64,
                       SVD{ComplexF64,Float64,Matrix{ComplexF64},Vector{Float64}}}
+else
+    MatsubaraSampling{BosonicFreq,ComplexF64,SVD{ComplexF64,Float64,Matrix{ComplexF64}}}
 end
 
 """

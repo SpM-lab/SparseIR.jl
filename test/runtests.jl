@@ -3,7 +3,7 @@ using SparseIR
 using Random
 using MultiFloats
 
-include("__conftest.jl")
+include("_conftest.jl")
 include("_util.jl")
 
 @testset verbose=true "SparseIR.jl" begin
@@ -15,12 +15,9 @@ include("_util.jl")
     include("basis_set.jl")
     include("sampling.jl")
     include("augment.jl")
-    include("bessels.jl")
     include("composite.jl")
     include("spr.jl")
     include("_linalg.jl")
-    # Works only if Mathematica and MathLink.jl are available.
-    # include("bessels_mathlink.jl")
 end
 
 nothing
