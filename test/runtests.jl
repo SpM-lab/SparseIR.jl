@@ -18,6 +18,7 @@ include("_util.jl")
     include("composite.jl")
     include("spr.jl")
     include("_linalg.jl")
+    include("scipost_sample_code.jl")
 end
 
 nothing

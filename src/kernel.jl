@@ -1,27 +1,4 @@
 @doc raw"""
-    AbstractKernel
-
-Integral kernel `K(x, y)`.
-
-Abstract base type for an integral kernel, i.e. a AbstractFloat binary function
-``K(x, y)`` used in a Fredhold integral equation of the first kind:
-```math
-    u(x) = ∫ K(x, y) v(y) dy
-```
-where ``x ∈ [x_\mathrm{min}, x_\mathrm{max}]`` and 
-``y ∈ [y_\mathrm{min}, y_\mathrm{max}]``.  For its SVE to exist,
-the kernel must be square-integrable, for its singular values to decay
-exponentially, it must be smooth.
-
-In general, the kernel is applied to a scaled spectral function ``ρ'(y)`` as:
-```math
-    ∫ K(x, y) ρ'(y) dy,
-```
-where ``ρ'(y) = w(y) ρ(y)``.
-"""
-abstract type AbstractKernel end
-
-@doc raw"""
     LogisticKernel <: AbstractKernel
 
 Fermionic/bosonic analytical continuation kernel.
@@ -54,6 +31,8 @@ struct LogisticKernel <: AbstractKernel
     end
 end
 
+Λ(kernel::LogisticKernel) = kernel.Λ
+
 @doc raw"""
     RegularizedBoseKernel <: AbstractKernel
 
@@ -74,13 +53,6 @@ struct RegularizedBoseKernel <: AbstractKernel
     end
 end
 
-"""
-    AbstractSVEHints
-
-Discretization hints for singular value expansion of a given kernel.
-"""
-abstract type AbstractSVEHints end
-
 struct SVEHintsLogistic{T} <: AbstractSVEHints
     kernel :: LogisticKernel
     ε      :: T
@@ -94,8 +66,6 @@ end
 struct SVEHintsReduced{T<:AbstractSVEHints} <: AbstractSVEHints
     inner_hints::T
 end
-
-abstract type AbstractReducedKernel <: AbstractKernel end
 
 @doc raw"""
     ReducedKernel
@@ -201,8 +171,8 @@ end
 function compute(kernel::RegularizedBoseKernel, u₊, u₋, v)
     # With "reduced variables" u, v we have:
     #
-    #   K = -1/lambda * exp(-u_+ * v) * v / (exp(-v) - 1)
-    #     = -1/lambda * exp(-u_- * -v) * (-v) / (exp(v) - 1)
+    #   K = -1/Λ * exp(-u_+ * v) * v / (exp(-v) - 1)
+    #     = -1/Λ * exp(-u_- * -v) * (-v) / (exp(v) - 1)
     #
     # where we again need to use the upper equation for v ≥ 0 and the
     # lower one for v < 0 to avoid overflow.
@@ -496,6 +466,9 @@ conv_radius(kernel::AbstractReducedKernel) = conv_radius(kernel.inner)
     weight_func(kernel, statistics::Statistics)
 
 Return the weight function for the given statistics.
+
+ - Fermion: `w(x) == 1`
+ - Boson: `w(y) == 1/tanh(Λ*y/2)`
 """
 function weight_func end
 weight_func(::AbstractKernel, ::Statistics)       = one

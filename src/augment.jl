@@ -22,8 +22,8 @@ struct LegendreBasis{T<:AbstractFloat,S<:Statistics} <: AbstractBasis
     uhat       :: PiecewiseLegendreFTVector{T,S}
 end
 
-function LegendreBasis(statistics::Statistics, beta::Float64, size::Int;
-                       cl::Vector{Float64}=ones(Float64, size))
+function LegendreBasis(statistics::Statistics, beta::Real, size::Integer;
+                       cl::AbstractVector{<:Real}=ones(Float64, size))
     beta > 0 || throw(DomainError(beta, "inverse temperature beta must be positive"))
     size > 0 || throw(DomainError(size, "size of basis must be positive"))
 
@@ -40,7 +40,7 @@ function LegendreBasis(statistics::Statistics, beta::Float64, size::Int;
     uhat_base = PiecewiseLegendrePolyVector(sqrt(beta) .* data, Float64[-1, 1]; symm)
     uhat = map(ui -> PiecewiseLegendreFT(ui, statistics), uhat_base)
 
-    return LegendreBasis(statistics, beta, cl, u, uhat)
+    return LegendreBasis(statistics, Float64(beta), cl, u, uhat)
 end
 
 function Base.getproperty(obj::LegendreBasis, d::Symbol)
@@ -51,14 +51,18 @@ function Base.getproperty(obj::LegendreBasis, d::Symbol)
     end
 end
 
+Base.size(basis::LegendreBasis) = size(basis.u)
+default_matsubara_sampling_points(basis::LegendreBasis; mitigate=true) = 
+    default_matsubara_sampling_points(basis.uhat, mitigate)
+
 # TODO
 significance(basis::LegendreBasis) = ones(size(basis))
 
 iswellconditioned(basis::LegendreBasis) = true
 
 function default_tau_sampling_points(basis::LegendreBasis)
-    x = gauss(length(basis.u))[1]
-    return (getbeta(basis) / 2) .* (x .+ 1)
+    x = first(gauss(length(basis.u)))
+    return (beta(basis) / 2) .* (x .+ 1)
 end
 
 struct _ConstTerm{T<:Number,S<:Statistics}
@@ -68,7 +72,10 @@ end
 
 (ct::_ConstTerm{T,S})(::MatsubaraFreq{S}) where {T,S} = ct.value
 (ct::_ConstTerm)(n::Integer)                          = ct(MatsubaraFreq(n))
-(ct::_ConstTerm)(n::AbstractArray)                    = ct.(n)
+(ct::_ConstTerm)(n::AbstractVector)                   = reshape(ct.(n), (1, :))
+
+Base.length(::_ConstTerm) = 1
+Base.size(::_ConstTerm) = (1,)
 
 """
 Constant term in matsubara-frequency domain
@@ -79,14 +86,17 @@ struct MatsubaraConstBasis{T<:AbstractFloat,S<:Statistics} <: AbstractBasis
     uhat       :: _ConstTerm{T,S}
 end
 
-function MatsubaraConstBasis(statistics::Statistics, beta::Float64; value=1.0)
+function MatsubaraConstBasis(statistics::Statistics, beta::Real; value=1.0)
     beta > 0 || throw(DomainError(beta, "inverse temperature beta must be positive"))
-    return MatsubaraConstBasis(statistics, beta, _ConstTerm(statistics, value))
+    return MatsubaraConstBasis(statistics, Float64(beta), _ConstTerm(statistics, value))
 end
 
 Base.size(::MatsubaraConstBasis) = (1,)
 
 significance(::MatsubaraConstBasis) = [1.0]
+
+default_matsubara_sampling_points(::MatsubaraConstBasis; mitigate=true) = MatsubaraFreq[]
+default_tau_sampling_points(::MatsubaraConstBasis) = Float64[]
 
 function Base.getproperty(obj::MatsubaraConstBasis, d::Symbol)
     if d === :v || d === :u

@@ -5,7 +5,7 @@ module SparseIR
 
 export fermion, boson
 export MatsubaraFreq, BosonicFreq, FermionicFreq, pioverbeta
-export DimensionlessBasis, FiniteTempBasis
+export FiniteTempBasis
 export SparsePoleRepresentation, to_IR, from_IR
 export overlap
 export LegendreBasis, MatsubaraConstBasis
@@ -36,12 +36,13 @@ include("freq.jl")
 const boson = Bosonic()
 const fermion = Fermionic()
 
+include("abstract.jl")
 include("svd.jl")
 include("gauss.jl")
 include("poly.jl")
 include("kernel.jl")
-include("basis.jl")
 include("sve.jl")
+include("basis.jl")
 include("augment.jl")
 include("composite.jl")
 include("sampling.jl")

@@ -244,14 +244,10 @@ case `n` must be even, or antiperiodically (`freq=:odd`), in which case
 `n` must be odd.
 """
 struct PiecewiseLegendreFT{T,S<:Statistics} <: Function
-    poly    :: PiecewiseLegendrePoly{T}
-    stat    :: S
-    n_asymp :: T
-    model   :: PowerModel{T}
-end
-
-function Base.show(io::IO, p::PiecewiseLegendreFT)
-    return print(io, "$(typeof(p))")
+    poly       :: PiecewiseLegendrePoly{T}
+    statistics :: S
+    n_asymp    :: T
+    model      :: PowerModel{T}
 end
 
 function PiecewiseLegendreFT(poly::PiecewiseLegendrePoly{T}, stat::Statistics,
@@ -261,7 +257,15 @@ function PiecewiseLegendreFT(poly::PiecewiseLegendrePoly{T}, stat::Statistics,
     return PiecewiseLegendreFT(poly, stat, T(n_asymp), model)
 end
 
+function Base.show(io::IO, p::PiecewiseLegendreFT)
+    return print(io, "$(typeof(p))")
+end
+
 const PiecewiseLegendreFTVector{T,S} = Vector{PiecewiseLegendreFT{T,S}}
+
+function PiecewiseLegendreFTVector(polys::AbstractVector{<: PiecewiseLegendrePoly}, stat::Statistics)
+    return [PiecewiseLegendreFT(poly, stat) for poly in polys]
+end
 
 function Base.getproperty(polyFTs::PiecewiseLegendreFTVector, sym::Symbol)
     if sym ∈ (:stat, :n_asymp)
@@ -273,8 +277,8 @@ function Base.getproperty(polyFTs::PiecewiseLegendreFTVector, sym::Symbol)
     end
 end
 
-getstatistics(poly::PiecewiseLegendreFT)          = poly.stat
-getstatistics(polyFTs::PiecewiseLegendreFTVector) = getstatistics(first(polyFTs))
+statistics(poly::PiecewiseLegendreFT)          = poly.statistics
+statistics(polyFTs::PiecewiseLegendreFTVector) = statistics(first(polyFTs))
 
 # """
 #     (polyFT::PiecewiseLegendreFT)(ω)
@@ -318,10 +322,6 @@ end
 
 Base.firstindex(::PiecewiseLegendreFT) = 1
 
-function hat(poly::PiecewiseLegendrePoly, stat::Statistics; n_asymp=Inf)
-    return PiecewiseLegendreFT(poly, stat, n_asymp)
-end
-
 """
     findextrema(polyFT::PiecewiseLegendreFT, part=nothing, grid=DEFAULT_GRID)
 
@@ -330,23 +330,23 @@ Obtain extrema of fourier-transformed polynomial.
 function findextrema(polyFT::PiecewiseLegendreFT, part=nothing, grid=DEFAULT_GRID)
     f  = func_for_part(polyFT, part)
     x₀ = discrete_extrema(f, grid)
-    x₀ .= 2x₀ .+ zeta(getstatistics(polyFT))
+    x₀ .= 2x₀ .+ zeta(statistics(polyFT))
     x₀ = symmetrize_matsubara(x₀)
-    return map(xi -> MatsubaraFreq(getstatistics(polyFT), xi), x₀)
+    return map(xi -> MatsubaraFreq(statistics(polyFT), xi), x₀)
 end
 
 @inline function func_for_part(polyFT::PiecewiseLegendreFT, part=nothing)
     if isnothing(part)
         parity = polyFT.poly.symm
         if parity == 1
-            part = getstatistics(polyFT) isa Bosonic ? real : imag
+            part = statistics(polyFT) isa Bosonic ? real : imag
         elseif parity == -1
-            part = getstatistics(polyFT) isa Bosonic ? imag : real
+            part = statistics(polyFT) isa Bosonic ? imag : real
         else
             error("Cannot detect parity")
         end
     end
-    return n -> part(polyFT(2n + zeta(getstatistics(polyFT))))
+    return n -> part(polyFT(2n + zeta(statistics(polyFT))))
 end
 
 function discrete_extrema(f::Function, xgrid)

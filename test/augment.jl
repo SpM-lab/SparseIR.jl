@@ -39,7 +39,7 @@ using AssociatedLegendrePolynomials: Plm
         gl_from_τ = fit(τ_smpl, gτ)
 
         matsu_smpl = MatsubaraSampling(basis)
-        giv = 1 ./ ((im * π / β) * Integer.(matsu_smpl.sampling_points) .- pole)
+        giv = @. 1 / (SparseIR.valueim(matsu_smpl.sampling_points, β) - pole)
         gl_from_matsu = fit(matsu_smpl, giv)
 
         #println(maximum(abs, gl_from_τ-gl_from_matsu))

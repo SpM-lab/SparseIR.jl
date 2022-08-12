@@ -12,7 +12,7 @@ using SparseIR
     end
 
     @testset "shape" begin
-        u, s, v = sve_logistic[42]
+        u, s, v = SparseIR.part(sve_logistic[42])
         l = length(s)
         @test size(u) == (l,)
 
@@ -29,15 +29,12 @@ using SparseIR
     @testset "slice" begin
         sve_result = sve_logistic[42]
 
-        basis = DimensionlessBasis(fermion, 42.0; sve_result)
-        @test length(basis[1:5]) == 5
-
         basis = FiniteTempBasis(fermion, 4.2, 10.0; sve_result)
         @test length(basis[1:4]) == 4
     end
 
     @testset "eval" begin
-        u, s, v = sve_logistic[42]
+        u, s, v = SparseIR.part(sve_logistic[42])
         l = length(s)
 
         # Evaluate
@@ -46,8 +43,8 @@ using SparseIR
     end
 
     @testset "matrix_hat" begin
-        u, s, v = sve_logistic[42]
-        uhat = map(ui -> SparseIR.hat(ui, fermion), u)
+        u, s, v = SparseIR.part(sve_logistic[42])
+        uhat = SparseIR.PiecewiseLegendreFTVector(u, fermion)
 
         n = MatsubaraFreq.([1, 3, 5, -1, -3, 5])
         result1 = uhat[1](n)
@@ -60,7 +57,7 @@ using SparseIR
 
     @testset "overlap with Λ = $Λ" for Λ in (10, 42, 10_000)
         atol = 1e-13
-        u, s, v = sve_logistic[Λ]
+        u, s, v = SparseIR.part(sve_logistic[Λ])
 
         # Keep only even number of polynomials
         u, s, v = u[1:(end - end % 2)],
@@ -76,8 +73,8 @@ using SparseIR
     end
 
     @testset "eval unique" begin
-        u, s, v = sve_logistic[42]
-        û = map(ui -> SparseIR.hat(ui, fermion), u)
+        u, s, v = SparseIR.part(sve_logistic[42])
+        û = SparseIR.PiecewiseLegendreFTVector(u, fermion)
 
         # evaluate
         res1 = û([1, 3, 3, 1])

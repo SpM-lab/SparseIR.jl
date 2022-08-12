@@ -1,36 +1,62 @@
+using Test
+using SparseIR
+using Random
+
+include("_conftest.jl")
+
 @testset "spr.jl" begin
-    @testset "transform with stat = $stat" for stat in (fermion, boson)
-        beta = 10_000
-        wmax = 1.0
-        eps = 1e-12
-        basis = FiniteTempBasis(stat, float(beta), wmax, eps;
-                                sve_result=sve_logistic[(beta, eps)])
+    @testset "Compression with stat = $stat" for stat in (fermion, boson)
+        β = 10_000
+        ωmax = 1
+        ε = 1e-12
+        basis = FiniteTempBasis(stat, β, ωmax, ε; sve_result=sve_logistic[β * ωmax])
         spr = SparsePoleRepresentation(basis)
 
-        Random.seed!(4711)
+        Random.seed!(982743)
 
         num_poles = 10
-        poles = wmax * (2 * rand(num_poles) .- 1)
-        coeffs = 2 * rand(num_poles) .- 1
-        @test maximum(abs, poles) ≤ wmax
+        poles = ωmax * (2rand(num_poles) .- 1)
+        coeffs = 2rand(num_poles) .- 1
+        @test maximum(abs, poles) ≤ ωmax
 
         Gl = to_IR(SparsePoleRepresentation(basis, poles), coeffs)
-
         g_spr = from_IR(spr, Gl)
 
         # Comparison on Matsubara frequencies
         smpl = MatsubaraSampling(basis)
-        smpl_for_spr = MatsubaraSampling(spr, smpl.sampling_points)
-        giv = evaluate(smpl_for_spr, g_spr)
+        smpl_for_spr = MatsubaraSampling(spr, SparseIR.sampling_points(smpl))
+
         giv_ref = evaluate(smpl, Gl; dim=1)
-        @test isapprox(giv, giv_ref; atol=300 * eps, rtol=0)
+        giv = evaluate(smpl_for_spr, g_spr)
 
-        # Comparison on tau
-        smpl_tau = TauSampling(basis)
-        gtau = evaluate(smpl_tau, Gl)
-        smpl_tau_for_spr = TauSampling(spr)
-        gtau2 = evaluate(smpl_tau_for_spr, g_spr)
+        @test isapprox(giv, giv_ref; atol=300ε, rtol=0)
 
-        @test isapprox(gtau, gtau2; atol=300 * eps, rtol=0)
+        # Comparison on τ
+        smpl_τ = TauSampling(basis)
+        gτ = evaluate(smpl_τ, Gl)
+
+        smpl_τ_for_spr = TauSampling(spr)
+        gτ2 = evaluate(smpl_τ_for_spr, g_spr)
+
+        @test isapprox(gτ, gτ2; atol=300ε, rtol=0)
+    end
+
+    @testset "Boson" begin
+        β = 2
+        ωmax = 21
+        ε = 1e-7
+        basis_b = FiniteTempBasis(boson, β, ωmax, ε; sve_result=sve_logistic[β * ωmax])
+
+        # G(iw) = sum_p coeff_p U^{SPR}(iw, omega_p)
+        coeff = [1.1, 2.0]
+        ω_p = [2.2, -1.0]
+
+        ρl_pole = basis_b.v(ω_p) * coeff
+        gl_pole = -basis_b.s .* ρl_pole
+
+        sp = SparsePoleRepresentation(basis_b, ω_p)
+        gl_pole2 = to_IR(sp, coeff)
+
+        @test isapprox(gl_pole, gl_pole2; atol=300ε, rtol=0)
     end
 end

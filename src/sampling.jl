@@ -1,31 +1,4 @@
 """
-    AbstractSampling
-
-Abstract type for sparse sampling.
-
-Encodes the "basis transformation" of a propagator from the truncated IR
-basis coefficients `G_ir[l]` to time/frequency sampled on sparse points
-`G(x[i])` together with its inverse, a least squares fit:
-
-         ________________                   ___________________
-        |                |    evaluate     |                   |
-        |     Basis      |---------------->|     Value on      |
-        |  coefficients  |<----------------|  sampling points  |
-        |________________|      fit        |___________________|
-"""
-abstract type AbstractSampling{T,Tmat,F<:SVD} end
-
-function cond(sampling::AbstractSampling)
-    return first(sampling.matrix_svd.S) / last(sampling.matrix_svd.S)
-end
-
-function Base.show(io::IO, smpl::S) where {S<:AbstractSampling}
-    println(io, S)
-    print(io, "Sampling points: ")
-    return println(io, smpl.sampling_points)
-end
-
-"""
     TauSampling <: AbstractSampling
 
 Sparse sampling in imaginary time.
@@ -59,12 +32,6 @@ function TauSampling(basis::AbstractBasis,
     return sampling
 end
 
-const TauSampling64 = @static if VERSION ≥ v"1.8-"
-    TauSampling{Float64,Float64,SVD{Float64,Float64,Matrix{Float64},Vector{Float64}}}
-else
-    TauSampling{Float64,Float64,SVD{Float64,Float64,Matrix{Float64}}}
-end
-
 """
     MatsubaraSampling <: AbstractSampling
 
@@ -79,20 +46,6 @@ struct MatsubaraSampling{T,TMAT,F<:SVD} <: AbstractSampling{T,TMAT,F}
     matrix_svd      :: F
 end
 
-const MatsubaraSampling64F = @static if VERSION ≥ v"1.8-"
-    MatsubaraSampling{FermionicFreq,ComplexF64,
-                      SVD{ComplexF64,Float64,Matrix{ComplexF64},Vector{Float64}}}
-else
-    MatsubaraSampling{FermionicFreq,ComplexF64,SVD{ComplexF64,Float64,Matrix{ComplexF64}}}
-end
-
-const MatsubaraSampling64B = @static if VERSION ≥ v"1.8-"
-    MatsubaraSampling{BosonicFreq,ComplexF64,
-                      SVD{ComplexF64,Float64,Matrix{ComplexF64},Vector{Float64}}}
-else
-    MatsubaraSampling{BosonicFreq,ComplexF64,SVD{ComplexF64,Float64,Matrix{ComplexF64}}}
-end
-
 """
     MatsubaraSampling(basis[, sampling_points])
 
@@ -102,7 +55,7 @@ to be close to optimal with respect to conditioning for this size (within a few 
 """
 function MatsubaraSampling(basis::AbstractBasis,
                            sampling_points=default_matsubara_sampling_points(basis))
-    matrix   = eval_matrix(MatsubaraSampling, basis, sampling_points)
+    matrix = eval_matrix(MatsubaraSampling, basis, sampling_points)
     sampling = MatsubaraSampling(sampling_points, matrix, svd(matrix))
 
     if iswellconditioned(basis) && cond(sampling) > 1e8
@@ -118,7 +71,7 @@ end
 Return evaluation matrix from coefficients to sampling points. `T <: AbstractSampling`.
 """
 function eval_matrix end
-eval_matrix(::Type{TauSampling}, basis, x)       = permutedims(basis.u(x))
+eval_matrix(::Type{TauSampling},       basis, x) = permutedims(basis.u(x))
 eval_matrix(::Type{MatsubaraSampling}, basis, x) = permutedims(basis.uhat(x))
 
 """
@@ -317,4 +270,24 @@ function rdiv_noalloc!(Y::AbstractMatrix, A::AbstractMatrix, B::SVD, workarr)
     mul!(workarr_view, A, conj(B.U))
     workarr_view ./= reshape(B.S, 1, :)
     return mul!(Y, workarr_view, conj(B.Vt))
+end
+
+const MatsubaraSampling64F = @static if VERSION ≥ v"1.8-"
+    MatsubaraSampling{FermionicFreq,ComplexF64,
+                      SVD{ComplexF64,Float64,Matrix{ComplexF64},Vector{Float64}}}
+else
+    MatsubaraSampling{FermionicFreq,ComplexF64,SVD{ComplexF64,Float64,Matrix{ComplexF64}}}
+end
+
+const MatsubaraSampling64B = @static if VERSION ≥ v"1.8-"
+    MatsubaraSampling{BosonicFreq,ComplexF64,
+                      SVD{ComplexF64,Float64,Matrix{ComplexF64},Vector{Float64}}}
+else
+    MatsubaraSampling{BosonicFreq,ComplexF64,SVD{ComplexF64,Float64,Matrix{ComplexF64}}}
+end
+
+const TauSampling64 = @static if VERSION ≥ v"1.8-"
+    TauSampling{Float64,Float64,SVD{Float64,Float64,Matrix{Float64},Vector{Float64}}}
+else
+    TauSampling{Float64,Float64,SVD{Float64,Float64,Matrix{Float64}}}
 end

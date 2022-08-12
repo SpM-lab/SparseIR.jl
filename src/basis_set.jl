@@ -11,7 +11,7 @@ and associated sparse-sampling objects.
   - basis_f::FiniteTempBasis: Fermion basis
   - basis_b::FiniteTempBasis: Boson basis
   - beta::Float64: Inverse temperature
-  - wmax::Float64: Cut-off frequency
+  - ωmax::Float64: Cut-off frequency
   - tau::Vector{Float64}: Sampling points in the imaginary-time domain
   - wn_f::Vector{Int}: Sampling fermionic frequencies
   - wn_b::Vector{Int}: Sampling bosonic frequencies
@@ -31,17 +31,17 @@ struct FiniteTempBasisSet{TSF<:TauSampling,MSF<:MatsubaraSampling,TSB<:TauSampli
     smpl_wn_b  :: MSB
 
     """
-        FiniteTempBasisSet(β, wmax, ε; sve_result=compute_sve(LogisticKernel(β * wmax); ε))
+        FiniteTempBasisSet(β, ωmax, ε; sve_result=compute_sve(LogisticKernel(β * ωmax); ε))
 
     Create basis sets for fermion and boson and
     associated sampling objects.
     Fermion and bosonic bases are constructed by SVE of the logistic kernel.
     """
-    function FiniteTempBasisSet(β::AbstractFloat, wmax::AbstractFloat, ε;
-                                sve_result=compute_sve(LogisticKernel(β * wmax); ε))
+    function FiniteTempBasisSet(β::AbstractFloat, ωmax::AbstractFloat, ε;
+                                sve_result=compute_sve(LogisticKernel(β * ωmax); ε))
         # Create bases using the given sve results
-        basis_f = FiniteTempBasis(fermion, β, wmax, ε; sve_result)
-        basis_b = FiniteTempBasis(boson, β, wmax, ε; sve_result)
+        basis_f = FiniteTempBasis(fermion, β, ωmax, ε; sve_result)
+        basis_b = FiniteTempBasis(boson, β, ωmax, ε; sve_result)
 
         tau_sampling_f = TauSampling(basis_f)
         tau_sampling_b = TauSampling(basis_b)
@@ -57,8 +57,8 @@ struct FiniteTempBasisSet{TSF<:TauSampling,MSF<:MatsubaraSampling,TSB<:TauSampli
     end
 end
 
-getbeta(bset::FiniteTempBasisSet) = getbeta(bset.basis_f)
-getwmax(bset::FiniteTempBasisSet) = getwmax(bset.basis_f)
+β(bset::FiniteTempBasisSet) = β(bset.basis_f)
+ωmax(bset::FiniteTempBasisSet) = ωmax(bset.basis_f)
 
 function Base.getproperty(bset::FiniteTempBasisSet, d::Symbol)
     if d === :tau
@@ -83,5 +83,5 @@ function Base.propertynames(::FiniteTempBasisSet, private::Bool=false)
 end
 
 function Base.show(io::IO, b::FiniteTempBasisSet)
-    return print(io, "FiniteTempBasisSet: beta=$(getbeta(b)), wmax=$(getwmax(b))")
+    return print(io, "FiniteTempBasisSet: beta=$(beta(b)), ωmax=$(ωmax(b))")
 end

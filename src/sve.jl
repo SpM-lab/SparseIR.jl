@@ -1,5 +1,3 @@
-abstract type AbstractSVE end
-
 """
     SamplingSVE <: AbstractSVE
 
@@ -111,42 +109,68 @@ using a collocation).
 
 # Arguments
 
-  - `ε::AbstractFloat`:  Relative cutoff for the singular values.
-  - `n_sv::Integer`: Maximum basis size. If given, only at most the `n_sv` most
-    significant singular values and associated singular functions are
-    returned.
-  - `n_gauss::Integer`: Order of Legendre polynomials. Defaults to hinted value
-    by the kernel.
-  - `T`: Data type of the result.
-  - `Twork`: Working data type. Defaults to a data type with
-    machine epsilon of at least `eps^2`, or otherwise most accurate data
-    type available.
-  - `sve_strat`: SVE to SVD translation strategy. Defaults to SamplingSVE.
-  - `svd_strat`: SVD solver. Defaults to fast (ID/RRQR) based solution
-    when accuracy goals are moderate, and more accurate Jacobi-based
-    algorithm otherwise.
+- `K::AbstractKernel`: Integral kernel to take SVE from.
+- `ε::Real`: Accuracy target for the basis: attempt to have singular values down
+    to a relative magnitude of `ε`, and have each singular value
+    and singular vector be accurate to `ε`.  A `Twork` with
+    a machine epsilon of `ε^2` or lower is required to satisfy
+    this. Defaults to `2.2e-16` if xprec is available, and `1.5e-8`
+    otherwise.
+- `cutoff::Real`: Relative cutoff for the singular values.  A `Twork` with
+    machine epsilon of `cutoff` is required to satisfy this.
+    Defaults to a small multiple of the machine epsilon.
 
-# Return value
+    Note that `cutoff` and `ε` serve distinct purposes. `cutoff`
+    reprsents the accuracy to which the kernel is reproduced, whereas
+    `ε` is the accuracy to which the singular values and vectors
+    are guaranteed.
+- `n_sv::Integer`: Maximum basis size. If given, only at most the `n_sv` most
+    significant singular values and associated singular functions are returned.
+- `n_gauss (int): Order of Legendre polynomials. Defaults to kernel hinted value.
+- `T`: Data type of the result.
+- `Twork``: Working data type. Defaults to a data type with machine epsilon of
+    at most `ε^2` and at most `cutoff`, or otherwise most
+    accurate data type available.
+- `sve_strat::AbstractSVE`: SVE to SVD translation strategy. Defaults to `SamplingSVE`,
+    optionally wrapped inside of a `CentrosymmSVE` if the kernel is centrosymmetric.
+- `svd_strat` ('fast' or 'default' or 'accurate'): SVD solver. Defaults to fast
+    (ID/RRQR) based solution when accuracy goals are moderate, and more accurate 
+    Jacobi-based algorithm otherwise.
 
-Return tuple `(u, s, v)`, where:
-
-  - `u::PiecewiseLegendrePoly`: the left singular functions
-  - `s::Vector`: singular values
-  - `v::PiecewiseLegendrePoly`: the right singular functions
+Returns:
+An `SVEResult` containing the truncated singular value expansion.
 """
 function compute_sve(kernel::AbstractKernel;
-                     Twork=nothing, ε=nothing, n_sv=typemax(Int),
+                     Twork=nothing, cutoff=nothing, ε=nothing, n_sv=typemax(Int),
                      n_gauss=-1, T=Float64, svd_strat=:auto,
                      sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE)
-    ε, Twork, svd_strat = choose_accuracy(ε, Twork, svd_strat)
+    safe_ε, Twork, svd_strat = choose_accuracy(ε, Twork, svd_strat)
 
-    sve = sve_strat(kernel, Twork(ε); n_gauss, T=Twork)
+    sve = sve_strat(kernel, Twork(safe_ε); n_gauss, T=Twork)
 
     svds = compute_svd.(matrices(sve); strategy=svd_strat)
     u_, s_, v_ = zip(svds...)
-    u, s, v = truncate(u_, s_, v_, ε, n_sv)
+    isnothing(cutoff) && (cutoff = 2 * eps(Twork))
+    u, s, v = truncate(u_, s_, v_, cutoff, n_sv)
     return postprocess(sve, u, s, v, T)
 end
+
+struct SVEResult{T, K, TP}
+    u :: PiecewiseLegendrePolyVector{T}
+    s :: Vector{T}
+    v :: PiecewiseLegendrePolyVector{T}
+
+    kernel :: K
+    ε      :: TP
+end
+
+function part(sve::SVEResult; ε=sve.ε, max_size=typemax(Int))
+    cut = count(≥(ε * first(sve.s)), sve.s)
+    cut = min(cut, max_size)
+    return sve.u[1:cut], sve.s[1:cut], sve.v[1:cut]
+end
+
+Base.iterate(sve::SVEResult, n=1) = n ≤ 3 ? ((sve.u, sve.s, sve.v)[n], n+1) : nothing
 
 """
     matrices(sve::AbstractSVE)
@@ -188,7 +212,7 @@ function postprocess(sve::SamplingSVE, u, s, v,
     ulx = PiecewiseLegendrePolyVector(T.(u_data), T.(sve.segs_x))
     vly = PiecewiseLegendrePolyVector(T.(v_data), T.(sve.segs_y))
     canonicalize!(ulx, vly)
-    return ulx, s, vly
+    return SVEResult(ulx, s, vly, sve.kernel, sve.ε)
 end
 
 function postprocess(sve::CentrosymmSVE, u, s, v, T)
@@ -230,7 +254,7 @@ function postprocess(sve::CentrosymmSVE, u, s, v, T)
         v_complete[i] = PiecewiseLegendrePoly(v_data, segs_y, i - 1; symm=signs[i])
     end
 
-    return u_complete, s, v_complete
+    return SVEResult(u_complete, s, v_complete, sve.kernel, sve.ε)
 end
 
 """
@@ -240,9 +264,7 @@ Choose work type and accuracy based on specs and defaults
 """
 function choose_accuracy(ε, Twork, svd_strat)
     ε, Twork, auto_svd_strat = choose_accuracy(ε, Twork)
-    if svd_strat == :auto
-        svd_strat = auto_svd_strat
-    end
+    svd_strat == :auto && (svd_strat = auto_svd_strat)
     return ε, Twork, svd_strat
 end
 function choose_accuracy(ε, Twork)

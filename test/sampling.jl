@@ -7,9 +7,9 @@ include("_conftest.jl")
 
 @testset "sampling.jl" begin
     @testset "alias" begin
-        beta = 1
-        wmax = 10
-        basis = FiniteTempBasis(fermion, beta, wmax; sve_result=sve_logistic[beta * wmax])
+        β = 1
+        ωmax = 10
+        basis = FiniteTempBasis(fermion, β, ωmax; sve_result=sve_logistic[β * ωmax])
         @test TauSampling(basis) isa TauSampling64
     end
 
@@ -37,7 +37,7 @@ include("_conftest.jl")
     @testset "fit from tau with stat = $stat, Λ = $Λ" for stat in (boson, fermion),
                                                           Λ in (10, 42)
 
-        basis = DimensionlessBasis(stat, Λ; sve_result=sve_logistic[Λ])
+        basis = FiniteTempBasis(stat, 1, Λ; sve_result=sve_logistic[Λ])
         smpl = TauSampling(basis)
         @test issorted(smpl.sampling_points)
         Random.seed!(5318008)
@@ -62,7 +62,7 @@ include("_conftest.jl")
     end
 
     @testset "τ noise with stat = $stat, Λ = $Λ" for stat in (boson, fermion), Λ in (10, 42)
-        basis = DimensionlessBasis(stat, Λ; sve_result=sve_logistic[Λ])
+        basis = FiniteTempBasis(stat, 1, Λ; sve_result=sve_logistic[Λ])
         smpl = TauSampling(basis)
         @test issorted(smpl.sampling_points)
         Random.seed!(5318008)
@@ -94,7 +94,7 @@ include("_conftest.jl")
     @testset "iω noise with stat = $stat, Λ = $Λ" for stat in (boson, fermion),
                                                       Λ in (10, 42)
 
-        basis = DimensionlessBasis(stat, Λ; sve_result=sve_logistic[Λ])
+        basis = FiniteTempBasis(stat, 1, Λ; sve_result=sve_logistic[Λ])
         smpl = MatsubaraSampling(basis)
         @test smpl isa (stat == fermion ? MatsubaraSampling64F : MatsubaraSampling64B)
         @test issorted(smpl.sampling_points)

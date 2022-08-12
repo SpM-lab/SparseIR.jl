@@ -5,14 +5,14 @@ using SparseIR
     """
     Augmented bosonic basis
     """
-    wmax = 2
+    ωmax = 2
     beta = 1e+3
     #startt = time_ns()
     walltimes = Tuple{String,Int}[]
     #push!(walltimes, ("A", time_ns()))
-    basis = FiniteTempBasis(boson, beta, wmax, 1e-6)
+    basis = FiniteTempBasis(boson, beta, ωmax, 1e-6)
     #push!(walltimes, ("A.1", time_ns()))
-    basis = FiniteTempBasis(boson, beta, wmax, 1e-6)
+    basis = FiniteTempBasis(boson, beta, ωmax, 1e-6)
     #push!(walltimes, ("B", time_ns()))
     basis_legg = LegendreBasis(boson, beta, 2)
     #push!(walltimes, ("C", time_ns()))
