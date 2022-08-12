@@ -36,7 +36,7 @@ end
         basis = FiniteTempBasis(fermion, β, ωmax, 1e-6; sve_result=sve_logistic[β * ωmax])
         basis2 = FiniteTempBasis(fermion, β, ωmax, 1e-3; sve_result=sve_logistic[β * ωmax])
         basis_comp = CompositeBasis([basis, basis2])
-        check_composite_poly(basis_comp.u, [basis.u, basis2.u], range(0, β, 10))
+        check_composite_poly(basis_comp.u, [basis.u, basis2.u], range(0, β; length=10))
         check_composite_poly(basis_comp.uhat, [basis.uhat, basis2.uhat], [1, 3])
         @test SparseIR.β(basis_comp) == β
         @test SparseIR.statistics(basis_comp) == SparseIR.statistics(basis)
