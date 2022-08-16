@@ -1,52 +1,54 @@
 using Test
 using SparseIR
 using AssociatedLegendrePolynomials: Plm
+using LinearAlgebra
 
 @testset "augment.jl" begin
-    @testset "MatsubaraConstBasis with stat = $stat" for stat in (fermion, boson)
-        beta = 2.0
-        value = 1.1
-        b = MatsubaraConstBasis(stat, beta; value)
-        n = 2 .* collect(1:10) .+ SparseIR.zeta(stat)
-        @test all(b.uhat(n) .≈ value)
+    @testset "Augmented bosonic basis" begin
+        ωmax = 2
+        β = 1000
+        basis = FiniteTempBasis(boson, β, ωmax, 1e-6)
+        basis_comp = AugmentedBasis(basis, TauConst, TauLinear)
+
+        # G(τ) = c - e^{-τ * pole} / (1 - e^{-β * pole})
+        pole = 1.0
+        c = 1e-2
+        τ_smpl = TauSampling(basis_comp)
+        @test length(τ_smpl.τ) == length(basis_comp)
+        gτ = c .+ transpose(basis.u(τ_smpl.τ)) * (-basis.s .* basis.v(pole))
+        magn = maximum(abs, gτ)
+        # @show magn
+
+        # This illustrates that "naive" fitting is a problem if the fitting matrix
+        # is not well-conditioned.
+        gl_fit_bad = pinv(τ_smpl.matrix) * gτ
+        gτ_reconst_bad = evaluate(τ_smpl, gl_fit_bad)
+        @test !isapprox(gτ_reconst_bad, gτ, atol=1e-13 * magn)
+        # @show norm(gτ_reconst_bad - gτ) norm(gτ) 1e-13 * magn 5e-16 * cond(τ_smpl) * magn cond(τ_smpl)
+        @test isapprox(gτ_reconst_bad, gτ, atol=5e-16 * cond(τ_smpl) * magn)
+
+        # Now do the fit properly
+        gl_fit = fit(τ_smpl, gτ)
+        gτ_reconst = evaluate(τ_smpl, gl_fit)
+        @test isapprox(gτ_reconst, gτ, atol=1e-14 * magn)
     end
 
-    @testset "LegendreBasis with stat = $stat" for stat in (fermion, boson)
-        β = 1.0
-        Nl = 10
-        cl = sqrt.(2 * collect(0:(Nl - 1)) .+ 1)
-        basis = SparseIR.LegendreBasis(stat, β, Nl; cl)
-        @test size(basis) == (Nl,)
+    @testset "Vertex basis with stat = $stat" for stat in (fermion, boson)
+        ωmax = 2
+        β = 1000
+        basis = FiniteTempBasis(stat, β, ωmax, 1e-6)
+        basis_comp = AugmentedBasis(basis, MatsubaraConst)
+        @test !isnothing(basis_comp.uhat)
 
-        τ = Float64[0, 0.1 * β, 0.4 * β, β]
-        uval = basis.u(τ)
-
-        ref = Matrix{Float64}(undef, Nl, length(τ))
-        for l in 0:(Nl - 1)
-            x = 2τ / β .- 1
-            ref[l + 1, :] .= cl[l + 1] * (√(2l + 1) / β) * Plm.(l, 0, x)
-        end
-        @test uval ≈ ref
-
-        sign = stat == fermion ? -1 : 1
-
-        # G(iv) = 1/(iv-pole)
-        # G(τ) = -e^{-τ*pole}/(1 + e^{-β*pole}) [F]
-        #        = -e^{-τ*pole}/(1 - e^{-β*pole}) [B]
+        # G(iν) = c + 1 / (iν - pole)
         pole = 1.0
-        τ_smpl = TauSampling(basis)
-        gτ = -exp.(-τ_smpl.sampling_points * pole) / (1 - sign * exp(-β * pole))
-        gl_from_τ = fit(τ_smpl, gτ)
+        c = 1.0
+        matsu_smpl = MatsubaraSampling(basis_comp)
+        giν = @. c + 1 / (SparseIR.valueim(matsu_smpl.ωn, β) - pole)
+        gl = fit(matsu_smpl, giν)
 
-        matsu_smpl = MatsubaraSampling(basis)
-        giv = @. 1 / (SparseIR.valueim(matsu_smpl.sampling_points, β) - pole)
-        gl_from_matsu = fit(matsu_smpl, giv)
+        giν_reconst = evaluate(matsu_smpl, gl)
 
-        #println(maximum(abs, gl_from_τ-gl_from_matsu))
-        #println(maximum(abs, gl_from_τ))
-        #println("gl_from_τ", gl_from_τ[1:4])
-        #println("gl_from_matsu", gl_from_matsu[1:4])
-        @test isapprox(gl_from_τ, gl_from_matsu; atol=1e-10 * maximum(abs, gl_from_matsu),
-                       rtol=0)
+        @test isapprox(giν_reconst, giν, atol=maximum(abs, giν) * 1e-7)
     end
 end

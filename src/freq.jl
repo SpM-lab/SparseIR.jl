@@ -15,6 +15,8 @@ function Statistics(zeta::Integer)
     end
 end
 
+Base.broadcastable(s::Statistics) = Ref(s)
+
 """
 Fermionic statistics.
 """

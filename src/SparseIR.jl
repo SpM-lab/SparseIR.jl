@@ -8,10 +8,9 @@ export MatsubaraFreq, BosonicFreq, FermionicFreq, pioverbeta
 export FiniteTempBasis
 export SparsePoleRepresentation, to_IR, from_IR
 export overlap
-export LegendreBasis, MatsubaraConstBasis
 export FiniteTempBasisSet
 export LogisticKernel, RegularizedBoseKernel
-export CompositeBasis, CompositeBasisFunction, CompositeBasisFunctionFT
+export AugmentedBasis, TauConst, TauLinear, MatsubaraConst
 export TauSampling, MatsubaraSampling, evaluate, fit, evaluate!, fit!,
        MatsubaraSampling64F, MatsubaraSampling64B, TauSampling64
 
@@ -44,7 +43,6 @@ include("kernel.jl")
 include("sve.jl")
 include("basis.jl")
 include("augment.jl")
-include("composite.jl")
 include("sampling.jl")
 include("spr.jl")
 include("basis_set.jl")

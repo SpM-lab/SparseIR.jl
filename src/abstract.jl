@@ -65,7 +65,7 @@ Default sampling points on the imaginary time/x axis.
 default_tau_sampling_points(::AbstractBasis) = error("unimplemented")
 
 """
-    default_matsubara_sampling_points(basis::AbstractBasis; mitigate=true)
+    default_matsubara_sampling_points(basis::AbstractBasis)
 
 Default sampling points on the imaginary frequency axis.
 """
@@ -187,6 +187,8 @@ basis coefficients `G_ir[l]` to time/frequency sampled on sparse points
         |________________|      fit        |___________________|
 """
 abstract type AbstractSampling{T,Tmat,F<:SVD} end
+
+Base.broadcastable(sampling::AbstractSampling) = Ref(sampling)
 
 function cond(sampling::AbstractSampling)
     return first(sampling.matrix_svd.S) / last(sampling.matrix_svd.S)

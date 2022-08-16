@@ -50,6 +50,7 @@ struct FiniteTempBasis{K,T,S,TP} <: AbstractBasis
     v          :: PiecewiseLegendrePolyVector{T}
     s          :: Vector{T}
     uhat       :: PiecewiseLegendreFTVector{T,S}
+    uhat_full  :: PiecewiseLegendreFTVector{T,S}
 end
 
 """
@@ -66,6 +67,7 @@ function FiniteTempBasis(statistics::Statistics, β::Number, ωmax::Number, ε=n
     ωmax ≥ 0 || throw(DomainError(ωmax, "Frequency cutoff ωmax must be non-negative"))
 
     u, s, v = isnothing(ε) ? part(sve_result; max_size) : part(sve_result; ε, max_size)
+
     if length(sve_result.s) > length(s)
         accuracy = sve_result.s[length(s) + 1] / first(sve_result.s)
     else
@@ -87,11 +89,13 @@ function FiniteTempBasis(statistics::Statistics, β::Number, ωmax::Number, ε=n
     s_ = √(β / 2 * ωmax) * ωmax^(-ypower(kernel)) * s
 
     # HACK: as we don't yet support Fourier transforms on anything but the
-    # unit interval, we need to scale the underlying data.  This breaks
-    # the correspondence between U.hat and Uhat though.
-    û = map(ui -> PiecewiseLegendreFT(scale(ui, √β), statistics, conv_radius(kernel)), u)
+    # unit interval, we need to scale the underlying data.
+    û_base_full = PiecewiseLegendrePolyVector(√β * sve_result.u.data, sve_result.u)
+    û_full = PiecewiseLegendreFTVector(û_base_full, statistics; n_asymp=conv_radius(kernel))
+    û = û_full[1:length(s)]
 
-    return FiniteTempBasis(kernel, sve_result, statistics, accuracy, float(β), u_, v_, s_, û)
+    return FiniteTempBasis(kernel, sve_result, statistics, accuracy, float(β), 
+                           u_, v_, s_, û, û_full)
 end
 
 const _DEFAULT_FINITE_TEMP_BASIS = FiniteTempBasis{LogisticKernel,Float64}
@@ -110,11 +114,17 @@ accuracy(basis::FiniteTempBasis) = basis.accuracy
 sve_result(basis::FiniteTempBasis) = basis.sve_result
 kernel(basis::FiniteTempBasis) = basis.kernel
 
-default_tau_sampling_points(basis::FiniteTempBasis) = default_sampling_points(basis.u)
-default_matsubara_sampling_points(basis::FiniteTempBasis; mitigate=true) = 
-    default_matsubara_sampling_points(basis.uhat, mitigate)
-default_omega_sampling_points(basis::FiniteTempBasis) = default_sampling_points(basis.v)
-
+function default_tau_sampling_points(basis::FiniteTempBasis) 
+    x = default_sampling_points(basis.sve_result.u, length(basis))
+    return β(basis)/2 * (x .+ 1)
+end
+function default_matsubara_sampling_points(basis::FiniteTempBasis)
+    return default_matsubara_sampling_points(basis.uhat_full, length(basis))
+end
+function default_omega_sampling_points(basis::FiniteTempBasis)
+    y = default_sampling_points(basis.sve_result.v, length(basis))
+    return ωmax(basis) * y
+end
 
 """
     rescale(basis::FiniteTempBasis, new_β)
@@ -145,21 +155,62 @@ function finite_temp_bases(β::AbstractFloat, ωmax::AbstractFloat, ε,
     return basis_f, basis_b
 end
 
-function default_sampling_points(u)
-    poly = last(u)
-    maxima = roots(deriv(poly))
+function default_sampling_points(u::PiecewiseLegendrePolyVector, L::Integer)
+    (u.xmin, u.xmax) == (-1, 1) || error("expecting unscaled functions here")
+
+    # For orthogonal polynomials (the high-T limit of IR), we know that the
+    # ideal sampling points for a basis of size L are the roots of the L-th
+    # polynomial.  We empirically find that these stay good sampling points
+    # for our kernels (probably because the kernels are totally positive).
+    L < length(u) && return roots(u[L+1])
+    L < length(u) && @warn """Requesting $L sampling points but we only have 
+                              $(length(u)) basis functions in SVE."""
+
+    # If we do not have enough polynomials in the basis, we approximate the
+    # roots of the L'th polynomial by the extrema of the (L-1)'st basis
+    # function, which is sensible due to the strong interleaving property
+    # of these functions' roots.
+    maxima = roots(deriv(last(u)))
+
+    # Putting the sampling points right at [0, beta], which would be the
+    # local extrema, is slightly worse conditioned than putting it in the
+    # middel.  This can be understood by the fact that the roots never
+    # occur right at the border.
     left = (first(maxima) + poly.xmin) / 2
     right = (last(maxima) + poly.xmax) / 2
     return [left; maxima; right]
 end
 
-function default_matsubara_sampling_points(uhat::PiecewiseLegendreFTVector, mitigate=true)
-    # Use the (discrete) extrema of the corresponding highest-order basis
-    # function in Matsubara.  This turns out to be close to optimal with
-    # respect to conditioning for this size (within a few percent).
-    polyhat = last(uhat)
-    wn = findextrema(polyhat)
+function default_matsubara_sampling_points(û::PiecewiseLegendreFTVector, L::Integer; 
+                                           fence=false)
+    l_requested = L
 
+    # The number of sign changes is always odd for bosonic basis and even for fermionic 
+    # basis. So in order to get at least as many sign changes as basis functions:
+    statistics(û) isa Fermionic && isodd(l_requested) && (l_requested += 1)
+    statistics(û) isa Bosonic && iseven(l_requested) && (l_requested += 1)
+
+    # As with the zeros, the sign changes provide excellent sampling points
+    if l_requested < length(û)
+        ωn = sign_changes(û[l_requested+1])
+    else
+        # As a fallback, use the (discrete) extrema of the corresponding
+        # highest-order basis function in Matsubara. This turns out to be okay.
+        ωn = findextrema(û[L])
+
+        # For bosonic bases, we must explicitly include the zero frequency,
+        # otherwise the condition number blows up.
+        if statistics(û) isa Bosonic
+            unique!(pushfirst!(ωn, 0))
+            # sort!(ωn)
+        end
+    end
+    
+    fence && fence_matsubara_sampling!(ωn)
+    return ωn
+end
+
+function fence_matsubara_sampling!(ωn::Vector{<:MatsubaraFreq})
     # While the condition number for sparse sampling in tau saturates at a
     # modest level, the conditioning in Matsubara steadily deteriorates due
     # to the fact that we are not free to set sampling points continuously.
@@ -167,24 +218,12 @@ function default_matsubara_sampling_points(uhat::PiecewiseLegendreFTVector, miti
     # by a factor of ~4 (still OK). To battle this, we fence the largest
     # frequency with two carefully chosen oversampling points, which brings
     # the two sampling problems within a factor of 2.
-    if mitigate
-        for wn_max in (first(wn), last(wn))
-            wn_diff = BosonicFreq(2 * round(Int, 0.025 * Integer(wn_max)))
-            length(wn) ≥ 20 && push!(wn, wn_max - sign(wn_max) * wn_diff)
-            length(wn) ≥ 42 && push!(wn, wn_max + sign(wn_max) * wn_diff)
-        end
-        sort!(wn)
-        unique!(wn)
+    for ωn_outer in (first(ωn), last(ωn))
+        ωn_diff = BosonicFreq(2 * round(Int, 0.025 * Int(ωn_outer)))
+        length(ωn) ≥ 20 && push!(ωn, ωn_outer - sign(ωn_outer) * ωn_diff)
+        length(ωn) ≥ 42 && push!(ωn, ωn_outer + sign(ωn_outer) * ωn_diff)
     end
-
-    # For bosonic function
-    if statistics(uhat) isa Bosonic
-        pushfirst!(wn, 0)
-        sort!(wn)
-        unique!(wn)
-    end
-
-    return wn
+    return unique!(ωn)
 end
 
 function range_to_size(range::UnitRange)

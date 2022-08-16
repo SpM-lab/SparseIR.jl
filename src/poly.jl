@@ -167,12 +167,9 @@ function PiecewiseLegendrePolyVector(polys::PiecewiseLegendrePolyVector,
     length(polys) == length(symm) ||
         throw(DimensionMismatch("Sizes of polys and symm don't match"))
 
-    polys_new = similar(polys)
-    for i in eachindex(polys)
-        polys_new[i] = PiecewiseLegendrePoly(polys[i].data, knots, polys[i].l;
-                                             Δx, symm=symm[i])
+    return map(zip(polys, symm)) do (poly, sym)
+        PiecewiseLegendrePoly(poly.data, knots, poly.l; Δx, symm=sym)
     end
-    return polys_new
 end
 
 function PiecewiseLegendrePolyVector(data::AbstractArray{T,3},
@@ -180,7 +177,7 @@ function PiecewiseLegendrePolyVector(data::AbstractArray{T,3},
     size(data, 3) == length(polys) ||
         throw(DimensionMismatch("Sizes of data and polys don't match"))
 
-    polys_new = copy(polys)
+    polys_new = deepcopy(polys)
     for i in eachindex(polys)
         polys_new[i].data .= data[:, :, i]
     end
@@ -197,6 +194,8 @@ function Base.getproperty(polys::PiecewiseLegendrePolyVector, sym::Symbol)
         return getproperty(first(polys), sym)
     elseif sym == :symm
         return map(poly -> poly.symm, polys)
+    elseif sym == :data
+        return mapreduce(poly -> poly.data, (x...) -> cat(x...; dims=3), polys)
     else
         error("Unknown property $sym")
     end
@@ -250,21 +249,18 @@ struct PiecewiseLegendreFT{T,S<:Statistics} <: Function
     model      :: PowerModel{T}
 end
 
-function PiecewiseLegendreFT(poly::PiecewiseLegendrePoly{T}, stat::Statistics,
+function PiecewiseLegendreFT(poly::PiecewiseLegendrePoly{T}, stat::Statistics;
                              n_asymp=Inf) where {T}
     (poly.xmin, poly.xmax) == (-1, 1) || error("Only interval [-1, 1] is supported")
     model = power_model(stat, poly)
     return PiecewiseLegendreFT(poly, stat, T(n_asymp), model)
 end
 
-function Base.show(io::IO, p::PiecewiseLegendreFT)
-    return print(io, "$(typeof(p))")
-end
-
 const PiecewiseLegendreFTVector{T,S} = Vector{PiecewiseLegendreFT{T,S}}
 
-function PiecewiseLegendreFTVector(polys::AbstractVector{<: PiecewiseLegendrePoly}, stat::Statistics)
-    return [PiecewiseLegendreFT(poly, stat) for poly in polys]
+function PiecewiseLegendreFTVector(polys::PiecewiseLegendrePolyVector, 
+                                   stat::Statistics; n_asymp=Inf)
+    return [PiecewiseLegendreFT(poly, stat; n_asymp) for poly in polys]
 end
 
 function Base.getproperty(polyFTs::PiecewiseLegendreFTVector, sym::Symbol)
@@ -325,14 +321,22 @@ Base.firstindex(::PiecewiseLegendreFT) = 1
 """
     findextrema(polyFT::PiecewiseLegendreFT, part=nothing, grid=DEFAULT_GRID)
 
-Obtain extrema of fourier-transformed polynomial.
+Obtain extrema of Fourier-transformed polynomial.
 """
-function findextrema(polyFT::PiecewiseLegendreFT, part=nothing, grid=DEFAULT_GRID)
-    f  = func_for_part(polyFT, part)
+function findextrema(û::PiecewiseLegendreFT, part=nothing, grid=DEFAULT_GRID)
+    f  = func_for_part(û, part)
     x₀ = discrete_extrema(f, grid)
-    x₀ .= 2x₀ .+ zeta(statistics(polyFT))
+    x₀ .= 2x₀ .+ zeta(statistics(û))
     x₀ = symmetrize_matsubara(x₀)
-    return map(xi -> MatsubaraFreq(statistics(polyFT), xi), x₀)
+    return MatsubaraFreq.(statistics(û), x₀)
+end
+
+function sign_changes(û::PiecewiseLegendreFT; part=nothing, grid=DEFAULT_GRID)
+    f = func_for_part(û, part)
+    x₀ = find_all(f, grid)
+    x₀ .= 2x₀ .+ zeta(statistics(û))
+    x₀ = symmetrize_matsubara(x₀)
+    return MatsubaraFreq.(statistics(û), x₀)
 end
 
 @inline function func_for_part(polyFT::PiecewiseLegendreFT, part=nothing)
@@ -348,61 +352,6 @@ end
     end
     return n -> part(polyFT(2n + zeta(statistics(polyFT))))
 end
-
-function discrete_extrema(f::Function, xgrid)
-    fx::Vector{Float64} = f.(xgrid)
-    absfx               = abs.(fx)
-
-    # Forward differences: derivativesignchange[i] now means that the secant 
-    # changes sign fx[i+1]. This means that the extremum is STRICTLY between 
-    # x[i] and x[i+2].
-    gx                     = diff(fx)
-    sgx                    = signbit.(gx)
-    derivativesignchange   = @views (sgx[begin:(end - 1)] .≠ sgx[(begin + 1):end])
-    derivativesignchange_a = [derivativesignchange; false; false]
-    derivativesignchange_b = [false; false; derivativesignchange]
-
-    a      = xgrid[derivativesignchange_a]
-    b      = xgrid[derivativesignchange_b]
-    absf_a = absfx[derivativesignchange_a]
-    absf_b = absfx[derivativesignchange_b]
-    res    = bisect_discr_extremum.(f, a, b, absf_a, absf_b)
-
-    # We consider the outer point to be extremua if there is a decrease
-    # in magnitude or a sign change inwards
-    sfx = signbit.(fx)
-    if absfx[begin] > absfx[begin + 1] || sfx[begin] ≠ sfx[begin + 1]
-        pushfirst!(res, first(xgrid))
-    end
-    if absfx[end] > absfx[end - 1] || sfx[end] ≠ sfx[end - 1]
-        push!(res, last(xgrid))
-    end
-
-    return res
-end
-
-function bisect_discr_extremum(f, a, b, absf_a, absf_b)
-    d = b - a
-
-    d <= 1 && return absf_a > absf_b ? a : b
-    d == 2 && return a + 1
-
-    m      = midpoint(a, b)
-    n      = m + 1
-    absf_m = abs(f(m))
-    absf_n = abs(f(n))
-
-    if absf_m > absf_n
-        return bisect_discr_extremum(f, a, n, absf_a, absf_n)
-    else
-        return bisect_discr_extremum(f, m, b, absf_m, absf_b)
-    end
-end
-
-# This implementation of `midpoint` is performance-optimized but safe
-# only if `lo <= hi`.
-@inline midpoint(lo::T, hi::T) where {T<:Integer} = lo + ((hi - lo) >>> 0x01)
-@inline midpoint(lo::Integer, hi::Integer) = midpoint(promote(lo, hi)...)
 
 @inline function symmetrize_matsubara(x₀)
     issorted(x₀) || error("set of Matsubara points not ordered")
