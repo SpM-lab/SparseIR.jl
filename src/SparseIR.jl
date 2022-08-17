@@ -3,15 +3,14 @@ Intermediate representation (IR) for many-body propagators.
 """
 module SparseIR
 
-export fermion, boson
+export Fermionic, Bosonic
 export MatsubaraFreq, BosonicFreq, FermionicFreq, pioverbeta
 export FiniteTempBasis
 export SparsePoleRepresentation, to_IR, from_IR
 export overlap
-export LegendreBasis, MatsubaraConstBasis
 export FiniteTempBasisSet
 export LogisticKernel, RegularizedBoseKernel
-export CompositeBasis, CompositeBasisFunction, CompositeBasisFunctionFT
+export AugmentedBasis, TauConst, TauLinear, MatsubaraConst
 export TauSampling, MatsubaraSampling, evaluate, fit, evaluate!, fit!,
        MatsubaraSampling64F, MatsubaraSampling64B, TauSampling64
 
@@ -33,9 +32,6 @@ include("_specfuncs.jl")
 using ._LinAlg: tsvd
 
 include("freq.jl")
-const boson = Bosonic()
-const fermion = Fermionic()
-
 include("abstract.jl")
 include("svd.jl")
 include("gauss.jl")
@@ -44,7 +40,6 @@ include("kernel.jl")
 include("sve.jl")
 include("basis.jl")
 include("augment.jl")
-include("composite.jl")
 include("sampling.jl")
 include("spr.jl")
 include("basis_set.jl")

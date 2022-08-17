@@ -27,7 +27,7 @@ function rrqr!(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat}
     taus = Vector{T}(undef, k)
     swapcol = Vector{T}(undef, m)
 
-    xnorms = map(norm, eachcol(A))
+    xnorms = norm.(eachcol(A))
     pnorms = copy(xnorms)
     sqrteps = sqrt(eps(T))
 
@@ -296,7 +296,7 @@ function svd_jacobi!(U::AbstractMatrix{T}; rtol=eps(T), maxiter=20) where {T}
         offd < rtol * Unorm && break
     end
 
-    s = map(norm, eachcol(U))
+    s = norm.(eachcol(U))
     U ./= transpose(s)
     return SVD(U, s, VT)
 end

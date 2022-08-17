@@ -23,25 +23,25 @@ and associated sparse-sampling objects.
 """
 struct FiniteTempBasisSet{TSF<:TauSampling,MSF<:MatsubaraSampling,TSB<:TauSampling,
                           MSB<:MatsubaraSampling}
-    basis_f    :: _DEFAULT_FINITE_TEMP_BASIS
-    basis_b    :: _DEFAULT_FINITE_TEMP_BASIS
+    basis_f    :: DEFAULT_FINITE_TEMP_BASIS{Fermionic}
+    basis_b    :: DEFAULT_FINITE_TEMP_BASIS{Bosonic}
     smpl_tau_f :: TSF
     smpl_tau_b :: TSB
     smpl_wn_f  :: MSF
     smpl_wn_b  :: MSB
 
     """
-        FiniteTempBasisSet(β, ωmax, ε; sve_result=compute_sve(LogisticKernel(β * ωmax); ε))
+        FiniteTempBasisSet(β, ωmax, ε; sve_result=SVEResult(LogisticKernel(β * ωmax); ε))
 
     Create basis sets for fermion and boson and
     associated sampling objects.
     Fermion and bosonic bases are constructed by SVE of the logistic kernel.
     """
     function FiniteTempBasisSet(β::AbstractFloat, ωmax::AbstractFloat, ε;
-                                sve_result=compute_sve(LogisticKernel(β * ωmax); ε))
+                                sve_result=SVEResult(LogisticKernel(β * ωmax); ε))
         # Create bases using the given sve results
-        basis_f = FiniteTempBasis(fermion, β, ωmax, ε; sve_result)
-        basis_b = FiniteTempBasis(boson, β, ωmax, ε; sve_result)
+        basis_f = FiniteTempBasis(Fermionic(), β, ωmax, ε; sve_result)
+        basis_b = FiniteTempBasis(Bosonic(), β, ωmax, ε; sve_result)
 
         tau_sampling_f = TauSampling(basis_f)
         tau_sampling_b = TauSampling(basis_b)

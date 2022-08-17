@@ -32,6 +32,8 @@ function TauSampling(basis::AbstractBasis,
     return sampling
 end
 
+Base.getproperty(s::TauSampling, p::Symbol) = p === :τ ? sampling_points(s) : getfield(s, p)
+
 """
     MatsubaraSampling <: AbstractSampling
 
@@ -40,7 +42,7 @@ Sparse sampling in Matsubara frequencies.
 Allows the transformation between the IR basis and a set of sampling points
 in (scaled/unscaled) imaginary frequencies.
 """
-struct MatsubaraSampling{T,TMAT,F<:SVD} <: AbstractSampling{T,TMAT,F}
+struct MatsubaraSampling{T<:MatsubaraFreq,TMAT,F<:SVD} <: AbstractSampling{T,TMAT,F}
     sampling_points :: Vector{T}
     matrix          :: Matrix{TMAT}
     matrix_svd      :: F
@@ -64,6 +66,8 @@ function MatsubaraSampling(basis::AbstractBasis,
 
     return sampling
 end
+
+Base.getproperty(s::MatsubaraSampling, p::Symbol) = p === :ωn ? sampling_points(s) : getfield(s, p)
 
 """
     eval_matrix(T, basis, x)
