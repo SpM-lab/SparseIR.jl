@@ -8,30 +8,30 @@ using FFTW
         β = 100
         ωmax = Λ / β
         ϵ = 1e-8
-        b = FiniteTempBasis(fermion, β, ωmax, ϵ)
+        b = FiniteTempBasis(Fermionic(), β, ωmax, ϵ)
 
         x = y = 0.1
-        τ = 0.5β * (x + 1)
+        τ = β / 2 * (x + 1)
         ω = ωmax * y
 
         # All singular values
-        @show b.s
-        @show b.u[1](τ)
-        @show b.v[1](ω)
+        # @show b.s
+        # @show b.u[1](τ)
+        # @show b.v[1](ω)
 
         # n-th derivative of U_l(τ) and V_l(ω)
         for n in 1:2
             u_n = SparseIR.deriv.(b.u, n)
             v_n = SparseIR.deriv.(b.v, n)
-            @show n, u_n[1](τ)
-            @show n, v_n[1](ω)
+            # @show n, u_n[1](τ)
+            # @show n, v_n[1](ω)
         end
 
         # Compute u_{ln} as a matrix for the first
         # 10 non-nagative fermionic Matsubara frequencies
         # Fermionic/bosonic frequencies are denoted by odd/even integers.
         hatF_t = b.uhat(1:2:19)
-        @show size(hatF_t)
+        # @show size(hatF_t)
     end
 
     @testset "sample 3" begin
@@ -40,10 +40,10 @@ using FFTW
 
         ωmax = Λ / β
         ϵ = 1e-15
-        @show ωmax
+        # @show ωmax
 
-        b = FiniteTempBasis(fermion, β, ωmax, ϵ)
-        @show length(b)
+        b = FiniteTempBasis(Fermionic(), β, ωmax, ϵ)
+        # @show length(b)
 
         # Sparse sampling in τ
         smpl_τ = TauSampling(b)

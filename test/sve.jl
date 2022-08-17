@@ -23,30 +23,30 @@ a ⪅ b = leaq(a, b)
 
 @testset "sve.jl" begin
     @testset "smooth with Λ = $Λ" for Λ in (10, 42, 10_000)
-        basis = FiniteTempBasis(fermion, 1, Λ; sve_result=sve_logistic[Λ])
+        basis = FiniteTempBasis(Fermionic(), 1, Λ; sve_result=sve_logistic[Λ])
         check_smooth(basis.u, basis.s, 2 * maximum(basis.u(1)), 24)
         check_smooth(basis.v, basis.s, 50, 20)
     end
 
     @testset "num roots u with Λ = $Λ" for Λ in (10, 42, 10_000)
-        basis = FiniteTempBasis(fermion, 1, Λ; sve_result=sve_logistic[Λ])
+        basis = FiniteTempBasis(Fermionic(), 1, Λ; sve_result=sve_logistic[Λ])
         for ui in basis.u
             ui_roots = SparseIR.roots(ui)
             @test length(ui_roots) == ui.l
         end
     end
 
-    @testset "num roots û with stat = $stat, Λ = $Λ" for stat in (fermion, boson),
+    @testset "num roots û with stat = $stat, Λ = $Λ" for stat in (Fermionic(), Bosonic()),
                                                           Λ in (10, 42, 10_000)
 
         basis = FiniteTempBasis(stat, 1, Λ; sve_result=sve_logistic[Λ])
         for i in [1, 2, 8, 11]
-            x₀ = SparseIR.findextrema(basis.uhat[i])
+            x₀ = SparseIR.find_extrema(basis.uhat[i])
             @test i ≤ length(x₀) ≤ i + 1
         end
     end
 
-    @testset "accuracy with stat = $stat, Λ = $Λ" for stat in (fermion, boson),
+    @testset "accuracy with stat = $stat, Λ = $Λ" for stat in (Fermionic(), Bosonic()),
                                                       Λ in (10, 42, 10_000)
 
         basis = FiniteTempBasis(stat, 4, Λ; sve_result=sve_logistic[Λ])

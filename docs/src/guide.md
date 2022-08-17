@@ -35,7 +35,7 @@ for us, where 80.0 is the value of the scale parameter ``\Lambda = \beta\omega_\
 
 ### SVE
 
-Central is the _singular value expansion_'s (SVE) computation, which is handled by the function `compute_sve`:
+Central is the _singular value expansion_'s (SVE) computation, which is handled by the function `SVEResult`:
 Its purpose is constructing the decomposition
 ```math
 \begin{equation}\label{SVE}

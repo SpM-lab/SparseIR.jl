@@ -17,11 +17,11 @@ pkg> add SparseIR
 
 ```julia
 using SparseIR
-beta = 10.0
+β = 10.0
 ωmax = 1.0
-eps = 1e-7
-basis_f = FiniteTempBasis(fermion, beta, ωmax, eps)
-basis_b = FiniteTempBasis(boson, beta, ωmax, eps)
+ε = 1e-7
+basis_f = FiniteTempBasis(Fermionic(), β, ωmax, ε)
+basis_b = FiniteTempBasis(Bosonic(), β, ωmax, ε)
 ```
 
 ## Tutorial and sample codes

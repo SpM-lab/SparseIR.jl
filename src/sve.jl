@@ -84,8 +84,17 @@ function CentrosymmSVE(kernel, ε; InnerSVE=SamplingSVE, n_gauss, T)
     return CentrosymmSVE(kernel, ε, even, odd, max(even.nsvals_hint, odd.nsvals_hint))
 end
 
+struct SVEResult{T,K,TP}
+    u::PiecewiseLegendrePolyVector{T}
+    s::Vector{T}
+    v::PiecewiseLegendrePolyVector{T}
+
+    kernel :: K
+    ε      :: TP
+end
+
 """
-    compute_sve(kernel::AbstractKernel;
+    SVEResult(kernel::AbstractKernel;
         Twork=nothing, ε=nothing, n_sv=typemax(Int),
         n_gauss=-1, T=Float64, svd_strat=:auto,
         sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE
@@ -109,41 +118,41 @@ using a collocation).
 
 # Arguments
 
-- `K::AbstractKernel`: Integral kernel to take SVE from.
-- `ε::Real`: Accuracy target for the basis: attempt to have singular values down
+  - `K::AbstractKernel`: Integral kernel to take SVE from.
+
+  - `ε::Real`: Accuracy target for the basis: attempt to have singular values down
     to a relative magnitude of `ε`, and have each singular value
     and singular vector be accurate to `ε`.  A `Twork` with
     a machine epsilon of `ε^2` or lower is required to satisfy
     this. Defaults to `2.2e-16` if xprec is available, and `1.5e-8`
     otherwise.
-- `cutoff::Real`: Relative cutoff for the singular values.  A `Twork` with
+  - `cutoff::Real`: Relative cutoff for the singular values.  A `Twork` with
     machine epsilon of `cutoff` is required to satisfy this.
     Defaults to a small multiple of the machine epsilon.
-
+    
     Note that `cutoff` and `ε` serve distinct purposes. `cutoff`
     reprsents the accuracy to which the kernel is reproduced, whereas
     `ε` is the accuracy to which the singular values and vectors
     are guaranteed.
-- `n_sv::Integer`: Maximum basis size. If given, only at most the `n_sv` most
+  - `n_sv::Integer`: Maximum basis size. If given, only at most the `n_sv` most
     significant singular values and associated singular functions are returned.
-- `n_gauss (int): Order of Legendre polynomials. Defaults to kernel hinted value.
-- `T`: Data type of the result.
-- `Twork``: Working data type. Defaults to a data type with machine epsilon of
-    at most `ε^2` and at most `cutoff`, or otherwise most
+  - `n_gauss (int): Order of Legendre polynomials. Defaults to kernel hinted value.
+  - `T`: Data type of the result.
+  - `Twork``: Working data type. Defaults to a data type with machine epsilon of at most `ε^2`and at most`cutoff`, or otherwise most
     accurate data type available.
-- `sve_strat::AbstractSVE`: SVE to SVD translation strategy. Defaults to `SamplingSVE`,
+  - `sve_strat::AbstractSVE`: SVE to SVD translation strategy. Defaults to `SamplingSVE`,
     optionally wrapped inside of a `CentrosymmSVE` if the kernel is centrosymmetric.
-- `svd_strat` ('fast' or 'default' or 'accurate'): SVD solver. Defaults to fast
-    (ID/RRQR) based solution when accuracy goals are moderate, and more accurate 
+  - `svd_strat` ('fast' or 'default' or 'accurate'): SVD solver. Defaults to fast
+    (ID/RRQR) based solution when accuracy goals are moderate, and more accurate
     Jacobi-based algorithm otherwise.
 
 Returns:
 An `SVEResult` containing the truncated singular value expansion.
 """
-function compute_sve(kernel::AbstractKernel;
-                     Twork=nothing, cutoff=nothing, ε=nothing, n_sv=typemax(Int),
-                     n_gauss=-1, T=Float64, svd_strat=:auto,
-                     sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE)
+function SVEResult(kernel::AbstractKernel;
+                   Twork=nothing, cutoff=nothing, ε=nothing, n_sv=typemax(Int),
+                   n_gauss=-1, T=Float64, svd_strat=:auto,
+                   sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE)
     safe_ε, Twork, svd_strat = choose_accuracy(ε, Twork, svd_strat)
 
     sve = sve_strat(kernel, Twork(safe_ε); n_gauss, T=Twork)
@@ -155,22 +164,13 @@ function compute_sve(kernel::AbstractKernel;
     return postprocess(sve, u, s, v, T)
 end
 
-struct SVEResult{T, K, TP}
-    u :: PiecewiseLegendrePolyVector{T}
-    s :: Vector{T}
-    v :: PiecewiseLegendrePolyVector{T}
-
-    kernel :: K
-    ε      :: TP
-end
-
 function part(sve::SVEResult; ε=sve.ε, max_size=typemax(Int))
     cut = count(≥(ε * first(sve.s)), sve.s)
     cut = min(cut, max_size)
     return sve.u[1:cut], sve.s[1:cut], sve.v[1:cut]
 end
 
-Base.iterate(sve::SVEResult, n=1) = n ≤ 3 ? ((sve.u, sve.s, sve.v)[n], n+1) : nothing
+Base.iterate(sve::SVEResult, n=1) = n ≤ 3 ? ((sve.u, sve.s, sve.v)[n], n + 1) : nothing
 
 """
     matrices(sve::AbstractSVE)

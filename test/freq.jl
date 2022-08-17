@@ -6,10 +6,10 @@ using SparseIR
         @test SparseIR.zeta(MatsubaraFreq(2)) == 0
         @test SparseIR.zeta(MatsubaraFreq(-5)) == 1
 
-        @test Integer(FermionicFreq(3)) == 3
-        @test Integer(BosonicFreq(-2)) == -2
+        @test Int(FermionicFreq(3)) == 3
+        @test Int(BosonicFreq(-2)) == -2
 
-        @test Integer(MatsubaraFreq(Int32(4))) == 4
+        @test Int(MatsubaraFreq(Int32(4))) == 4
 
         @test_throws ArgumentError FermionicFreq(4)
         @test_throws ArgumentError BosonicFreq(-7)
@@ -26,8 +26,8 @@ using SparseIR
         @test iszero(pioverbeta - pioverbeta)
 
         @test pioverbeta + oneunit(pioverbeta) == 2 * pioverbeta
-        @test Integer(4 * pioverbeta) == 4
-        @test Integer(pioverbeta - 2 * pioverbeta) == -1
+        @test Int(4 * pioverbeta) == 4
+        @test Int(pioverbeta - 2 * pioverbeta) == -1
         @test iszero(zero(2 * pioverbeta))
     end
 

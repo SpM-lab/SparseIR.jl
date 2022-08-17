@@ -1,26 +1,23 @@
-struct MatsubaraPoleBasis{S<:Statistics} <: AbstractBasis
+struct MatsubaraPoleBasis{S<:Statistics} <: AbstractBasis{S}
     β          :: Float64
     statistics :: S
     poles      :: Vector{Float64}
 end
 
-β(basis::MatsubaraPoleBasis) = basis.β
-statistics(basis::MatsubaraPoleBasis) = basis.statistics
-
 function (basis::MatsubaraPoleBasis{S})(n::MatsubaraFreq{S}) where {S}
-    beta = β(basis)
-    iν = valueim(n, beta)
+    iν = valueim(n, β(basis))
     if S === Fermionic
         return @. 1 / (iν - basis.poles)
     else
-        return @. tanh(0.5beta * basis.poles) / (iν - basis.poles)
+        return @. tanh(β(basis) / 2 * basis.poles) / (iν - basis.poles)
     end
 end
-(basis::MatsubaraPoleBasis{S})(n::AbstractVector{MatsubaraFreq{S}}) where {S} = 
+function (basis::MatsubaraPoleBasis{S})(n::AbstractVector{MatsubaraFreq{S}}) where {S}
     mapreduce(basis, hcat, n)
+end
 (basis::MatsubaraPoleBasis)(n::AbstractVector{<:Integer}) = basis(MatsubaraFreq.(n))
 
-struct TauPoleBasis{S<:Statistics} <: AbstractBasis
+struct TauPoleBasis{S<:Statistics} <: AbstractBasis{S}
     β          :: Float64
     poles      :: Vector{Float64}
     statistics :: S
@@ -29,16 +26,16 @@ end
 
 ωmax(basis::TauPoleBasis) = basis.ωmax
 
-function TauPoleBasis(beta::Real, statistics::Statistics, poles::Vector{<:AbstractFloat})
-    return TauPoleBasis(beta, poles, statistics, maximum(abs, poles))
+function TauPoleBasis(β::Real, statistics::Statistics, poles::Vector{<:AbstractFloat})
+    return TauPoleBasis(β, poles, statistics, maximum(abs, poles))
 end
 
 function (basis::TauPoleBasis)(τ::Vector{<:AbstractFloat})
-    all(τ -> 0 ≤ τ ≤ beta(basis), τ) || throw(DomainError(τ, "τ must be in [0, beta]!"))
+    all(τ -> 0 ≤ τ ≤ β(basis), τ) || throw(DomainError(τ, "τ must be in [0, β]!"))
 
-    x = (2 / beta(basis)) .* τ .- 1
+    x = (2 / β(basis)) .* τ .- 1
     y = basis.poles ./ ωmax(basis)
-    Λ = beta(basis) * ωmax(basis)
+    Λ = β(basis) * ωmax(basis)
     return -transpose(LogisticKernel(Λ).(x, transpose(y)))
 end
 
@@ -47,27 +44,26 @@ end
 
 Sparse pole representation.
 """
-struct SparsePoleRepresentation{B<:AbstractBasis,T<:AbstractFloat,S<:Statistics,FMAT<:SVD} <: AbstractBasis
-    basis      :: B
-    poles      :: Vector{T}
-    u          :: TauPoleBasis{S}
-    uhat       :: MatsubaraPoleBasis{S}
-    statistics :: S
-    fitmat     :: Matrix{Float64}
-    matrix     :: FMAT
+struct SparsePoleRepresentation{S<:Statistics,B<:AbstractBasis{S},T<:AbstractFloat,FMAT<:SVD
+                                } <: AbstractBasis{S}
+    basis  :: B
+    poles  :: Vector{T}
+    u      :: TauPoleBasis{S}
+    uhat   :: MatsubaraPoleBasis{S}
+    fitmat :: Matrix{Float64}
+    matrix :: FMAT
 end
 
+# TODO
 function Base.show(io::IO, obj::SparsePoleRepresentation)
     return print(io, "SparsePoleRepresentation for $(obj.basis) with poles at $(obj.poles)")
 end
 
-function SparsePoleRepresentation(basis::AbstractBasis,
-                                  poles=default_omega_sampling_points(basis))
-    u = TauPoleBasis(β(basis), statistics(basis), poles)
-    uhat = MatsubaraPoleBasis(β(basis), statistics(basis), poles)
-    fitmat = -basis.s .* basis.v(poles)
-    return SparsePoleRepresentation(basis, poles, u, uhat, 
-                                    statistics(basis), fitmat, svd(fitmat))
+function SparsePoleRepresentation(b::AbstractBasis, poles=default_omega_sampling_points(b))
+    u = TauPoleBasis(β(b), statistics(b), poles)
+    uhat = MatsubaraPoleBasis(β(b), statistics(b), poles)
+    fitmat = -b.s .* b.v(poles)
+    return SparsePoleRepresentation(b, poles, u, uhat, fitmat, svd(fitmat))
 end
 
 β(obj::SparsePoleRepresentation) = β(obj.basis)
@@ -80,12 +76,12 @@ function Base.getproperty(obj::SparsePoleRepresentation, d::Symbol)
     end
 end
 
-default_tau_sampling_points(obj::SparsePoleRepresentation) = 
+function default_tau_sampling_points(obj::SparsePoleRepresentation)
     default_tau_sampling_points(obj.basis)
-
-default_matsubara_sampling_points(obj::SparsePoleRepresentation) = 
+end
+function default_matsubara_sampling_points(obj::SparsePoleRepresentation)
     default_matsubara_sampling_points(obj.basis)
-
+end
 iswellconditioned(::SparsePoleRepresentation) = false
 
 """

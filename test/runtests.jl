@@ -4,7 +4,6 @@ using Random
 using MultiFloats
 
 include("_conftest.jl")
-include("_util.jl")
 
 @testset verbose=true "SparseIR.jl" begin
     include("freq.jl")
@@ -20,4 +19,4 @@ include("_util.jl")
     include("scipost_sample_code.jl")
 end
 
-nothing
+nothing # otherwise we get messy output from the testset printed in the REPL

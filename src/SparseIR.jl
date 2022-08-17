@@ -3,7 +3,7 @@ Intermediate representation (IR) for many-body propagators.
 """
 module SparseIR
 
-export fermion, boson
+export Fermionic, Bosonic
 export MatsubaraFreq, BosonicFreq, FermionicFreq, pioverbeta
 export FiniteTempBasis
 export SparsePoleRepresentation, to_IR, from_IR
@@ -32,9 +32,6 @@ include("_specfuncs.jl")
 using ._LinAlg: tsvd
 
 include("freq.jl")
-const boson = Bosonic()
-const fermion = Fermionic()
-
 include("abstract.jl")
 include("svd.jl")
 include("gauss.jl")

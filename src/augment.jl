@@ -1,4 +1,20 @@
 """
+    AbstractAugmentation
+
+Scalar function in imaginary time/frequency.
+
+This represents a single function in imaginary time and frequency, together
+with some auxiliary methods that make it suitable for augmenting a basis.
+
+See also: [`AugmentedBasis`](@ref)
+"""
+abstract type AbstractAugmentation <: Function end
+
+const AugmentationTuple = Tuple{Vararg{<:AbstractAugmentation}}
+
+create(aug::AbstractAugmentation, ::AbstractBasis) = aug
+
+"""
     AugmentedBasis <: AbstractBasis
 
 Augmented basis on the imaginary-time/frequency axis.
@@ -21,41 +37,42 @@ that serves as a base for multi-point functions [^shinaoka2018].
     Bases augmented with `TauConst` and `TauLinear` tend to be poorly
     conditioned. Care must be taken while fitting and compactness should
     be enforced if possible to regularize the problem.
-
+    
     While vertex bases, i.e. bases augmented with `MatsubaraConst`, stay
     reasonably well-conditioned, it is still good practice to treat the
     Hartree--Fock term separately rather than including it in the basis,
     if possible.
 
-See also: [`MatsubaraConst`](@ref) for vertex basis [^wallerberger2021], [`TauConst`](@ref), [`TauLinear`](@ref) for multi-point [^shinaoka2018]
+See also: [`MatsubaraConst`](@ref) for vertex basis [^wallerberger2021],
+[`TauConst`](@ref),
+[`TauLinear`](@ref) for multi-point [^shinaoka2018]
 
 [^wallerberger2021]: https://doi.org/10.1103/PhysRevResearch.3.033168
 [^shinaoka2018]: https://doi.org/10.1103/PhysRevB.97.205111
 """
-struct AugmentedBasis{B<:AbstractBasis} <: AbstractBasis
-    basis::B
-    augmentations::Any
-    u::Any
-    uhat::Any
+struct AugmentedBasis{S<:Statistics,B<:FiniteTempBasis{S},A<:AugmentationTuple,F,FHAT} <: AbstractBasis{S}
+    basis         :: B
+    augmentations :: A
+    u             :: F
+    uhat          :: FHAT
 end
 
 function AugmentedBasis(basis::AbstractBasis, augmentations...)
-    augmentations = Tuple(augmentation_factory(basis, augmentations...))
+    augmentations = Tuple(create(aug, basis) for aug in augmentations)
     u = AugmentedTauFunction(basis.u, augmentations)
-    û = AugmentedMatsubaraFunction(basis.uhat, [n -> hat(aug, n) for aug in augmentations])
+    û = AugmentedMatsubaraFunction(basis.uhat, augmentations)
     return AugmentedBasis(basis, augmentations, u, û)
 end
 
-statistics(basis::AugmentedBasis) = statistics(basis.basis)
 naug(basis::AugmentedBasis) = length(basis.augmentations)
 
-function getindex(basis::AugmentedBasis, index)
-    stop = range_to_size(index)
+function getindex(basis::AugmentedBasis, index::AbstractRange)
+    stop = range_to_length(index)
     stop > naug(basis) || error("Cannot truncate to only augmentation.")
     return AugmentedBasis(basis.basis[begin:(stop - naug(basis))], basis.augmentations)
 end
 
-Base.size(basis::AugmentedBasis) = (length(basis), )
+Base.size(basis::AugmentedBasis) = (length(basis),)
 Base.length(basis::AugmentedBasis) = naug(basis) + length(basis.basis)
 significance(basis::AugmentedBasis) = significance(basis.basis)
 accuracy(basis::AugmentedBasis) = accuracy(basis.basis)
@@ -77,51 +94,50 @@ function iswellconditioned(basis::AugmentedBasis)
     return wbasis && waug
 end
 
-
+############################################################################################
+#                                   Augmented Functions                                    #
+############################################################################################
 
 abstract type AbstractAugmentedFunction <: Function end
 
-struct AugmentedFunction <: AbstractAugmentedFunction
-    fbasis::Any
-    faug::Any
+struct AugmentedFunction{FB,FA} <: AbstractAugmentedFunction
+    fbasis :: FB
+    faug   :: FA
 end
 
-augmentedfunction(a::AugmentedFunction) = a 
+augmentedfunction(a::AugmentedFunction) = a
 
 fbasis(a::AbstractAugmentedFunction) = augmentedfunction(a).fbasis
 faug(a::AbstractAugmentedFunction) = augmentedfunction(a).faug
 naug(a::AbstractAugmentedFunction) = length(faug(a))
 
 Base.length(a::AbstractAugmentedFunction) = naug(a) + length(fbasis(a))
-Base.size(a::AbstractAugmentedFunction) = (length(a), )
+Base.size(a::AbstractAugmentedFunction) = (length(a),)
 
 function (a::AbstractAugmentedFunction)(x)
     fbasis_x = fbasis(a)(x)
     faug_x = [faug_l(x) for faug_l in faug(a)]
-    return fbasis_x .+ faug_x
+    return vcat(faug_x, fbasis_x)
 end
 function (a::AbstractAugmentedFunction)(x::AbstractArray)
     fbasis_x = fbasis(a)(x)
-    faug_x = (faug_l.(x) for faug_l in faug(a))
-    return sum(fbasis_x .+ transpose(faug_xi) for faug_xi in faug_x)
+    faug_x = [faug_l.(transpose(x)) for faug_l in faug(a)]
+    return vcat(faug_x..., fbasis_x)
 end
 
 function Base.getindex(a::AbstractAugmentedFunction, r::AbstractRange)
-    stop = range_to_size(r)
+    stop = range_to_length(r)
     stop > naug(a) || error("Don't truncate to only augmentation")
-    return AugmentedFunction(fbasis(a)[begin:(stop-naug(a))], faug(a))
+    return AugmentedFunction(fbasis(a)[begin:(stop - naug(a))], faug(a))
 end
 function Base.getindex(a::AbstractAugmentedFunction, l::Integer)
-    if l < naug(a)
-        return faug(a)[l]
-    else
-        return fbasis(a)[l-naug(a)]
-    end
+    return l ≤ naug(a) ? faug(a)[l] : fbasis(a)[l - naug(a)]
 end
 
-    
-struct AugmentedTauFunction <: AbstractAugmentedFunction
-    a::AugmentedFunction
+### AugmentedTauFunction
+
+struct AugmentedTauFunction{FB,FA} <: AbstractAugmentedFunction
+    a::AugmentedFunction{FB,FA}
 end
 
 augmentedfunction(aτ::AugmentedTauFunction) = aτ.a
@@ -137,19 +153,25 @@ function deriv(aτ::AugmentedTauFunction, n=1)
     return AugmentedTauFunction(dbasis, daug)
 end
 
+### AugmentedMatsubaraFunction
 
-struct AugmentedMatsubaraFunction <: AbstractAugmentedFunction
-    a::AugmentedFunction
+struct AugmentedMatsubaraFunction{FB,FA} <: AbstractAugmentedFunction
+    a::AugmentedFunction{FB,FA}
 end
 
 augmentedfunction(amat::AugmentedMatsubaraFunction) = amat.a
 
-AugmentedMatsubaraFunction(fbasis, faug) = AugmentedMatsubaraFunction(AugmentedFunction(fbasis, faug))
+function AugmentedMatsubaraFunction(fbasis, faug)
+    AugmentedMatsubaraFunction(AugmentedFunction(fbasis, faug))
+end
 
 zeta(amat::AugmentedMatsubaraFunction) = zeta(fbasis(amat))
 
+############################################################################################
+#                                      Augmentations                                       #
+############################################################################################
 
-abstract type AbstractAugmentation end
+### TauConst
 
 struct TauConst <: AbstractAugmentation
     β::Float64
@@ -159,30 +181,28 @@ struct TauConst <: AbstractAugmentation
     end
 end
 
-function create(::Type{TauConst}, basis::AbstractBasis)
-    statistics(basis)::Bosonic
-    return TauConst(β(basis))
-end
+create(::Type{TauConst}, basis::AbstractBasis{Bosonic}) = TauConst(β(basis))
 
 function (aug::TauConst)(τ)
     0 ≤ τ ≤ aug.β || throw(DomainError(τ, "τ must be in [0, β]."))
     return 1 / √(aug.β)
 end
-
-function deriv(aug::TauConst, n=1)
-    iszero(n) && return aug
-    return τ -> 0.0
-end
-
-function hat(aug::TauConst, n::BosonicFreq)
+function (aug::TauConst)(n::BosonicFreq)
     iszero(n) || return 0.0
     return √(aug.β)
 end
+(::TauConst)(::FermionicFreq) = error("TauConst is not a Fermionic basis.")
 
+function deriv(aug::TauConst, n=1)
+    !iszero(n) || return aug
+    return τ -> 0.0
+end
+
+### TauLinear
 
 struct TauLinear <: AbstractAugmentation
-    β::Float64
-    norm::Float64
+    β    :: Float64
+    norm :: Float64
     function TauLinear(β)
         β > 0 || throw(DomainError(β, "Temperature must be positive."))
         norm = √(3 / β)
@@ -190,16 +210,19 @@ struct TauLinear <: AbstractAugmentation
     end
 end
 
-function create(::Type{TauLinear}, basis::AbstractBasis)
-    statistics(basis)::Bosonic
-    return TauLinear(β(basis))
-end
+create(::Type{TauLinear}, basis::AbstractBasis{Bosonic}) = TauLinear(β(basis))
 
 function (aug::TauLinear)(τ)
     0 ≤ τ ≤ aug.β || throw(DomainError(τ, "τ must be in [0, β]."))
     x = 2 / aug.β * τ - 1
     return aug.norm * x
 end
+function (aug::TauLinear)(n::BosonicFreq)
+    inv_w = value(n, aug.β)
+    inv_w = iszero(n) ? inv_w : 1 / inv_w
+    return aug.norm * 2 / im * inv_w
+end
+(::TauLinear)(::FermionicFreq) = error("TauLinear is not a Fermionic basis.")
 
 function deriv(aug::TauLinear, n=1)
     iszero(n) && return aug
@@ -207,12 +230,7 @@ function deriv(aug::TauLinear, n=1)
     return τ -> 0.0
 end
 
-function hat(aug::TauLinear, n::BosonicFreq)
-    inv_w = value(n, aug.β)
-    inv_w = iszero(n) ? inv_w : 1 / inv_w
-    return aug.norm * 2/im * inv_w
-end
-
+### MatsubaraConst
 
 struct MatsubaraConst <: AbstractAugmentation
     β::Float64
@@ -228,21 +246,8 @@ function (aug::MatsubaraConst)(τ)
     0 ≤ τ ≤ aug.β || throw(DomainError(τ, "τ must be in [0, β]."))
     return NaN
 end
-
-deriv(aug::MatsubaraConst, n=1) = aug
-
-function hat(::MatsubaraConst, ::MatsubaraFreq)
+function (::MatsubaraConst)(::MatsubaraFreq)
     return 1.0
 end
 
-
-augmentation_factory(basis::AbstractBasis, augs...) = 
-    Iterators.map(augs) do aug
-        if aug isa AbstractAugmentation
-            return aug
-        else
-            return create(aug, basis)
-        end
-    end
-
-create(aug, )
+deriv(aug::MatsubaraConst, _=1) = aug

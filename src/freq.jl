@@ -51,30 +51,29 @@ imaginary-frequency axis:
     Ĝ(iω) = ∫  dτ exp(iωτ) G(τ)      with    ω = n π/β,
             0
 
-where β is inverse temperature and  by convention we include the imaginary unit
-in the frequency argument, i.e, Ĝ(iω).  The frequencies depend on the
+where β is inverse temperature and by convention we include the imaginary unit
+in the frequency argument, i.e, Ĝ(iω). The frequencies depend on the
 statistics of the propagator, i.e., we have that:
 
     G(τ - β) = ± G(τ)
 
-where + is for bosons and - is for fermions.  The frequencies are restricted
+where + is for bosons and - is for fermions. The frequencies are restricted
 accordingly.
 
   - Bosonic frequency (`S == Fermionic`): `n` even (periodic in β)
   - Fermionic frequency (`S == Bosonic`): `n` odd (anti-periodic in β)
 """
 struct MatsubaraFreq{S<:Statistics} <: Number
-    stat :: S
-    n    :: Int
+    n :: Int
 
-    MatsubaraFreq(stat::Statistics, n::Integer) = new{typeof(stat)}(stat, n)
+    MatsubaraFreq(stat::Statistics, n::Integer) = new{typeof(stat)}(n)
 
     function MatsubaraFreq{S}(n::Integer) where {S<:Statistics}
         stat = S()
         if !allowed(stat, n)
             throw(ArgumentError("Frequency $(n)π/β is not $stat"))
         end
-        return new{S}(stat, n)
+        return new{S}(n)
     end
 end
 
@@ -82,6 +81,8 @@ const BosonicFreq   = MatsubaraFreq{Bosonic}
 const FermionicFreq = MatsubaraFreq{Fermionic}
 
 MatsubaraFreq(n::Integer) = MatsubaraFreq(Statistics(mod(n, 2)), n)
+
+statistics(::MatsubaraFreq{S}) where {S} = S()
 
 """
 Get prefactor `n` for the Matsubara frequency `ω = n*π/β`
@@ -96,23 +97,23 @@ Int(a::MatsubaraFreq) = a.n
 """
 Get value of the Matsubara frequency `ω = n*π/β`
 """
-value(a::MatsubaraFreq, beta::Real) = Int(a) * (π / beta)
+value(a::MatsubaraFreq, β::Real) = Int(a) * (π / β)
 
 """
 Get complex value of the Matsubara frequency `iω = iπ/β * n`
 """
-valueim(a::MatsubaraFreq, beta::Real) = 1im * value(a, beta)
+valueim(a::MatsubaraFreq, β::Real) = 1im * value(a, β)
 
 """
 Get statistics `ζ` for Matsubara frequency `ω = (2*m+ζ)*π/β`
 """
-zeta(a::MatsubaraFreq) = zeta(a.stat)
+zeta(a::MatsubaraFreq) = zeta(statistics(a))
 
-Base.:+(a::MatsubaraFreq, b::MatsubaraFreq) = MatsubaraFreq(a.stat + b.stat, a.n + b.n)
-Base.:-(a::MatsubaraFreq, b::MatsubaraFreq) = MatsubaraFreq(a.stat + b.stat, a.n - b.n)
+Base.:+(a::MatsubaraFreq, b::MatsubaraFreq) = MatsubaraFreq(statistics(a) + statistics(b), a.n + b.n)
+Base.:-(a::MatsubaraFreq, b::MatsubaraFreq) = MatsubaraFreq(statistics(a) + statistics(b), a.n - b.n)
 Base.:+(a::MatsubaraFreq)                   = a
-Base.:-(a::MatsubaraFreq)                   = MatsubaraFreq(a.stat, -a.n)
-Base.:*(a::BosonicFreq, c::Integer)         = MatsubaraFreq(a.stat, a.n * c)
+Base.:-(a::MatsubaraFreq)                   = MatsubaraFreq(statistics(a), -a.n)
+Base.:*(a::BosonicFreq, c::Integer)         = MatsubaraFreq(statistics(a), a.n * c)
 Base.:*(a::FermionicFreq, c::Integer)       = MatsubaraFreq(a.n * c)
 Base.:*(c::Integer, a::MatsubaraFreq)       = a * c
 
@@ -126,14 +127,15 @@ Base.isless(a::MatsubaraFreq, b::MatsubaraFreq) = isless(a.n, b.n)
 # `promote_rule(<:Number, <:Number) = Number` default, together with the fact
 # that `@(x::Number, y::Number) = @(promote(x,y)...)` for most operations.
 # Let's make this error more explicit instead.
-Base.promote_rule(::Type{<: MatsubaraFreq}, ::Type{<:MatsubaraFreq}) = MatsubaraFreq
-Base.promote_rule(::Type{T1}, ::Type{T2}) where {T1<:MatsubaraFreq, T2<:Number} =
+Base.promote_rule(::Type{<:MatsubaraFreq}, ::Type{<:MatsubaraFreq}) = MatsubaraFreq
+function Base.promote_rule(::Type{T1}, ::Type{T2}) where {T1<:MatsubaraFreq,T2<:Number}
     throw(ArgumentError("""
         Will not promote (automatically convert) $T2 and $T1.
 
         You were probably mixing a number ($T2) and a Matsubara frequency ($T1)
         in an additive or comparative expression, e.g., `MatsubaraFreq(0) + 1`.
         We disallow this.  Please use `$T1(x)` explicitly."""))
+end
 
 function Base.show(io::IO, self::MatsubaraFreq)
     if self.n == 0
@@ -157,7 +159,8 @@ struct FreqRange{A<:Statistics} <: OrdinalRange{MatsubaraFreq{A},BosonicFreq}
     stop  :: MatsubaraFreq{A}
     step  :: BosonicFreq
 
-    function FreqRange(start::MatsubaraFreq{A}, stop::MatsubaraFreq{A}, step_::BosonicFreq) where {A}
+    function FreqRange(start::MatsubaraFreq{A}, stop::MatsubaraFreq{A},
+                       step_::BosonicFreq) where {A}
         range = Int(start):Int(step_):Int(stop)
         start = MatsubaraFreq{A}(first(range))
         step_ = BosonicFreq(step(range))
@@ -166,9 +169,11 @@ struct FreqRange{A<:Statistics} <: OrdinalRange{MatsubaraFreq{A},BosonicFreq}
     end
 end
 
-Base.first(self::FreqRange)                          = self.start
-Base.last(self::FreqRange)                           = self.stop
-Base.step(self::FreqRange)                           = self.step
-Base.length(self::FreqRange)                         = Int(last(self) - first(self)) ÷ Int(step(self)) + 1
+Base.first(self::FreqRange) = self.start
+Base.last(self::FreqRange) = self.stop
+Base.step(self::FreqRange) = self.step
+Base.length(self::FreqRange) = Int(last(self) - first(self)) ÷ Int(step(self)) + 1
 Base.:(:)(start::MatsubaraFreq, stop::MatsubaraFreq) = start:BosonicFreq(2):stop
-Base.:(:)(start::MatsubaraFreq, step::BosonicFreq, stop::MatsubaraFreq) = FreqRange(start, stop, step)
+function Base.:(:)(start::MatsubaraFreq, step::BosonicFreq, stop::MatsubaraFreq)
+    FreqRange(start, stop, step)
+end

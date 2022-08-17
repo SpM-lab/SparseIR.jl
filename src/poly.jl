@@ -57,16 +57,11 @@ function Base.show(io::IO, p::PiecewiseLegendrePoly)
     return print(io, "$(typeof(p)): xmin=$(p.xmin), xmax=$(p.xmax)")
 end
 
-(poly::PiecewiseLegendrePoly)(x) = _evaluate(poly, x)
-
-@inline function _evaluate(poly::PiecewiseLegendrePoly, x::Number)
+@inline function (poly::PiecewiseLegendrePoly)(x::Number)
     i, x̃ = split(poly, x)
     return legval(x̃, view(poly.data, :, i)) * poly.norm[i]
 end
-
-@inline function _evaluate(poly::PiecewiseLegendrePoly, xs::AbstractVector)
-    return poly.(xs)
-end
+@inline (poly::PiecewiseLegendrePoly)(xs::AbstractVector) = poly.(xs)
 
 """
     overlap(poly::PiecewiseLegendrePoly, f; 
@@ -86,7 +81,7 @@ difficulties of the integrand may occur (e.g. singularities, discontinuities).
 function overlap(poly::PiecewiseLegendrePoly{T}, f;
                  rtol=eps(T), return_error=false, maxevals=10^4, points=T[]) where {T}
     int_result, int_error = quadgk(x -> poly(x) * f(x),
-                                   sort!(unique!([poly.knots; points]))...;
+                                   unique!(sort!([poly.knots; points]))...;
                                    rtol, order=10, maxevals)
     if return_error
         return int_result, int_error
@@ -145,9 +140,9 @@ function scale(poly::PiecewiseLegendrePoly, factor)
                                  Δx=poly.Δx, symm=poly.symm)
 end
 
-###########################
+#################################
 ## PiecewiseLegendrePolyVector ##
-###########################
+#################################
 
 """
     PiecewiseLegendrePolyVector{T}
@@ -197,7 +192,7 @@ function Base.getproperty(polys::PiecewiseLegendrePolyVector, sym::Symbol)
     elseif sym == :data
         return mapreduce(poly -> poly.data, (x...) -> cat(x...; dims=3), polys)
     else
-        error("Unknown property $sym")
+        return getfield(polys, sym)
     end
 end
 
@@ -258,7 +253,7 @@ end
 
 const PiecewiseLegendreFTVector{T,S} = Vector{PiecewiseLegendreFT{T,S}}
 
-function PiecewiseLegendreFTVector(polys::PiecewiseLegendrePolyVector, 
+function PiecewiseLegendreFTVector(polys::PiecewiseLegendrePolyVector,
                                    stat::Statistics; n_asymp=Inf)
     return [PiecewiseLegendreFT(poly, stat; n_asymp) for poly in polys]
 end
@@ -269,21 +264,21 @@ function Base.getproperty(polyFTs::PiecewiseLegendreFTVector, sym::Symbol)
     elseif sym == :poly
         return map(poly -> poly.poly, polyFTs)
     else
-        error("Unknown property $sym")
+        return getfield(polyFTs, sym)
     end
 end
 
 statistics(poly::PiecewiseLegendreFT)          = poly.statistics
 statistics(polyFTs::PiecewiseLegendreFTVector) = statistics(first(polyFTs))
 
-# """
-#     (polyFT::PiecewiseLegendreFT)(ω)
+"""
+    (polyFT::PiecewiseLegendreFT)(ω)
 
-# Obtain Fourier transform of polynomial for given `MatsubaraFreq` `ω`.
-# """
+Obtain Fourier transform of polynomial for given `MatsubaraFreq` `ω`.
+"""
 function (polyFT::Union{PiecewiseLegendreFT{T,S},
                         PiecewiseLegendreFTVector{T,S}})(ω::MatsubaraFreq{S}) where {T,S}
-    n = Integer(ω)
+    n = Int(ω)
     if abs(n) < polyFT.n_asymp
         return compute_unl_inner(polyFT.poly, n)
     else
@@ -319,11 +314,11 @@ end
 Base.firstindex(::PiecewiseLegendreFT) = 1
 
 """
-    findextrema(polyFT::PiecewiseLegendreFT, part=nothing, grid=DEFAULT_GRID)
+    find_extrema(polyFT::PiecewiseLegendreFT; part=nothing, grid=DEFAULT_GRID)
 
 Obtain extrema of Fourier-transformed polynomial.
 """
-function findextrema(û::PiecewiseLegendreFT, part=nothing, grid=DEFAULT_GRID)
+function find_extrema(û::PiecewiseLegendreFT; part=nothing, grid=DEFAULT_GRID)
     f  = func_for_part(û, part)
     x₀ = discrete_extrema(f, grid)
     x₀ .= 2x₀ .+ zeta(statistics(û))
@@ -366,7 +361,7 @@ end
 
 function derivs(ppoly, x)
     res = [ppoly(x)]
-    for _ in 2:ppoly.polyorder
+    for _ in 2:(ppoly.polyorder)
         ppoly = deriv(ppoly)
         push!(res, ppoly(x))
     end

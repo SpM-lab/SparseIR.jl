@@ -18,9 +18,10 @@ as follows:
 
 where `basis.uhat[l]` is now the Fourier transform of the basis function.
 """
-abstract type AbstractBasis end
+abstract type AbstractBasis{S <: Statistics} end
 
 Base.size(::AbstractBasis) = error("unimplemented")
+Base.broadcastable(b::AbstractBasis) = Ref(b)
 
 """
     Base.getindex(basis::AbstractBasis, I)
@@ -30,10 +31,8 @@ Return basis functions/singular values for given index/indices.
 This can be used to truncate the basis to the `n` most significant
 singular values: `basis[1:3]`.
 """
-Base.getindex(::AbstractBasis, I) = error("unimplemented")
-
+Base.getindex(::AbstractBasis, _) = error("unimplemented")
 Base.firstindex(::AbstractBasis) = 1
-
 Base.length(basis::AbstractBasis) = length(basis.s)
 
 """
@@ -76,7 +75,7 @@ default_matsubara_sampling_points(::AbstractBasis) = error("unimplemented")
 
 Quantum statistic (Statistics instance, Fermionic() or Bosonic()).
 """
-statistics(basis::AbstractBasis) = basis.statistics
+statistics(::AbstractBasis{S}) where {S<:Statistics} = S()
 
 """
     Λ(basis::AbstractBasis)
