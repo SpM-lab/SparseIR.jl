@@ -46,4 +46,32 @@ using MultiFloats
         A_svd = svd(Float64.(A))
         @test S ≈ A_svd.S[1:k]
     end
+
+    @testset "svd of VERY triangular 2x2 with T = $T" for T in (Float64, Float64x2)
+        (cu, su), (smax, smin), (cv, sv) = SparseIR._LinAlg.svd2x2(T(1), T(1e100), T(1))
+        @test cu ≈ 1.0
+        @test su ≈ 1e-100
+        @test smax ≈ 1e100
+        @test smin ≈ 1e-100
+        @test cv ≈ 1e-100
+        @test sv ≈ 1.0
+
+        (cu, su), (smax, smin), (cv, sv) = SparseIR._LinAlg.svd2x2(T(1e-100), T(1), T(1e-100))
+        @test cu ≈ 1.0
+        @test su ≈ 1e-100
+        @test smax ≈ 1.0
+        @test smin ≈ 1e-200
+        @test cv ≈ 1e-100
+        @test sv ≈ 1.0
+    end
+
+    @testset "svd of 'more lower' 2x2 with T = $T" for T in (Float64, Float64x2)
+        (cu, su), (smax, smin), (cv, sv) = SparseIR._LinAlg.svd2x2(T(1), T(1e-100), T(1e100), T(1))
+        @test cu ≈ 1e-100
+        @test su ≈ 1.0
+        @test smax ≈ 1e100
+        @test abs(smin) < 1e-100 # should be ≈ 0.0, but x ≈ 0 is equivalent to x == 0
+        @test cv ≈ 1.0
+        @test sv ≈ 1e-100
+    end
 end

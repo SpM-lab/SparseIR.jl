@@ -192,7 +192,7 @@ function svd2x2(f::T, g::T, h::T) where {T<:AbstractFloat}
         else
             smin = (fa / ga) * ha
         end
-        cv, sv = one(T), f / g
+        cv, sv = f / g, one(T)
         cu, su = one(T), h / g
     else
         # normal case
@@ -229,7 +229,7 @@ function svd2x2(a11::T, a12::T, a21::T, a22::T) where {T}
     if iszero(a21)
         # upper triangular case
         (cu, su), (smax, smin), (cv, sv) = svd2x2(a11, a12, a22)
-    elseif abs_a12 > abs_a21
+    elseif abs_a12 < abs_a21
         # closer to lower triangular - transpose matrix
         (cv, sv), (smax, smin), (cu, su) = svd2x2(a11, a21, a12, a22)
     else
