@@ -128,8 +128,8 @@ include("_conftest.jl")
         basis = FiniteTempBasis(Fermionic(), 3, 3, 1e-6)
         @test cond(TauSampling(basis)) < 3
         @test cond(MatsubaraSampling(basis)) < 5
-        @test_logs (:warn, "Sampling matrix is poorly conditioned (cond = 8.257319231448606e15).") TauSampling(basis, [1.0, 1.0])
-        @test_logs (:warn, "Sampling matrix is poorly conditioned (cond = 3.5776763693273664e16).") MatsubaraSampling(basis, [FermionicFreq(1), FermionicFreq(1)])
+        @test_logs (:warn, r"Sampling matrix is poorly conditioned \(cond = \d\.\d+e\d+\)\.") TauSampling(basis, [1.0, 1.0])
+        @test_logs (:warn, r"Sampling matrix is poorly conditioned \(cond = \d\.\d+e\d+\)\.") MatsubaraSampling(basis, [FermionicFreq(1), FermionicFreq(1)])
 
         basis = FiniteTempBasis(Fermionic(), 3, 3, 1e-2)
         @test cond(TauSampling(basis)) < 2

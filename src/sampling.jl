@@ -86,8 +86,8 @@ Evaluate the basis coefficients `al` at the sparse sampling points.
 function evaluate(smpl::AbstractSampling{S,Tmat}, al::AbstractArray{T,N};
                   dim=1) where {S,Tmat,T,N}
     if size(smpl.matrix, 2) ≠ size(al, dim)
-        msg = """Number of columns (got $(size(smpl.matrix, 2))) has to match \
-        al's size in dim (got $(size(al, dim)))."""
+        msg = "Number of columns (got $(size(smpl.matrix, 2))) has to match " *
+              "al's size in dim (got $(size(al, dim)))."
         throw(DimensionMismatch(msg))
     end
     bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 1), size(al)[(dim + 1):end]...)
@@ -119,8 +119,8 @@ Please use dim = 1 or N to avoid allocating large temporary arrays internally.
 function fit(smpl::AbstractSampling{S,Tmat}, al::AbstractArray{T,N};
              dim=1) where {S,Tmat,T,N}
     if size(smpl.matrix, 1) ≠ size(al, dim)
-        msg = """Number of rows (got $(size(smpl.matrix, 1))) \
-              has to match al's size in dim (got $(size(al, dim)))."""
+        msg = "Number of rows (got $(size(smpl.matrix, 1))) "
+              "has to match al's size in dim (got $(size(al, dim)))."
         throw(DimensionMismatch(msg))
     end
     bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 2), size(al)[(dim + 1):N]...)
