@@ -34,11 +34,11 @@ such as self-energies [^wallerberger2021] and when constructing a two-point kern
 that serves as a base for multi-point functions [^shinaoka2018].
 
 !!! warning
-    
+
     Bases augmented with `TauConst` and `TauLinear` tend to be poorly
     conditioned. Care must be taken while fitting and compactness should
     be enforced if possible to regularize the problem.
-    
+
     While vertex bases, i.e. bases augmented with `MatsubaraConst`, stay
     reasonably well-conditioned, it is still good practice to treat the
     Hartree--Fock term separately rather than including it in the basis,
@@ -75,11 +75,13 @@ end
 
 Base.size(basis::AugmentedBasis) = (length(basis),)
 Base.length(basis::AugmentedBasis) = naug(basis) + length(basis.basis)
-significance(basis::AugmentedBasis) = significance(basis.basis)
 accuracy(basis::AugmentedBasis) = accuracy(basis.basis)
 Λ(basis::AugmentedBasis) = Λ(basis.basis)
 β(basis::AugmentedBasis) = β(basis.basis)
 ωmax(basis::AugmentedBasis) = ωmax(basis.basis)
+
+significance(basis::AugmentedBasis) =
+    vcat(ones(naug(basis)), significance(basis.basis))
 
 function default_tau_sampling_points(basis::AugmentedBasis)
     x = default_sampling_points(basis.basis.sve_result.u, length(basis))
