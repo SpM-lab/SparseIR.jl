@@ -123,4 +123,27 @@ include("_conftest.jl")
 
         @test isapprox(Gℓ, Gℓ_n, atol=40 * noise * Gℓ_magn, rtol=0)
     end
+
+    @testset "conditioning" begin
+        basis = FiniteTempBasis(Fermionic(), 3, 3, 1e-6)
+        @test cond(TauSampling(basis)) < 3
+        @test cond(MatsubaraSampling(basis)) < 5
+        @test_logs (:warn, "Sampling matrix is poorly conditioned (cond = 8.257319231448606e15).") TauSampling(basis, [1.0, 1.0])
+        @test_logs (:warn, "Sampling matrix is poorly conditioned (cond = 3.5776763693273664e16).") MatsubaraSampling(basis, [FermionicFreq(1), FermionicFreq(1)])
+
+        basis = FiniteTempBasis(Fermionic(), 3, 3, 1e-2)
+        @test cond(TauSampling(basis)) < 2
+        @test cond(MatsubaraSampling(basis)) < 3
+    end
+
+    @testset "errors with stat = $stat" for stat in (Bosonic(), Fermionic()),
+                                            sampling in (TauSampling, MatsubaraSampling)
+        basis = FiniteTempBasis(stat, 3, 3, 1e-6)
+        smpl = sampling(basis)
+        @test_throws DimensionMismatch evaluate(smpl, rand(100))
+        @test_throws DimensionMismatch evaluate!(rand(100), smpl, rand(100))
+        @test_throws DimensionMismatch fit(smpl, rand(100))
+        @test_throws DimensionMismatch fit!(rand(100), smpl, rand(100))
+        @test_throws DomainError SparseIR.matop!(rand(2, 3, 4), rand(5, 6), rand(7, 8, 9), *, 2)
+    end
 end

@@ -160,7 +160,7 @@ function SVEResult(kernel::AbstractKernel;
     svds = compute_svd.(matrices(sve); strategy=svd_strat)
     u_, s_, v_ = zip(svds...)
     isnothing(cutoff) && (cutoff = 2 * eps(Twork))
-    u, s, v = truncate(u_, s_, v_, cutoff, n_sv)
+    u, s, v = truncate(u_, s_, v_; rtol=cutoff, lmax=n_sv)
     return postprocess(sve, u, s, v, T)
 end
 
@@ -186,9 +186,9 @@ end
 matrices(sve::CentrosymmSVE) = (only(matrices(sve.even)), only(matrices(sve.odd)))
 
 """
-    postprocess(sve::AbstractSVE, u, s, v, T=nothing)
+    postprocess(sve::AbstractSVE, u, s, v[, T])
 
-Construct the SVE result from the SVD.
+Construct the SVE result from the SVD. If not given, `T` is inferred from `u`, `s` and `v`.
 """
 function postprocess(sve::SamplingSVE, u, s, v,
                      T=promote_type(eltype(u), eltype(s), eltype(v)))
@@ -271,7 +271,7 @@ function choose_accuracy(ε, Twork)
     if ε ≥ sqrt(eps(Twork))
         return ε, Twork, :default
     else
-        @warn """Basis cutoff is $ε, which is below sqrt(eps) with eps = $(eps(Twork)).
+        @warn """Basis cutoff is $ε, which is below √ε with ε = $(eps(Twork)).
         Expect singular values and basis functions for large l to have lower precision
         than the cutoff."""
         return ε, Twork, :accurate
@@ -282,7 +282,7 @@ function choose_accuracy(ε, ::Nothing)
         return ε, Float64, :default
     else
         if ε < sqrt(eps(T_MAX))
-            @warn """Basis cutoff is $ε, which is below sqrt(eps) with eps = $(eps(T_MAX)).
+            @warn """Basis cutoff is $ε, which is below √ε with ε = $(eps(T_MAX)).
             Expect singular values and basis functions for large l to have lower precision
             than the cutoff."""
         end
@@ -311,7 +311,7 @@ function canonicalize!(ulx, vly)
 end
 
 """
-    truncate(u, s, v, rtol=0, lmax=typemax(Int))
+    truncate(u, s, v; rtol=0.0, lmax=typemax(Int))
 
 Truncate singular value expansion.
 
@@ -321,13 +321,13 @@ Truncate singular value expansion.
     - `rtol`: Only singular values satisfying `s[l]/s[1] > rtol` are retained.
     - `lmax`: At most the `lmax` most significant singular values are retained.
 """
-function truncate(u, s, v, rtol=0.0, lmax=typemax(Int))
+function truncate(u, s, v; rtol=0.0, lmax=typemax(Int))
     lmax ≥ 0 || throw(DomainError(lmax, "lmax must be non-negative"))
     0 ≤ rtol ≤ 1 || throw(DomainError(rtol, "rtol must be in [0, 1]"))
 
     sall = sort!(vcat(s...); rev=true)
 
-    # Determine singular value cutoff.  Note that by selecting a cutoff even
+    # Determine singular value cutoff. Note that by selecting a cutoff even
     # in the case of lmax, we make sure to never remove parts of a degenerate
     # singular value space, rather, we reduce the size of the basis.
     cutoff = rtol * first(sall)

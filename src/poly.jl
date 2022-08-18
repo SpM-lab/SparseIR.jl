@@ -268,8 +268,10 @@ function Base.getproperty(polyFTs::PiecewiseLegendreFTVector, sym::Symbol)
     end
 end
 
-statistics(poly::PiecewiseLegendreFT)          = poly.statistics
+statistics(polyFT::PiecewiseLegendreFT)        = polyFT.statistics
 statistics(polyFTs::PiecewiseLegendreFTVector) = statistics(first(polyFTs))
+zeta(polyFT::PiecewiseLegendreFT)              = zeta(statistics(polyFT))
+zeta(polyFTs::PiecewiseLegendreFTVector)       = zeta(first(polyFTs))
 
 """
     (polyFT::PiecewiseLegendreFT)(ω)

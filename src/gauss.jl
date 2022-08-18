@@ -18,7 +18,8 @@ struct Rule{T}
     x_forward  :: Vector{T}
     x_backward :: Vector{T}
 
-    function Rule(x, w, a=-1.0, b=1.0, x_forward=x .- a, x_backward=b .- x)
+    function Rule(x::Vector{T}, w::Vector{T}, a=-one(T), b=one(T), x_forward=x .- a,
+                  x_backward=b .- x) where {T}
         a ≤ b || error("a must be ≤ b")
         all(≤(b), x) || error("x must be ≤ b")
         all(≥(a), x) || error("x must be ≥ a")

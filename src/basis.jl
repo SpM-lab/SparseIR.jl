@@ -111,9 +111,10 @@ end
 
 significance(basis::FiniteTempBasis) = basis.s ./ first(basis.s)
 accuracy(basis::FiniteTempBasis) = basis.accuracy
-ωmax(basis::FiniteTempBasis) = basis.kernel.Λ / β(basis)
+ωmax(basis::FiniteTempBasis) = Λ(basis) / β(basis)
 sve_result(basis::FiniteTempBasis) = basis.sve_result
 kernel(basis::FiniteTempBasis) = basis.kernel
+Λ(basis::FiniteTempBasis) = Λ(kernel(basis))
 
 function default_tau_sampling_points(basis::FiniteTempBasis)
     x = default_sampling_points(basis.sve_result.u, length(basis))

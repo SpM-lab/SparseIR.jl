@@ -16,6 +16,8 @@ include("_conftest.jl")
     include("augment.jl")
     include("spr.jl")
     include("_linalg.jl")
+    include("_roots.jl")
+    include("_specfuncs.jl")
     include("scipost_sample_code.jl")
 end
 

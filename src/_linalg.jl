@@ -142,7 +142,7 @@ function givens_params(f::T, g::T) where {T<:AbstractFloat}
         c, s = one(T), zero(T)
         r = f
     elseif iszero(f)
-        c, s = zero(T), T(signbit(g))
+        c, s = zero(T), T(sign(g))
         r = abs(g)
     else
         r = copysign(hypot(f, g), f)

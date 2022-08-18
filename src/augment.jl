@@ -13,6 +13,7 @@ abstract type AbstractAugmentation <: Function end
 const AugmentationTuple = Tuple{Vararg{<:AbstractAugmentation}}
 
 create(aug::AbstractAugmentation, ::AbstractBasis) = aug
+β(aug::AbstractAugmentation) = aug.β
 
 """
     AugmentedBasis <: AbstractBasis
@@ -66,10 +67,10 @@ end
 
 naug(basis::AugmentedBasis) = length(basis.augmentations)
 
-function getindex(basis::AugmentedBasis, index::AbstractRange)
+function Base.getindex(basis::AugmentedBasis, index::AbstractRange)
     stop = range_to_length(index)
     stop > naug(basis) || error("Cannot truncate to only augmentation.")
-    return AugmentedBasis(basis.basis[begin:(stop - naug(basis))], basis.augmentations)
+    return AugmentedBasis(basis.basis[begin:(stop - naug(basis))], basis.augmentations...)
 end
 
 Base.size(basis::AugmentedBasis) = (length(basis),)
@@ -148,7 +149,7 @@ xmin(aτ::AugmentedTauFunction) = fbasis(aτ).xmin
 xmax(aτ::AugmentedTauFunction) = fbasis(aτ).xmax
 
 function deriv(aτ::AugmentedTauFunction, n=1)
-    dbasis = deriv(fbasis(aτ), n)
+    dbasis = deriv.(fbasis(aτ), n)
     daug = [deriv(faug_l, n) for faug_l in faug(aτ)]
     return AugmentedTauFunction(dbasis, daug)
 end
@@ -184,18 +185,18 @@ end
 create(::Type{TauConst}, basis::AbstractBasis{Bosonic}) = TauConst(β(basis))
 
 function (aug::TauConst)(τ)
-    0 ≤ τ ≤ aug.β || throw(DomainError(τ, "τ must be in [0, β]."))
-    return 1 / √(aug.β)
+    0 ≤ τ ≤ β(aug) || throw(DomainError(τ, "τ must be in [0, β]."))
+    return 1 / √(β(aug))
 end
 function (aug::TauConst)(n::BosonicFreq)
-    iszero(n) || return 0.0
-    return √(aug.β)
+    iszero(n) || return zero(β(aug))
+    return √(β(aug))
 end
 (::TauConst)(::FermionicFreq) = error("TauConst is not a Fermionic basis.")
 
 function deriv(aug::TauConst, n=1)
-    !iszero(n) || return aug
-    return τ -> 0.0
+    iszero(n) && return aug
+    return τ -> zero(β(aug))
 end
 
 ### TauLinear
@@ -213,12 +214,12 @@ end
 create(::Type{TauLinear}, basis::AbstractBasis{Bosonic}) = TauLinear(β(basis))
 
 function (aug::TauLinear)(τ)
-    0 ≤ τ ≤ aug.β || throw(DomainError(τ, "τ must be in [0, β]."))
-    x = 2 / aug.β * τ - 1
+    0 ≤ τ ≤ β(aug) || throw(DomainError(τ, "τ must be in [0, β]."))
+    x = 2 / β(aug) * τ - 1
     return aug.norm * x
 end
 function (aug::TauLinear)(n::BosonicFreq)
-    inv_w = value(n, aug.β)
+    inv_w = value(n, β(aug))
     inv_w = iszero(n) ? inv_w : 1 / inv_w
     return aug.norm * 2 / im * inv_w
 end
@@ -226,8 +227,8 @@ end
 
 function deriv(aug::TauLinear, n=1)
     iszero(n) && return aug
-    isone(n) && return τ -> aug.norm * 2 / aug.β
-    return τ -> 0.0
+    isone(n) && return τ -> aug.norm * 2 / β(aug)
+    return τ -> zero(β(aug))
 end
 
 ### MatsubaraConst
@@ -243,11 +244,11 @@ end
 create(::Type{MatsubaraConst}, basis::AbstractBasis) = MatsubaraConst(β(basis))
 
 function (aug::MatsubaraConst)(τ)
-    0 ≤ τ ≤ aug.β || throw(DomainError(τ, "τ must be in [0, β]."))
+    0 ≤ τ ≤ β(aug) || throw(DomainError(τ, "τ must be in [0, β]."))
     return NaN
 end
-function (::MatsubaraConst)(::MatsubaraFreq)
-    return 1.0
+function (aug::MatsubaraConst)(::MatsubaraFreq)
+    return one(β(aug))
 end
 
 deriv(aug::MatsubaraConst, _=1) = aug

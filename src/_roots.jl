@@ -76,7 +76,7 @@ function discrete_extrema(f::Function, xgrid)
     absf_b = absfx[derivativesignchange_b]
     res    = bisect_discr_extremum.(f, a, b, absf_a, absf_b)
 
-    # We consider the outer point to be extremua if there is a decrease
+    # We consider the outer points to be extrema if there is a decrease
     # in magnitude or a sign change inwards
     sfx = signbit.(fx)
     if absfx[begin] > absfx[begin + 1] || sfx[begin] ≠ sfx[begin + 1]
@@ -110,5 +110,5 @@ end
 # This implementation of `midpoint` is performance-optimized but safe
 # only if `lo <= hi`.
 @inline midpoint(lo::T, hi::T) where {T<:Integer} = lo + ((hi - lo) >>> 0x01)
-@inline midpoint(lo::T, hi::T) where {T<:AbstractFloat} = lo + ((hi - lo) * 0.5)
+@inline midpoint(lo::T, hi::T) where {T<:AbstractFloat} = lo + ((hi - lo) * T(0.5))
 @inline midpoint(lo, hi) = midpoint(promote(lo, hi)...)

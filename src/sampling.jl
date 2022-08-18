@@ -86,8 +86,8 @@ Evaluate the basis coefficients `al` at the sparse sampling points.
 function evaluate(smpl::AbstractSampling{S,Tmat}, al::AbstractArray{T,N};
                   dim=1) where {S,Tmat,T,N}
     if size(smpl.matrix, 2) ≠ size(al, dim)
-        msg = "Number of columns (got $(size(smpl.matrix, 2)))" *
-              "has to match al's size in dim (got $(size(al, dim)))"
+        msg = """Number of columns (got $(size(smpl.matrix, 2))) has to match \
+        al's size in dim (got $(size(al, dim)))."""
         throw(DimensionMismatch(msg))
     end
     bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 1), size(al)[(dim + 1):end]...)
@@ -104,7 +104,7 @@ Please use dim = 1 or N to avoid allocating large temporary arrays internally.
 function evaluate!(buffer::AbstractArray, smpl::AbstractSampling, al; dim=1)
     bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 1), size(al)[(dim + 1):end]...)
     if size(buffer) ≠ bufsize
-        msg = "Buffer has the wrong size (got $(size(buffer)), expected $bufsize)"
+        msg = "Buffer has the wrong size (got $(size(buffer)), expected $bufsize)."
         throw(DimensionMismatch(msg))
     end
     return matop_along_dim!(buffer, smpl.matrix, al, dim, mul!)
@@ -119,8 +119,8 @@ Please use dim = 1 or N to avoid allocating large temporary arrays internally.
 function fit(smpl::AbstractSampling{S,Tmat}, al::AbstractArray{T,N};
              dim=1) where {S,Tmat,T,N}
     if size(smpl.matrix, 1) ≠ size(al, dim)
-        msg = "Number of rows (got $(size(smpl.matrix, 1)))" *
-              "has to match al's size in dim (got $(size(al, dim)))"
+        msg = """Number of rows (got $(size(smpl.matrix, 1))) \
+              has to match al's size in dim (got $(size(al, dim)))."""
         throw(DimensionMismatch(msg))
     end
     bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 2), size(al)[(dim + 1):N]...)
@@ -150,7 +150,7 @@ function fit!(buffer::Array{S,N}, smpl::AbstractSampling, al::Array{T,N}; dim=1,
                                                                                         N}
     bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 2), size(al)[(dim + 1):end]...)
     if size(buffer) ≠ bufsize
-        msg = "Buffer has the wrong size (got $(size(buffer)), expected $bufsize)"
+        msg = "Buffer has the wrong size (got $(size(buffer)), expected $bufsize)."
         throw(DimensionMismatch(msg))
     end
     length(workarr) ≥ workarrlength(smpl, al; dim) ||
@@ -220,7 +220,7 @@ function matop!(buffer::AbstractArray{S,N}, mat, arr::AbstractArray{T,N}, op,
         flatbuffer = reshape(buffer, (:, size(buffer, N)))
         op(flatbuffer, flatarr, transpose(mat))
     else
-        throw(DomainError("Dimension must be 1 or $N"))
+        throw(DomainError(dim, "Dimension must be 1 or $N."))
     end
     return buffer
 end

@@ -55,6 +55,32 @@ using MultiFloats
         @test smin ≈ 1e-100
         @test cv ≈ 1e-100
         @test sv ≈ 1.0
+        U  = [cu -su
+              su  cu]
+        S  = [smax  0
+              0    smin]
+        Vt = [ cv  sv
+              -sv  cv]
+        A  = [T(1)  T(1e100)
+              T(0)    T(1)]
+        @test U * S * Vt ≈ A
+
+        (cu, su), (smax, smin), (cv, sv) = SparseIR._LinAlg.svd2x2(T(1), T(1e100), T(1e100))
+        @test cu ≈ 1/√2
+        @test su ≈ 1/√2
+        @test smax ≈ √2 * 1e100
+        @test smin ≈ 1/√2
+        @test cv ≈ 5e-101
+        @test sv ≈ 1.0
+        U  = [cu -su
+              su  cu]
+        S  = [smax  0
+              0    smin]
+        Vt = [ cv  sv
+              -sv  cv]
+        A  = [T(1)  T(1e100)
+              T(0)  T(1e100)]
+        @test U * S * Vt ≈ A
 
         (cu, su), (smax, smin), (cv, sv) = SparseIR._LinAlg.svd2x2(T(1e-100), T(1), T(1e-100))
         @test cu ≈ 1.0
@@ -63,6 +89,15 @@ using MultiFloats
         @test smin ≈ 1e-200
         @test cv ≈ 1e-100
         @test sv ≈ 1.0
+        U  = [cu -su
+              su  cu]
+        S  = [smax  0
+              0    smin]
+        Vt = [ cv  sv
+              -sv  cv]
+        A  = [T(1e-100)    T(1)
+              T(0)       T(1e-100)]
+        @test U * S * Vt ≈ A
     end
 
     @testset "svd of 'more lower' 2x2 with T = $T" for T in (Float64, Float64x2)
@@ -73,5 +108,26 @@ using MultiFloats
         @test abs(smin) < 1e-100 # should be ≈ 0.0, but x ≈ 0 is equivalent to x == 0
         @test cv ≈ 1.0
         @test sv ≈ 1e-100
+        U  = [cu -su
+              su  cu]
+        S  = [smax  0
+              0    smin]
+        Vt = [ cv  sv
+              -sv  cv]
+        A  = [T(1)      T(1e-100)
+              T(1e100)    T(1)]
+        @test U * S * Vt ≈ A
+    end
+
+    @testset "givens rotation of 2d vector - special cases with T = $T" for T in (Float64, Float64x2)
+        for v in ([42, 0], [-42, 0], [0, 42], [0, -42], [0, 0])
+            v = T.(v)
+            (c, s), r = SparseIR._LinAlg.givens_params(v...)
+            R  = [ c  s
+                  -s  c]
+            Rv = [  r
+                  T(0)]
+            @test R * v == Rv
+        end
     end
 end
