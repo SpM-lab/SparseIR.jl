@@ -9,7 +9,7 @@ using LinearAlgebra
         basis = FiniteTempBasis(Bosonic(), β, ωmax, 1e-6)
         basis_aug = AugmentedBasis(basis, TauConst, TauLinear)
 
-        @test all(==(1), SparseIR.significance(basis_comp)[1:3])
+        @test all(isone, SparseIR.significance(basis_aug)[1:3])
 
         # G(τ) = c - e^{-τ * pole} / (1 - e^{-β * pole})
         pole = 1.0
@@ -76,7 +76,6 @@ using LinearAlgebra
         len_aug = len_basis + 2
 
         @test size(basis_aug) == (len_aug,)
-        @test SparseIR.significance(basis_aug) == SparseIR.significance(basis)
         @test SparseIR.accuracy(basis_aug) == SparseIR.accuracy(basis)
         @test SparseIR.Λ(basis_aug) == β * ωmax
         @test SparseIR.ωmax(basis_aug) == ωmax
