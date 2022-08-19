@@ -82,6 +82,23 @@ using MultiFloats
               T(0)  T(1e100)]
         @test U * S * Vt ≈ A
 
+        (cu, su), (smax, smin), (cv, sv) = SparseIR._LinAlg.svd2x2(T(1e100), T(1e200), T(2))
+        @test cu ≈ 1.0
+        @test su ≈ 2e-200
+        @test smax ≈ 1e200
+        @test smin ≈ 2e-100
+        @test cv ≈ 1e-100
+        @test sv ≈ 1.0
+        U  = [cu -su
+              su  cu]
+        S  = [smax  0
+              0    smin]
+        Vt = [ cv  sv
+              -sv  cv]
+        A  = [T(1e100)  T(1e200)
+              T(0)  T(2)]
+        @test U * S * Vt ≈ A
+
         (cu, su), (smax, smin), (cv, sv) = SparseIR._LinAlg.svd2x2(T(1e-100), T(1), T(1e-100))
         @test cu ≈ 1.0
         @test su ≈ 1e-100

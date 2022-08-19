@@ -31,13 +31,6 @@ struct Rule{T}
 end
 
 """
-    quadrature(rule, f)
-
-Approximate `f`'s integral.
-"""
-quadrature(rule, f) = sum(rule.w .* f.(rule.x))
-
-"""
     reseat(rule, a, b)
 
 Reseat quadrature rule to new domain.
@@ -98,8 +91,7 @@ end
 
 Gauss-Legendre quadrature with `n` points on [-1, 1].
 """
-legendre(n) = Rule(gauss(n)...)
-legendre(n, T) = Rule(gauss(T, n)...)
+legendre(n, T=Float64) = Rule(gauss(T, n)...)
 
 """
     legendre_collocation(rule, n=length(rule.x))
@@ -116,28 +108,4 @@ end
 function Base.convert(::Type{Rule{T}}, rule::Rule) where {T}
     return Rule(T.(rule.x), T.(rule.w), T(rule.a), T(rule.b),
                 T.(rule.x_forward), T.(rule.x_backward))
-end
-
-"""
-    NestedRule{T}
-
-Nested quadrature rule.
-"""
-struct NestedRule{T}
-    rule :: Rule{T}
-    v    :: Vector{T}
-end
-
-function reseat(nrule::NestedRule, a, b)
-    newrule = reseat(nrule.rule, a, b)
-    newv = (b - a) / (nrule.rule.b - nrule.rule.a) * nrule.v
-    return NestedRule(newrule, newv)
-end
-
-function kronrod_21()
-    x, w, v = kronrod(10)
-    append!(x, -reverse(x)[2:end])
-    append!(w, reverse(w)[2:end])
-    append!(v, reverse(v))
-    return NestedRule(Rule(x, w), v)
 end

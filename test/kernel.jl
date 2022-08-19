@@ -34,4 +34,22 @@ using SparseIR
         K = RegularizedBoseKernel(Λ)
         @test K(x, 0.0) ≈ 1 / Λ
     end
+
+    @testset "unit tests" begin
+        K = LogisticKernel(42)
+        K_symm = SparseIR.get_symmetrized(K, 1)
+        @test !SparseIR.iscentrosymmetric(K_symm)
+        @test_throws ErrorException SparseIR.get_symmetrized(K_symm, -1)
+
+        K = RegularizedBoseKernel(99)
+        hints = SparseIR.sve_hints(K, 1e-6)
+        @test SparseIR.nsvals(hints) == 56
+        @test SparseIR.ngauss(hints) == 10
+        @test SparseIR.ypower(K) == 1
+        @test SparseIR.ypower(SparseIR.get_symmetrized(K, -1)) == 1
+        @test SparseIR.ypower(SparseIR.get_symmetrized(K, 1)) == 1
+        @test SparseIR.conv_radius(K) == 40 * 99
+        @test SparseIR.conv_radius(SparseIR.get_symmetrized(K, -1)) == 40 * 99
+        @test SparseIR.conv_radius(SparseIR.get_symmetrized(K, 1)) == 40 * 99
+    end
 end

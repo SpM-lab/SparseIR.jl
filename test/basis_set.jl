@@ -1,5 +1,8 @@
 using Test
 using SparseIR
+using Logging
+
+include("_conftest.jl")
 
 @testset "basis.jl" begin
     @testset "consistency" begin
@@ -32,5 +35,36 @@ using SparseIR
 
         @test bs.smpl_wn_f.matrix == smpl_wn_f.matrix
         @test bs.smpl_wn_b.matrix == smpl_wn_b.matrix
+    end
+
+    @testset "unit tests" begin
+        with_logger(NullLogger()) do
+            basis = FiniteTempBasis(Fermionic(), 1e-3, 1e-3, 1e-100)
+            @test SparseIR.sve_result(basis).s * sqrt(1e-3 / 2 * 1e-3) ≈ basis.s
+            @test SparseIR.accuracy(basis) ≈ last(basis.s) / first(basis.s)
+        end
+        basis = FiniteTempBasis(Fermionic(), 3, 4, 1e-6)
+        io = IOBuffer()
+        show(io, basis)
+        s = String(take!(io))
+        @test occursin(r"FiniteTempBasis{Fermionic\(\)} with β = 3\.0, ωmax = 4\.0", s)
+
+        @test SparseIR.ωmax(SparseIR.rescale(basis, 2)) ≈ 6
+
+        sve = SparseIR.sve_result(basis)
+
+        @test_logs (:warn, r"""
+        Expecting to get 100 sampling points for corresponding basis function,
+        instead got \d+\. This may happen if not enough precision is
+        left in the polynomial\.
+        """) SparseIR.default_sampling_points(sve.u, 100)
+
+
+        basis = FiniteTempBasis(Bosonic(), 3, 4, 1e-6)
+
+        @test_logs (:warn, r"""
+        Requesting 13 Bosonic\(\) sampling frequencies for basis size
+        L = \d+, but \d+ were returned\. This may indicate a problem with precision\.
+        """) SparseIR.default_matsubara_sampling_points(basis.uhat, 12; fence=true)
     end
 end

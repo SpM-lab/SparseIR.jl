@@ -54,7 +54,7 @@ end
 Base.size(::PiecewiseLegendrePoly) = ()
 
 function Base.show(io::IO, p::PiecewiseLegendrePoly)
-    return print(io, "$(typeof(p)): xmin=$(p.xmin), xmax=$(p.xmax)")
+    print(io, "$(typeof(p)): xmin=$(p.xmin), xmax=$(p.xmax), order=$(p.polyorder)")
 end
 
 @inline function (poly::PiecewiseLegendrePoly)(x::Number)
@@ -135,10 +135,21 @@ Find segment of poly's domain that covers `x`.
     return i, x̃
 end
 
-function scale(poly::PiecewiseLegendrePoly, factor)
+function Base.:*(poly::PiecewiseLegendrePoly, factor)
     return PiecewiseLegendrePoly(poly.data * factor, poly.knots, poly.l;
                                  Δx=poly.Δx, symm=poly.symm)
 end
+Base.:*(factor, poly::PiecewiseLegendrePoly) = poly * factor
+function Base.:+(p1::PiecewiseLegendrePoly, p2::PiecewiseLegendrePoly)
+    p1.knots == p2.knots || error("knots must be the same")
+    return PiecewiseLegendrePoly(p1.data + p2.data, p1.knots, -1;
+                                 Δx=p1.Δx, symm=p1.symm == p2.symm ? p1.symm : 0)
+end
+function Base.:-(poly::PiecewiseLegendrePoly)
+    return PiecewiseLegendrePoly(-poly.data, poly.knots, -1;
+                                 Δx=poly.Δx, symm=poly.symm)
+end
+Base.:-(p1::PiecewiseLegendrePoly, p2::PiecewiseLegendrePoly) = p1 + (-p2)
 
 #################################
 ## PiecewiseLegendrePolyVector ##
@@ -221,7 +232,7 @@ struct PowerModel{T<:AbstractFloat}
 end
 
 const DEFAULT_GRID = [range(0; length=2^6);
-                      trunc.(Int, exp2.(range(6, 25; length=16 * (25 - 6) + 1)))]
+                      trunc.(Int, exp2.(range(6, 25; length=32 * (25 - 6) + 1)))]
 
 """
     PiecewiseLegendreFT <: Function
@@ -312,8 +323,6 @@ function moments(polyFTs::PiecewiseLegendreFTVector)
     n = length(first(polyFTs).model.moments)
     return [[p.model.moments[i] for p in polyFTs] for i in 1:n]
 end
-
-Base.firstindex(::PiecewiseLegendreFT) = 1
 
 """
     find_extrema(polyFT::PiecewiseLegendreFT; part=nothing, grid=DEFAULT_GRID)

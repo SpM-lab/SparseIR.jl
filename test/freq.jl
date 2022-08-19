@@ -52,4 +52,23 @@ using SparseIR
         @test_throws ArgumentError BosonicFreq(2) == 2
         @test_throws ArgumentError FermionicFreq(1) - 1
     end
+
+    @testset "unit tests" begin
+        @test_throws DomainError SparseIR.Statistics(2)
+        @test SparseIR.Statistics(0) + SparseIR.Statistics(1) == Fermionic()
+        @test Integer(FermionicFreq(19)) == 19
+        @test -BosonicFreq(-24) == BosonicFreq(24)
+        @test sign(BosonicFreq(24)) == 1
+        @test sign(BosonicFreq(0)) == 0
+        @test sign(BosonicFreq(-94)) == -1
+        @test promote_type(BosonicFreq, FermionicFreq) == MatsubaraFreq
+
+        io = IOBuffer()
+        show(io, FermionicFreq(-3))
+        @test String(take!(io)) == "-3π/β"
+        show(io, FermionicFreq(1))
+        @test String(take!(io)) == "π/β"
+        show(io, BosonicFreq(0))
+        @test String(take!(io)) == "0"
+    end
 end

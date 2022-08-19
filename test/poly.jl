@@ -1,5 +1,8 @@
 using Test
 using SparseIR
+using LinearAlgebra
+
+include("_conftest.jl")
 
 @testset "poly.jl" begin
     @testset "shape" begin
@@ -70,5 +73,40 @@ using SparseIR
         idx = [1, 2, 2, 1]
         res2 = û([1, 3])[:, idx]
         @test res1 == res2
+    end
+
+    @testset "unit tests" begin
+        u, s, v = SparseIR.part(sve_logistic[42])
+
+        io = IOBuffer()
+        show(io, v[1])
+        @test String(take!(io)) == "SparseIR.PiecewiseLegendrePoly{Float64}: xmin=-1.0, xmax=1.0, order=16"
+
+        @test size(u[1](rand(30))) == (30,)
+
+        int_result, int_error = SparseIR.overlap(u[1], u[1]; return_error=true)
+
+        @test int_error < eps()
+
+        u_linearcombination = 2u[1] - 3u[2]
+        @test SparseIR.overlap(u_linearcombination, u[2]) ≈ -3
+
+        @test size(u(rand(2, 3, 4))) == (length(u), 2, 3, 4)
+
+        @test (u.xmin, u.xmax) === (-1.0, 1.0)
+        @test u.knots == u[end].knots
+        @test u.Δx == u[1].Δx
+        @test u.symm[2] == u[2].symm
+        @test_throws ErrorException u.abc
+        @test all(<(eps()), SparseIR.overlap(u, sin)[1:2:end])
+        @test all(<(eps()), SparseIR.overlap(u, cos)[2:2:end])
+
+        û = SparseIR.PiecewiseLegendreFTVector(u, Fermionic())
+
+        @test_throws ErrorException û.abc
+        @test length(SparseIR.moments(û)[1]) == length(û)
+        û_weird = SparseIR.PiecewiseLegendreFT(-9u[2] + u[3], Fermionic())
+        @test_throws ErrorException SparseIR.func_for_part(û_weird)
+        @test SparseIR.phase_stable(u, 5) ≈ SparseIR.phase_stable(u, 5.0)
     end
 end

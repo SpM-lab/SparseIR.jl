@@ -36,11 +36,8 @@ end
         validategauss(rule)
     end
 
-    @testset "integrals" begin
-        r = SparseIR.legendre(40)
-        f(x) = cos(5x) + cos(50x)
-        @test SparseIR.quadrature(r, f) ≈ 2sin(5) / 5 + 2sin(50) / 50
-        g(x) = sin(x^3)
-        @test SparseIR.quadrature(SparseIR.reseat(r, 1, 4), g) ≈ 0.2042835844987353218
+    @testset "scale" begin
+        rule = SparseIR.legendre(30)
+        SparseIR.scale(rule, 2)
     end
 end

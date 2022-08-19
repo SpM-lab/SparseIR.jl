@@ -18,7 +18,7 @@ using MultiFloats: Float64x2
 using LinearAlgebra: dot, svd, SVD, QRIteration, mul!
 import LinearAlgebra: cond
 import LinearAlgebra.BLAS: gemm!
-using QuadGK: gauss, kronrod, quadgk
+using QuadGK: gauss, quadgk
 using Bessels: sphericalbesselj
 
 Base.sinh(x::Float64x2) = setprecision(() -> Float64x2(sinh(big(x))), precision(Float64x2))

@@ -123,7 +123,7 @@ Base.iszero(self::MatsubaraFreq)                = iszero(self.n)
 Base.isless(a::MatsubaraFreq, b::MatsubaraFreq) = isless(a.n, b.n)
 
 # This is to get rid of the weird "promotion failed to change any of the types"
-# errors you get when mixing frequencies and numbers.  These originate from the
+# errors you get when mixing frequencies and numbers. These originate from the
 # `promote_rule(<:Number, <:Number) = Number` default, together with the fact
 # that `@(x::Number, y::Number) = @(promote(x,y)...)` for most operations.
 # Let's make this error more explicit instead.

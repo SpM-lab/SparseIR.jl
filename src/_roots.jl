@@ -49,7 +49,7 @@ function refine_grid(grid, ::Val{α}) where {α}
         xe = grid[i + 1]
         Δx = (xe - xb) / α
         newi = α * (i - 1)
-        @simd for j in 1:α
+        for j in 1:α
             newgrid[newi + j] = xb + Δx * (j - 1)
         end
     end
@@ -64,9 +64,8 @@ function discrete_extrema(f::Function, xgrid)
     # Forward differences: derivativesignchange[i] now means that the secant 
     # changes sign fx[i+1]. This means that the extremum is STRICTLY between 
     # x[i] and x[i+2].
-    gx                     = diff(fx)
-    sgx                    = signbit.(gx)
-    derivativesignchange   = @views (sgx[begin:(end - 1)] .≠ sgx[(begin + 1):end])
+    signdfdx = signbit.(diff(fx))
+    derivativesignchange   = @views (signdfdx[begin:(end - 1)] .≠ signdfdx[(begin + 1):end])
     derivativesignchange_a = [derivativesignchange; false; false]
     derivativesignchange_b = [false; false; derivativesignchange]
 
@@ -74,7 +73,7 @@ function discrete_extrema(f::Function, xgrid)
     b      = xgrid[derivativesignchange_b]
     absf_a = absfx[derivativesignchange_a]
     absf_b = absfx[derivativesignchange_b]
-    res    = bisect_discr_extremum.(f, a, b, absf_a, absf_b)
+    res    = bisect_discr_extremum.(abs ∘ f, a, b, absf_a, absf_b)
 
     # We consider the outer points to be extrema if there is a decrease
     # in magnitude or a sign change inwards
@@ -89,22 +88,22 @@ function discrete_extrema(f::Function, xgrid)
     return res
 end
 
-function bisect_discr_extremum(f, a, b, absf_a, absf_b)
+function bisect_discr_extremum(absf, a, b, absf_a, absf_b)
     d = b - a
 
-    d <= 1 && return absf_a > absf_b ? a : b
+    d <= 1 && return ifelse(absf_a > absf_b, a, b)
     d == 2 && return a + 1
 
-    m      = midpoint(a, b)
-    n      = m + 1
-    absf_m = abs(f(m))
-    absf_n = abs(f(n))
+    m = midpoint(a, b)
+    n = m + 1
+    absf_m = absf(m)
+    absf_n = absf(n)
 
-    if absf_m > absf_n
-        return bisect_discr_extremum(f, a, n, absf_a, absf_n)
-    else
-        return bisect_discr_extremum(f, m, b, absf_m, absf_b)
-    end
+    a, b, absf_a, absf_b = ifelse(absf_m > absf_n, 
+                                  (a, n, absf_a, absf_n), 
+                                  (m, b, absf_m, absf_b))
+
+    return bisect_discr_extremum(absf, a, b, absf_a, absf_b)
 end
 
 # This implementation of `midpoint` is performance-optimized but safe

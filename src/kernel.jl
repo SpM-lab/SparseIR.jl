@@ -321,14 +321,13 @@ end
 (kernel::ReducedKernel)(x, y, x₊, x₋) = callreduced(kernel, x, y, x₊, x₋)
 
 """
-    is_centrosymmetric(kernel)
+    iscentrosymmetric(kernel)
 
 Return `true` if `kernel(x, y) == kernel(-x, -y)` for all values of `x` and `y`
 in range. This allows the kernel to be block-diagonalized, speeding up the singular
 value expansion by a factor of 4. Defaults to `false`.
 """
 function iscentrosymmetric end
-iscentrosymmetric(::AbstractKernel)        = false
 iscentrosymmetric(::LogisticKernel)        = true
 iscentrosymmetric(::RegularizedBoseKernel) = true
 iscentrosymmetric(::AbstractReducedKernel) = false
@@ -457,7 +456,6 @@ expression for `abs(n) > conv_radius`.  If `isinf(conv_radius)`, then
 the asymptotics are unused (the default).
 """
 function conv_radius end
-conv_radius(::AbstractKernel)              = Inf
 conv_radius(kernel::LogisticKernel)        = 40 * kernel.Λ
 conv_radius(kernel::RegularizedBoseKernel) = 40 * kernel.Λ
 conv_radius(kernel::AbstractReducedKernel) = conv_radius(kernel.inner)
