@@ -5,10 +5,9 @@ module SparseIR
 
 export Fermionic, Bosonic
 export MatsubaraFreq, BosonicFreq, FermionicFreq, pioverbeta
-export FiniteTempBasis
-export SparsePoleRepresentation, to_IR, from_IR
+export FiniteTempBasis, FiniteTempBasisSet
+export SparsePoleRepresentation
 export overlap
-export FiniteTempBasisSet
 export LogisticKernel, RegularizedBoseKernel
 export AugmentedBasis, TauConst, TauLinear, MatsubaraConst
 export TauSampling, MatsubaraSampling, evaluate, fit, evaluate!, fit!,
