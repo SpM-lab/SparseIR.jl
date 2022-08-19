@@ -15,9 +15,8 @@ export TauSampling, MatsubaraSampling, evaluate, fit, evaluate!, fit!,
        MatsubaraSampling64F, MatsubaraSampling64B, TauSampling64
 
 using MultiFloats: Float64x2
-using LinearAlgebra: dot, svd, SVD, QRIteration, mul!
-import LinearAlgebra: cond
-import LinearAlgebra.BLAS: gemm!
+using LinearAlgebra: LinearAlgebra, cond, dot, svd, SVD, QRIteration, mul!
+using LinearAlgebra.BLAS: gemm!
 using QuadGK: gauss, kronrod, quadgk
 using Bessels: sphericalbesselj
 
