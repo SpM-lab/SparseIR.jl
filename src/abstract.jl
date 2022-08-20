@@ -112,7 +112,7 @@ Abstract base type for an integral kernel, i.e. a AbstractFloat binary function
 ```math
     u(x) = ∫ K(x, y) v(y) dy
 ```
-where ``x ∈ [x_\mathrm{min}, x_\mathrm{max}]`` and 
+where ``x ∈ [x_\mathrm{min}, x_\mathrm{max}]`` and
 ``y ∈ [y_\mathrm{min}, y_\mathrm{max}]``.  For its SVE to exist,
 the kernel must be square-integrable, for its singular values to decay
 exponentially, it must be smooth.
@@ -159,8 +159,8 @@ abstract type AbstractSampling{T,Tmat,F<:SVD} end
 
 Base.broadcastable(sampling::AbstractSampling) = Ref(sampling)
 
-function cond(sampling::AbstractSampling)
-    return first(sampling.matrix_svd.S) / last(sampling.matrix_svd.S)
+function LinearAlgebra.cond(sampling::AbstractSampling)
+    first(sampling.matrix_svd.S) / last(sampling.matrix_svd.S)
 end
 
 sampling_points(sampling::AbstractSampling) = sampling.sampling_points

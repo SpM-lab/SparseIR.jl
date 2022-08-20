@@ -5,19 +5,17 @@ module SparseIR
 
 export Fermionic, Bosonic
 export MatsubaraFreq, BosonicFreq, FermionicFreq, pioverbeta
-export FiniteTempBasis
-export SparsePoleRepresentation, to_IR, from_IR
+export FiniteTempBasis, FiniteTempBasisSet
+export SparsePoleRepresentation
 export overlap
-export FiniteTempBasisSet
 export LogisticKernel, RegularizedBoseKernel
 export AugmentedBasis, TauConst, TauLinear, MatsubaraConst
 export TauSampling, MatsubaraSampling, evaluate, fit, evaluate!, fit!,
        MatsubaraSampling64F, MatsubaraSampling64B, TauSampling64
 
 using MultiFloats: Float64x2
-using LinearAlgebra: dot, svd, SVD, QRIteration, mul!
-import LinearAlgebra: cond
-import LinearAlgebra.BLAS: gemm!
+using LinearAlgebra: LinearAlgebra, cond, dot, svd, SVD, QRIteration, mul!
+using LinearAlgebra.BLAS: gemm!
 using QuadGK: gauss, quadgk
 using Bessels: sphericalbesselj
 

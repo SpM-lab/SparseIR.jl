@@ -19,8 +19,8 @@ include("_conftest.jl")
         coeffs = 2rand(num_poles) .- 1
         @test maximum(abs, poles) ≤ ωmax
 
-        Gl = to_IR(SparsePoleRepresentation(basis, poles), coeffs)
-        g_spr = from_IR(spr, Gl)
+        Gl = SparseIR.to_IR(SparsePoleRepresentation(basis, poles), coeffs)
+        g_spr = SparseIR.from_IR(spr, Gl)
 
         # Comparison on Matsubara frequencies
         smpl = MatsubaraSampling(basis)
@@ -55,7 +55,7 @@ include("_conftest.jl")
         gl_pole = -basis_b.s .* ρl_pole
 
         sp = SparsePoleRepresentation(basis_b, ω_p)
-        gl_pole2 = to_IR(sp, coeff)
+        gl_pole2 = SparseIR.to_IR(sp, coeff)
 
         @test isapprox(gl_pole, gl_pole2; atol=300ε, rtol=0)
     end
