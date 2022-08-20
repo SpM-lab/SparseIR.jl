@@ -136,7 +136,7 @@ include("_conftest.jl")
         @test cond(MatsubaraSampling(basis)) < 3
     end
 
-    @testset "errors with stat = $stat" for stat in (Bosonic(), Fermionic()),
+    @testset "errors with stat = $stat, $sampling" for stat in (Bosonic(), Fermionic()),
                                             sampling in (TauSampling, MatsubaraSampling)
         basis = FiniteTempBasis(stat, 3, 3, 1e-6)
         smpl = sampling(basis)
@@ -145,5 +145,8 @@ include("_conftest.jl")
         @test_throws DimensionMismatch fit(smpl, rand(100))
         @test_throws DimensionMismatch fit!(rand(100), smpl, rand(100))
         @test_throws DomainError SparseIR.matop!(rand(2, 3, 4), rand(5, 6), rand(7, 8, 9), *, 2)
+        io = IOBuffer()
+        show(io, smpl)
+        @test occursin(Regex("$(sampling).+ with sampling points:\n "), String(take!(io)))
     end
 end

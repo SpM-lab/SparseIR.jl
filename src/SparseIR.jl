@@ -16,7 +16,7 @@ export TauSampling, MatsubaraSampling, evaluate, fit, evaluate!, fit!,
 using MultiFloats: Float64x2
 using LinearAlgebra: LinearAlgebra, cond, dot, svd, SVD, QRIteration, mul!
 using LinearAlgebra.BLAS: gemm!
-using QuadGK: gauss, kronrod, quadgk
+using QuadGK: gauss, quadgk
 using Bessels: sphericalbesselj
 
 Base.sinh(x::Float64x2) = setprecision(() -> Float64x2(sinh(big(x))), precision(Float64x2))

@@ -21,25 +21,22 @@ and associated sparse-sampling objects.
   - smpl_wn_b::MatsubaraSampling: Sparse sampling for Matsubara frequency & boson
   - sve_result::Tuple{PiecewiseLegendrePoly,Vector{Float64},PiecewiseLegendrePoly}: Results of SVE
 """
-struct FiniteTempBasisSet{TSF<:TauSampling,MSF<:MatsubaraSampling,TSB<:TauSampling,
-                          MSB<:MatsubaraSampling}
+struct FiniteTempBasisSet
     basis_f    :: DEFAULT_FINITE_TEMP_BASIS{Fermionic}
     basis_b    :: DEFAULT_FINITE_TEMP_BASIS{Bosonic}
-    smpl_tau_f :: TSF
-    smpl_tau_b :: TSB
-    smpl_wn_f  :: MSF
-    smpl_wn_b  :: MSB
+    smpl_tau_f :: TauSampling64
+    smpl_tau_b :: TauSampling64
+    smpl_wn_f  :: MatsubaraSampling64F
+    smpl_wn_b  :: MatsubaraSampling64B
 
     """
-        FiniteTempBasisSet(β, ωmax, ε; sve_result=SVEResult(LogisticKernel(β * ωmax); ε))
+        FiniteTempBasisSet(β, ωmax[, ε]; [sve_result])
 
-    Create basis sets for fermion and boson and
-    associated sampling objects.
+    Create basis sets for fermion and boson and associated sampling objects.
     Fermion and bosonic bases are constructed by SVE of the logistic kernel.
     """
-    function FiniteTempBasisSet(β::AbstractFloat, ωmax::AbstractFloat, ε;
+    function FiniteTempBasisSet(β::Number, ωmax::Number, ε=nothing;
                                 sve_result=SVEResult(LogisticKernel(β * ωmax); ε))
-        # Create bases using the given sve results
         basis_f = FiniteTempBasis(Fermionic(), β, ωmax, ε; sve_result)
         basis_b = FiniteTempBasis(Bosonic(), β, ωmax, ε; sve_result)
 
@@ -48,12 +45,8 @@ struct FiniteTempBasisSet{TSF<:TauSampling,MSF<:MatsubaraSampling,TSB<:TauSampli
         matsubara_sampling_f = MatsubaraSampling(basis_f)
         matsubara_sampling_b = MatsubaraSampling(basis_b)
 
-        new{typeof(tau_sampling_f),typeof(matsubara_sampling_f),
-            typeof(tau_sampling_b),typeof(matsubara_sampling_b)}(basis_f, basis_b,
-                                                                 tau_sampling_f,
-                                                                 tau_sampling_b,
-                                                                 matsubara_sampling_f,
-                                                                 matsubara_sampling_b)
+        new(basis_f, basis_b, tau_sampling_f, tau_sampling_b, 
+            matsubara_sampling_f, matsubara_sampling_b)
     end
 end
 
@@ -62,26 +55,20 @@ end
 
 function Base.getproperty(bset::FiniteTempBasisSet, d::Symbol)
     if d === :tau
-        # return getfield(bset, :smpl_tau_f).sampling_points
-        return bset.smpl_tau_f.sampling_points
+        return sampling_points(bset.smpl_tau_f)
     elseif d === :wn_f
-        # return getfield(bset, :smpl_wn_f).sampling_points
-        return bset.smpl_wn_f.sampling_points
+        return sampling_points(bset.smpl_wn_f)
     elseif d === :wn_b
-        # return getfield(bset, :smpl_wn_b).sampling_points
-        return bset.smpl_wn_b.sampling_points
+        return sampling_points(bset.smpl_wn_b)
     elseif d === :sve_result
-        # return getfield(bset, :basis_f).sve_result
-        return bset.basis_f.sve_result
+        return sve_result(bset.basis_f)
     else
         return getfield(bset, d)
     end
 end
 
-function Base.propertynames(::FiniteTempBasisSet, private::Bool=false)
-    return (:tau, :wn_f, :wn_b, :sve_result, propertynames(FiniteTempBasisSet, private)...)
-end
+Base.propertynames(::FiniteTempBasisSet) =
+    (:tau, :wn_f, :wn_b, :sve_result, fieldnames(FiniteTempBasisSet)...)
 
-function Base.show(io::IO, b::FiniteTempBasisSet)
-    return print(io, "FiniteTempBasisSet: beta=$(beta(b)), ωmax=$(ωmax(b))")
-end
+Base.show(io::IO, b::FiniteTempBasisSet) =
+    print(io, "FiniteTempBasisSet with β = $(beta(b)), ωmax = $(wmax(b))")

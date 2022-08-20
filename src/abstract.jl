@@ -20,18 +20,7 @@ where `basis.uhat[l]` is now the Fourier transform of the basis function.
 """
 abstract type AbstractBasis{S <: Statistics} end
 
-Base.size(::AbstractBasis) = error("unimplemented")
 Base.broadcastable(b::AbstractBasis) = Ref(b)
-
-"""
-    Base.getindex(basis::AbstractBasis, I)
-
-Return basis functions/singular values for given index/indices.
-
-This can be used to truncate the basis to the `n` most significant
-singular values: `basis[1:3]`.
-"""
-Base.getindex(::AbstractBasis, _) = error("unimplemented")
 Base.firstindex(::AbstractBasis) = 1
 Base.length(basis::AbstractBasis) = length(basis.s)
 
@@ -54,21 +43,21 @@ propagator, then any basis function where `σ[i] < ϵ` can be neglected.
 
 For the IR basis, we simply have that `σ[i] = s[i] / first(s)`.
 """
-significance(::AbstractBasis) = error("unimplemented")
+function significance end
 
 """
     default_tau_sampling_points(basis::AbstractBasis)
 
 Default sampling points on the imaginary time/x axis.
 """
-default_tau_sampling_points(::AbstractBasis) = error("unimplemented")
+function default_tau_sampling_points end
 
 """
     default_matsubara_sampling_points(basis::AbstractBasis)
 
 Default sampling points on the imaginary frequency axis.
 """
-default_matsubara_sampling_points(::AbstractBasis) = error("unimplemented")
+function default_matsubara_sampling_points end
 
 """
     statistics(basis::AbstractBasis)
@@ -83,7 +72,7 @@ statistics(::AbstractBasis{S}) where {S<:Statistics} = S()
 
 Basis cutoff parameter, `Λ = β * ωmax`, or None if not present
 """
-Λ(::AbstractBasis) = error("unimplemented")
+function Λ end
 const lambda = Λ
 
 """
@@ -92,7 +81,7 @@ const lambda = Λ
 
 Real frequency cutoff or `nothing` if unscaled basis.
 """
-ωmax(::AbstractBasis) = error("unimplemented")
+function ωmax end
 const wmax = ωmax
 
 """
@@ -107,28 +96,9 @@ const beta = β
 """
     iswellconditioned(basis::AbstractBasis)
 
-Returns True if the sampling is expected to be well-conditioned.
+Returns true if the sampling is expected to be well-conditioned.
 """
 iswellconditioned(::AbstractBasis) = true
-
-###############################################################################
-
-"""
-    AbstractCompositeBasisFunction
-
-Union of several basis functions.
-"""
-abstract type AbstractCompositeBasisFunction end
-
-function Base.getindex(compfunc::AbstractCompositeBasisFunction, l::Integer)
-    offsets = cumsum(length(p) for p in compfunc.polys)
-	idx = searchsortedfirst(offsets, l)
-	l = idx > 1 ? l - offsets[idx-1] : l
-	compfunc.polys[idx][l]
-end
-
-Base.length(compfunc::AbstractCompositeBasisFunction) = sum(length(p) for p in compfunc.polys)
-Base.size(compfunc::AbstractCompositeBasisFunction) = (length(compfunc), )
 
 ###############################################################################
 
@@ -196,9 +166,11 @@ end
 sampling_points(sampling::AbstractSampling) = sampling.sampling_points
 
 function Base.show(io::IO, smpl::S) where {S<:AbstractSampling}
-    println(io, S)
-    print(io, "Sampling points: ")
-    return println(io, smpl.sampling_points)
+    println(io, "$S with sampling points:")
+    for p in sampling_points(smpl)[begin:end-1]
+        println(io, " $p")
+    end
+    print(io, " $(last(sampling_points(smpl)))")
 end
 
 ###############################################################################

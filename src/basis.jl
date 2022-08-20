@@ -54,7 +54,8 @@ end
 
 """
     FiniteTempBasis(statistics, β, ωmax, ε=nothing;
-                    kernel=LogisticKernel(β * ωmax), sve_result=SVEResult(kernel; ε))
+                    max_size=typemax(Int), kernel=LogisticKernel(β * ωmax),
+                    sve_result=SVEResult(kernel; ε))
 
 Construct a finite temperature basis suitable for the given `statistics` and
 cutoffs `β` and `ωmax`.
@@ -65,10 +66,10 @@ function FiniteTempBasis(statistics::Statistics, β::Number, ωmax::Number, ε=n
     β > 0 || throw(DomainError(β, "Inverse temperature β must be positive"))
     ωmax ≥ 0 || throw(DomainError(ωmax, "Frequency cutoff ωmax must be non-negative"))
 
-    u, s, v = isnothing(ε) ? part(sve_result; max_size) : part(sve_result; ε, max_size)
+    u_, s_, v_ = isnothing(ε) ? part(sve_result; max_size) : part(sve_result; ε, max_size)
 
-    if length(sve_result.s) > length(s)
-        accuracy = sve_result.s[length(s) + 1] / first(sve_result.s)
+    if length(sve_result.s) > length(s_)
+        accuracy = sve_result.s[length(s_) + 1] / first(sve_result.s)
     else
         accuracy = last(sve_result.s) / first(sve_result.s)
     end
@@ -77,33 +78,38 @@ function FiniteTempBasis(statistics::Statistics, β::Number, ωmax::Number, ε=n
     # knots according to: tau = β/2 * (x + 1), w = ωmax * y.  Scaling
     # the data is not necessary as the normalization is inferred.
     ωmax = Λ(kernel) / β
-    u_knots = β / 2 * (u.knots .+ 1)
-    v_knots = ωmax * v.knots
-    u_ = PiecewiseLegendrePolyVector(u, u_knots; Δx=β / 2 * u.Δx, symm=u.symm)
-    v_ = PiecewiseLegendrePolyVector(v, v_knots; Δx=ωmax * v.Δx, symm=v.symm)
+    u_knots = β / 2 * (u_.knots .+ 1)
+    v_knots = ωmax * v_.knots
+    u = PiecewiseLegendrePolyVector(u_, u_knots; Δx=β / 2 * u_.Δx, symm=u_.symm)
+    v = PiecewiseLegendrePolyVector(v_, v_knots; Δx=ωmax * v_.Δx, symm=v_.symm)
 
     # The singular values are scaled to match the change of variables, with
     # the additional complexity that the kernel may have an additional
     # power of w.
-    s_ = √(β / 2 * ωmax) * ωmax^(-ypower(kernel)) * s
+    s = √(β / 2 * ωmax) * ωmax^(-ypower(kernel)) * s_
 
     # HACK: as we don't yet support Fourier transforms on anything but the
     # unit interval, we need to scale the underlying data.
     û_base_full = PiecewiseLegendrePolyVector(√β * sve_result.u.data, sve_result.u)
-    û_full = PiecewiseLegendreFTVector(û_base_full, statistics; n_asymp=conv_radius(kernel))
+    û_full = PiecewiseLegendreFTVector(û_base_full, statistics;
+                                        n_asymp=conv_radius(kernel))
     û = û_full[1:length(s)]
 
-    return FiniteTempBasis(kernel, sve_result, accuracy, float(β), u_, v_, s_, û, û_full)
+    return FiniteTempBasis(kernel, sve_result, accuracy, float(β), u, v, s, û, û_full)
 end
 
 const DEFAULT_FINITE_TEMP_BASIS{S} = FiniteTempBasis{S,LogisticKernel,Float64}
 
-# TODO
-function Base.show(io::IO, a::FiniteTempBasis{S,K,T}) where {S,K,T}
-    print(io, "FiniteTempBasis{$K, $T}($(statistics(a)), $(β(a)), $(ωmax(a)))")
+function Base.show(io::IO, b::FiniteTempBasis)
+    print(io, "$(length(b))-element FiniteTempBasis{$(statistics(b))} with ")
+    println(io, "β = $(β(b)), ωmax = $(ωmax(b)) and singular values:")
+    for s in b.s[begin:(end - 1)]
+        println(io, " $s")
+    end
+    print(io, " $(last(b.s))")
 end
 
-function Base.getindex(basis::FiniteTempBasis, i)
+function Base.getindex(basis::FiniteTempBasis, i::AbstractRange)
     FiniteTempBasis(statistics(basis), β(basis), ωmax(basis), nothing;
                     max_size=range_to_length(i), kernel=basis.kernel,
                     sve_result=basis.sve_result)
@@ -162,7 +168,7 @@ function default_sampling_points(u::PiecewiseLegendrePolyVector, L::Integer)
 
     # For orthogonal polynomials (the high-T limit of IR), we know that the
     # ideal sampling points for a basis of size L are the roots of the L-th
-    # polynomial.  We empirically find that these stay good sampling points
+    # polynomial. We empirically find that these stay good sampling points
     # for our kernels (probably because the kernels are totally positive).
     if L < length(u)
         x₀ = roots(u[L + 1])
@@ -176,7 +182,7 @@ function default_sampling_points(u::PiecewiseLegendrePolyVector, L::Integer)
 
         # Putting the sampling points right at [0, β], which would be the
         # local extrema, is slightly worse conditioned than putting it in the
-        # middel.  This can be understood by the fact that the roots never
+        # middel. This can be understood by the fact that the roots never
         # occur right at the border.
         left  = (first(maxima) + poly.xmin) / 2
         right = (last(maxima) + poly.xmax) / 2
@@ -206,7 +212,7 @@ function default_matsubara_sampling_points(û::PiecewiseLegendreFTVector, L::In
     else
         # As a fallback, use the (discrete) extrema of the corresponding
         # highest-order basis function in Matsubara. This turns out to be okay.
-        ωn = find_extrema(û[L])
+        ωn = find_extrema(last(û))
 
         # For bosonic bases, we must explicitly include the zero frequency,
         # otherwise the condition number blows up.
@@ -218,9 +224,8 @@ function default_matsubara_sampling_points(û::PiecewiseLegendreFTVector, L::In
     end
 
     length(ωn) == l_requested || @warn """
-        Expecting to get $l_requested sampling points for corresponding
-        $(statistics(uhat)) basis function $L, instead got $(length(ωn)).
-        This may happen if not enough precision is left in the polynomial.
+        Requesting $l_requested $(statistics(û)) sampling frequencies for basis size
+        L = $L, but $(length(ωn)) were returned. This may indicate a problem with precision.
         """
 
     fence && fence_matsubara_sampling!(ωn)

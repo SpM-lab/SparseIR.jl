@@ -1,48 +1,47 @@
 struct MatsubaraPoleBasis{S<:Statistics} <: AbstractBasis{S}
-    β          :: Float64
-    statistics :: S
-    poles      :: Vector{Float64}
+    β     :: Float64
+    poles :: Vector{Float64}
+    MatsubaraPoleBasis(statistics::Statistics, β::Real, poles::Vector{<:Real}) =
+        new{typeof(statistics)}(β, poles)
 end
 
-function (basis::MatsubaraPoleBasis{S})(n::MatsubaraFreq{S}) where {S}
-    iν = valueim(n, β(basis))
-    if S === Fermionic
-        return @. 1 / (iν - basis.poles)
-    else
-        return @. tanh(β(basis) / 2 * basis.poles) / (iν - basis.poles)
-    end
-end
-function (basis::MatsubaraPoleBasis{S})(n::AbstractVector{MatsubaraFreq{S}}) where {S}
-    mapreduce(basis, hcat, n)
-end
-(basis::MatsubaraPoleBasis)(n::AbstractVector{<:Integer}) = basis(MatsubaraFreq.(n))
+(b::MatsubaraPoleBasis{Fermionic})(n::FermionicFreq) = 
+    @. 1 / (valueim(n, β(b)) - b.poles)
+(b::MatsubaraPoleBasis{Bosonic})(n::BosonicFreq) = 
+    @. tanh(β(b) / 2 * b.poles) / (valueim(n, β(b)) - b.poles)
+
+(b::MatsubaraPoleBasis{S})(n::AbstractVector{MatsubaraFreq{S}}) where {S} =
+    mapreduce(b, hcat, n)
+(b::MatsubaraPoleBasis)(n::AbstractVector{<:Integer}) =
+    b(MatsubaraFreq.(n))
+
 
 struct TauPoleBasis{S<:Statistics} <: AbstractBasis{S}
     β          :: Float64
     poles      :: Vector{Float64}
-    statistics :: S
     ωmax       :: Float64
+    TauPoleBasis(statistics::Statistics, β::Real, poles::Vector{<:Real}) =
+        new{typeof(statistics)}(β, poles, maximum(abs, poles))
 end
 
 ωmax(basis::TauPoleBasis) = basis.ωmax
 
-function TauPoleBasis(β::Real, statistics::Statistics, poles::Vector{<:AbstractFloat})
-    return TauPoleBasis(β, poles, statistics, maximum(abs, poles))
-end
+function (basis::TauPoleBasis)(τ::Vector{<:Real})
+    all(τ -> 0 ≤ τ ≤ β(basis), τ) || throw(DomainError(τ, "τ must be in [0, β]."))
 
-function (basis::TauPoleBasis)(τ::Vector{<:AbstractFloat})
-    all(τ -> 0 ≤ τ ≤ β(basis), τ) || throw(DomainError(τ, "τ must be in [0, β]!"))
-
-    x = (2 / β(basis)) .* τ .- 1
+    x = 2τ ./ β(basis) .- 1
     y = basis.poles ./ ωmax(basis)
     Λ = β(basis) * ωmax(basis)
-    return -transpose(LogisticKernel(Λ).(x, transpose(y)))
+    
+    res = -LogisticKernel(Λ).(x, transpose(y))
+    return transpose(res)
 end
 
 """
     SparsePoleRepresentation <: AbstractBasis    
 
-Sparse pole representation.
+Sparse pole representation (SPR).
+The poles are the extrema of V'_{L-1}(ω).
 """
 struct SparsePoleRepresentation{S<:Statistics,B<:AbstractBasis{S},T<:AbstractFloat,FMAT<:SVD
                                 } <: AbstractBasis{S}
@@ -54,40 +53,42 @@ struct SparsePoleRepresentation{S<:Statistics,B<:AbstractBasis{S},T<:AbstractFlo
     matrix :: FMAT
 end
 
-# TODO
-function Base.show(io::IO, obj::SparsePoleRepresentation)
-    return print(io, "SparsePoleRepresentation for $(obj.basis) with poles at $(obj.poles)")
-end
-
 function SparsePoleRepresentation(b::AbstractBasis, poles=default_omega_sampling_points(b))
-    u = TauPoleBasis(β(b), statistics(b), poles)
-    uhat = MatsubaraPoleBasis(β(b), statistics(b), poles)
+    u = TauPoleBasis(statistics(b), β(b), poles)
+    uhat = MatsubaraPoleBasis(statistics(b), β(b), poles)
+
+    # Fitting matrix from IR
     fitmat = -b.s .* b.v(poles)
-    return SparsePoleRepresentation(b, poles, u, uhat, fitmat, svd(fitmat))
+
+    # Now, here we *know* that fitmat is ill-conditioned in very particular way:
+    # it is a product A * B * C, where B is well conditioned and A, C are scalings.
+    return SparsePoleRepresentation(b, poles, u, uhat, fitmat, svd(fitmat; alg = QRIteration()))
 end
 
-β(obj::SparsePoleRepresentation) = β(obj.basis)
+Base.show(io::IO, spr::SparsePoleRepresentation) =
+    print(io, "SparsePoleRepresentation for $(spr.basis) with poles at $(spr.poles)")
 
-function Base.getproperty(obj::SparsePoleRepresentation, d::Symbol)
-    if d === :v
-        return nothing
-    else
-        return getfield(obj, d)
-    end
-end
+Base.length(spr::SparsePoleRepresentation) = length(spr.poles)
+Base.size(spr::SparsePoleRepresentation) = (length(spr), )
 
-function default_tau_sampling_points(obj::SparsePoleRepresentation)
-    default_tau_sampling_points(obj.basis)
-end
-function default_matsubara_sampling_points(obj::SparsePoleRepresentation)
-    default_matsubara_sampling_points(obj.basis)
-end
+β(spr::SparsePoleRepresentation) = β(spr.basis)
+ωmax(spr::SparsePoleRepresentation) = ωmax(spr.basis)
+Λ(spr::SparsePoleRepresentation) = Λ(spr.basis)
+
+sampling_points(spr::SparsePoleRepresentation) = spr.poles
+significance(spr::SparsePoleRepresentation) = ones(size(spr))
+accuracy(spr::SparsePoleRepresentation) = accuracy(spr.basis)
+
+default_tau_sampling_points(spr::SparsePoleRepresentation) = 
+    default_tau_sampling_points(spr.basis)
+default_matsubara_sampling_points(spr::SparsePoleRepresentation) =
+    default_matsubara_sampling_points(spr.basis)
 iswellconditioned(::SparsePoleRepresentation) = false
 
 """
     from_IR(spr::SparsePoleRepresentation, gl::AbstractArray, dims=1)
 
-From IR to SPR.
+From IR to SPR. `gl``: Expansion coefficients in IR.
 """
 function from_IR(spr::SparsePoleRepresentation, gl::AbstractArray, dims=1)
     return mapslices(sl -> spr.matrix \ sl, gl; dims)
@@ -96,7 +97,7 @@ end
 """
     to_IR(spr::SparsePoleRepresentation, g_spr::AbstractArray, dims=1)
 
-From SPR to IR.
+From SPR to IR. `g_spr``: Expansion coefficients in SPR.
 """
 function to_IR(spr::SparsePoleRepresentation, g_spr::AbstractArray, dims=1)
     return mapslices(sl -> spr.fitmat * sl, g_spr; dims)
