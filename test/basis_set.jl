@@ -37,7 +37,7 @@ include("_conftest.jl")
         @test bs.smpl_wn_b.matrix == smpl_wn_b.matrix
     end
 
-    @testset "unit tests" begin
+    @testset "FiniteTempBasis" begin
         with_logger(NullLogger()) do
             basis = FiniteTempBasis(Fermionic(), 1e-3, 1e-3, 1e-100)
             @test SparseIR.sve_result(basis).s * sqrt(1e-3 / 2 * 1e-3) ≈ basis.s
@@ -66,5 +66,26 @@ include("_conftest.jl")
         Requesting 13 Bosonic\(\) sampling frequencies for basis size
         L = \d+, but \d+ were returned\. This may indicate a problem with precision\.
         """) SparseIR.default_matsubara_sampling_points(basis.uhat, 12; fence=true)
+    end
+
+    @testset "unit tests" begin
+        β = 23
+        ωmax = 3e-2
+        ε = 1e-5
+
+        bset = FiniteTempBasisSet(β, ωmax, ε)
+
+        basis_f = FiniteTempBasis(Fermionic(), β, ωmax, ε)
+        basis_b = FiniteTempBasis(Bosonic(), β, ωmax, ε)
+        @test SparseIR.β(bset) == β
+        @test SparseIR.ωmax(bset) == ωmax
+        @test bset.tau == SparseIR.sampling_points(TauSampling(basis_f))
+        @test bset.wn_f == SparseIR.sampling_points(MatsubaraSampling(basis_f))
+        @test bset.wn_b == SparseIR.sampling_points(MatsubaraSampling(basis_b))
+        @test bset.sve_result.s ≈ SparseIR.SVEResult(LogisticKernel(β * ωmax); ε).s
+        @test :tau ∈ propertynames(bset)
+        io = IOBuffer()
+        show(io, bset)
+        @test String(take!(io)) == "FiniteTempBasisSet with β = $β.0, ωmax = $ωmax"
     end
 end

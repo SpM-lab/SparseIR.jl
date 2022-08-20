@@ -166,8 +166,11 @@ end
 sampling_points(sampling::AbstractSampling) = sampling.sampling_points
 
 function Base.show(io::IO, smpl::S) where {S<:AbstractSampling}
-    println(io, "$S with")
-    print(io, "Sampling points: $(sampling_points(smpl))")
+    println(io, "$S with sampling points:")
+    for p in sampling_points(smpl)[begin:end-1]
+        println(io, " $p")
+    end
+    print(io, " $(last(sampling_points(smpl)))")
 end
 
 ###############################################################################

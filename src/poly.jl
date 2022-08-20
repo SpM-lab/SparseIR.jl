@@ -54,7 +54,7 @@ end
 Base.size(::PiecewiseLegendrePoly) = ()
 
 function Base.show(io::IO, p::PiecewiseLegendrePoly)
-    print(io, "$(typeof(p)): xmin=$(p.xmin), xmax=$(p.xmax), order=$(p.polyorder)")
+    print(io, "PiecewiseLegendrePoly on [$(p.xmin), $(p.xmax)], order=$(p.polyorder)")
 end
 
 @inline function (poly::PiecewiseLegendrePoly)(x::Number)
@@ -161,6 +161,11 @@ Base.:-(p1::PiecewiseLegendrePoly, p2::PiecewiseLegendrePoly) = p1 + (-p2)
 Alias for `Vector{PiecewiseLegendrePoly{T}}`.
 """
 const PiecewiseLegendrePolyVector{T} = Vector{PiecewiseLegendrePoly{T}}
+
+function Base.show(io::IO, polys::PiecewiseLegendrePolyVector)
+    print(io, "$(length(polys))-element PiecewiseLegendrePolyVector ")
+    print(io, "on [$(polys.xmin), $(polys.xmax)]")
+end
 
 function PiecewiseLegendrePolyVector(data::AbstractArray{T,3}, knots::Vector{T};
                                      symm=zeros(Int, size(data, 3))) where {T<:Real}

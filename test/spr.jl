@@ -59,4 +59,38 @@ include("_conftest.jl")
 
         @test isapprox(gl_pole, gl_pole2; atol=300ε, rtol=0)
     end
+
+    @testset "unit tests" begin
+        @testset "MatsubaraPoleBasis" begin
+            poles = [2.0, 3.3, 9.3]
+            β = π
+
+            n = rand(-12345:2:987, 100)
+            mpb = SparseIR.MatsubaraPoleBasis(Fermionic(), β, poles)
+            @test mpb(n) ≈ @. 1 / (im * n' - poles)
+            
+            n = rand(-234:2:13898, 100)
+            mbp = SparseIR.MatsubaraPoleBasis(Bosonic(), β, poles)
+            @test mbp(n) ≈ @. tanh(π / 2 * poles) / (im * n' - poles)
+        end
+
+        @testset "SparsePoleRepresentation" for stat in (Fermionic(), Bosonic())
+            β = 10_000
+            ωmax = 1
+            ε = 1e-12
+            basis = FiniteTempBasis(stat, β, ωmax, ε; sve_result=sve_logistic[β * ωmax])
+            spr = SparsePoleRepresentation(basis)
+
+            io = IOBuffer()
+            show(io, spr)
+            @test occursin(r"SparsePoleRepresentation for", String(take!(io)))
+            @test all(isone, SparseIR.significance(spr))
+            @test SparseIR.β(spr) == β
+            @test SparseIR.ωmax(spr) == ωmax
+            @test SparseIR.Λ(spr) == β * ωmax
+            @test SparseIR.sampling_points(spr) == SparseIR.default_omega_sampling_points(basis)
+            @test SparseIR.accuracy(spr) < ε
+            @test SparseIR.default_matsubara_sampling_points(spr) == SparseIR.default_matsubara_sampling_points(basis)
+        end
+    end
 end

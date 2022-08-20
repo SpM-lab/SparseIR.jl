@@ -80,7 +80,9 @@ include("_conftest.jl")
 
         io = IOBuffer()
         show(io, v[1])
-        @test String(take!(io)) == "SparseIR.PiecewiseLegendrePoly{Float64}: xmin=-1.0, xmax=1.0, order=16"
+        @test String(take!(io)) == "PiecewiseLegendrePoly on [-1.0, 1.0], order=16"
+        show(io, u)
+        @test String(take!(io)) == "$(length(u))-element PiecewiseLegendrePolyVector on [-1.0, 1.0]"
 
         @test size(u[1](rand(30))) == (30,)
 
