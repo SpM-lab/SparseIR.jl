@@ -118,8 +118,9 @@ Base.:*(a::FermionicFreq, c::Integer)       = MatsubaraFreq(a.n * c)
 Base.:*(c::Integer, a::MatsubaraFreq)       = a * c
 
 Base.sign(a::MatsubaraFreq)                     = sign(a.n)
-Base.zero(::MatsubaraFreq)                      = MatsubaraFreq(0)
-Base.iszero(self::MatsubaraFreq)                = iszero(self.n)
+Base.zero(::MatsubaraFreq)                      = BosonicFreq(0)
+Base.iszero(::FermionicFreq)                    = false
+Base.iszero(self::BosonicFreq)                  = iszero(self.n)
 Base.isless(a::MatsubaraFreq, b::MatsubaraFreq) = isless(a.n, b.n)
 
 # This is to get rid of the weird "promotion failed to change any of the types"
@@ -148,32 +149,9 @@ function Base.show(io::IO, self::MatsubaraFreq)
 end
 
 const pioverbeta = MatsubaraFreq(1)
-
 Base.oneunit(::MatsubaraFreq) = pioverbeta
 
-"""
-Dense grid of frequencies in an implicit representation
-"""
-struct FreqRange{A<:Statistics} <: OrdinalRange{MatsubaraFreq{A},BosonicFreq}
-    start :: MatsubaraFreq{A}
-    stop  :: MatsubaraFreq{A}
-    step  :: BosonicFreq
+Base.rem(a::MatsubaraFreq, b::MatsubaraFreq) = MatsubaraFreq(rem(a.n, b.n))
+Base.div(a::MatsubaraFreq, b::MatsubaraFreq) = MatsubaraFreq(div(a.n, b.n))
 
-    function FreqRange(start::MatsubaraFreq{A}, stop::MatsubaraFreq{A},
-                       step_::BosonicFreq) where {A}
-        range = Int(start):Int(step_):Int(stop)
-        start = MatsubaraFreq{A}(first(range))
-        step_ = BosonicFreq(step(range))
-        stop = iszero(length(range)) ? start - step_ : MatsubaraFreq{A}(last(range))
-        return new{A}(start, stop, step_)
-    end
-end
-
-Base.first(self::FreqRange) = self.start
-Base.last(self::FreqRange) = self.stop
-Base.step(self::FreqRange) = self.step
-Base.length(self::FreqRange) = Int(last(self) - first(self)) ÷ Int(step(self)) + 1
 Base.:(:)(start::MatsubaraFreq, stop::MatsubaraFreq) = start:BosonicFreq(2):stop
-function Base.:(:)(start::MatsubaraFreq, step::BosonicFreq, stop::MatsubaraFreq)
-    FreqRange(start, stop, step)
-end
