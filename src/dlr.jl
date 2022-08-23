@@ -38,12 +38,12 @@ function (basis::TauPoleBasis)(τ::Vector{<:Real})
 end
 
 """
-    SparsePoleRepresentation <: AbstractBasis    
+    DiscreteLehmannRepresentation <: AbstractBasis    
 
-Sparse pole representation (SPR).
+Discrete Lehmann Representation (DLR).
 The poles are the extrema of V'_{L-1}(ω).
 """
-struct SparsePoleRepresentation{S<:Statistics,B<:AbstractBasis{S},T<:AbstractFloat,FMAT<:SVD
+struct DiscreteLehmannRepresentation{S<:Statistics,B<:AbstractBasis{S},T<:AbstractFloat,FMAT<:SVD
                                 } <: AbstractBasis{S}
     basis  :: B
     poles  :: Vector{T}
@@ -53,7 +53,7 @@ struct SparsePoleRepresentation{S<:Statistics,B<:AbstractBasis{S},T<:AbstractFlo
     matrix :: FMAT
 end
 
-function SparsePoleRepresentation(b::AbstractBasis, poles=default_omega_sampling_points(b))
+function DiscreteLehmannRepresentation(b::AbstractBasis, poles=default_omega_sampling_points(b))
     u = TauPoleBasis(statistics(b), β(b), poles)
     uhat = MatsubaraPoleBasis(statistics(b), β(b), poles)
 
@@ -62,43 +62,43 @@ function SparsePoleRepresentation(b::AbstractBasis, poles=default_omega_sampling
 
     # Now, here we *know* that fitmat is ill-conditioned in very particular way:
     # it is a product A * B * C, where B is well conditioned and A, C are scalings.
-    return SparsePoleRepresentation(b, poles, u, uhat, fitmat, svd(fitmat; alg = QRIteration()))
+    return DiscreteLehmannRepresentation(b, poles, u, uhat, fitmat, svd(fitmat; alg = QRIteration()))
 end
 
-Base.show(io::IO, spr::SparsePoleRepresentation) =
-    print(io, "SparsePoleRepresentation for $(spr.basis) with poles at $(spr.poles)")
+Base.show(io::IO, dlr::DiscreteLehmannRepresentation) =
+    print(io, "DiscreteLehmannRepresentation for $(dlr.basis) with poles at $(dlr.poles)")
 
-Base.length(spr::SparsePoleRepresentation) = length(spr.poles)
-Base.size(spr::SparsePoleRepresentation) = (length(spr), )
+Base.length(dlr::DiscreteLehmannRepresentation) = length(dlr.poles)
+Base.size(dlr::DiscreteLehmannRepresentation) = (length(dlr), )
 
-β(spr::SparsePoleRepresentation) = β(spr.basis)
-ωmax(spr::SparsePoleRepresentation) = ωmax(spr.basis)
-Λ(spr::SparsePoleRepresentation) = Λ(spr.basis)
+β(dlr::DiscreteLehmannRepresentation) = β(dlr.basis)
+ωmax(dlr::DiscreteLehmannRepresentation) = ωmax(dlr.basis)
+Λ(dlr::DiscreteLehmannRepresentation) = Λ(dlr.basis)
 
-sampling_points(spr::SparsePoleRepresentation) = spr.poles
-significance(spr::SparsePoleRepresentation) = ones(size(spr))
-accuracy(spr::SparsePoleRepresentation) = accuracy(spr.basis)
+sampling_points(dlr::DiscreteLehmannRepresentation) = dlr.poles
+significance(dlr::DiscreteLehmannRepresentation) = ones(size(dlr))
+accuracy(dlr::DiscreteLehmannRepresentation) = accuracy(dlr.basis)
 
-default_tau_sampling_points(spr::SparsePoleRepresentation) = 
-    default_tau_sampling_points(spr.basis)
-default_matsubara_sampling_points(spr::SparsePoleRepresentation) =
-    default_matsubara_sampling_points(spr.basis)
-iswellconditioned(::SparsePoleRepresentation) = false
+default_tau_sampling_points(dlr::DiscreteLehmannRepresentation) = 
+    default_tau_sampling_points(dlr.basis)
+default_matsubara_sampling_points(dlr::DiscreteLehmannRepresentation) =
+    default_matsubara_sampling_points(dlr.basis)
+iswellconditioned(::DiscreteLehmannRepresentation) = false
 
 """
-    from_IR(spr::SparsePoleRepresentation, gl::AbstractArray, dims=1)
+    from_IR(dlr::DiscreteLehmannRepresentation, gl::AbstractArray, dims=1)
 
-From IR to SPR. `gl``: Expansion coefficients in IR.
+From IR to SLR. `gl``: Expansion coefficients in IR.
 """
-function from_IR(spr::SparsePoleRepresentation, gl::AbstractArray, dims=1)
-    return mapslices(sl -> spr.matrix \ sl, gl; dims)
+function from_IR(dlr::DiscreteLehmannRepresentation, gl::AbstractArray, dims=1)
+    return mapslices(sl -> dlr.matrix \ sl, gl; dims)
 end
 
 """
-    to_IR(spr::SparsePoleRepresentation, g_spr::AbstractArray, dims=1)
+    to_IR(dlr::DiscreteLehmannRepresentation, g_dlr::AbstractArray, dims=1)
 
-From SPR to IR. `g_spr``: Expansion coefficients in SPR.
+From DLR to IR. `g_dlr``: Expansion coefficients in DLR.
 """
-function to_IR(spr::SparsePoleRepresentation, g_spr::AbstractArray, dims=1)
-    return mapslices(sl -> spr.fitmat * sl, g_spr; dims)
+function to_IR(dlr::DiscreteLehmannRepresentation, g_dlr::AbstractArray, dims=1)
+    return mapslices(sl -> dlr.fitmat * sl, g_dlr; dims)
 end
