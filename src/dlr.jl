@@ -88,7 +88,7 @@ iswellconditioned(::DiscreteLehmannRepresentation) = false
 """
     from_IR(dlr::DiscreteLehmannRepresentation, gl::AbstractArray, dims=1)
 
-From IR to SLR. `gl``: Expansion coefficients in IR.
+From IR to DLR. `gl``: Expansion coefficients in IR.
 """
 function from_IR(dlr::DiscreteLehmannRepresentation, gl::AbstractArray, dims=1)
     return mapslices(sl -> dlr.matrix \ sl, gl; dims)
