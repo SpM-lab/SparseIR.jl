@@ -6,7 +6,7 @@ module SparseIR
 export Fermionic, Bosonic
 export MatsubaraFreq, BosonicFreq, FermionicFreq, pioverbeta
 export FiniteTempBasis, FiniteTempBasisSet
-export SparsePoleRepresentation
+export DiscreteLehmannRepresentation
 export overlap
 export LogisticKernel, RegularizedBoseKernel
 export AugmentedBasis, TauConst, TauLinear, MatsubaraConst
@@ -39,7 +39,7 @@ include("sve.jl")
 include("basis.jl")
 include("augment.jl")
 include("sampling.jl")
-include("spr.jl")
+include("dlr.jl")
 include("basis_set.jl")
 
 # Precompile
