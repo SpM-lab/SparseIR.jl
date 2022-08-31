@@ -101,7 +101,7 @@ end
 const DEFAULT_FINITE_TEMP_BASIS{S} = FiniteTempBasis{S,LogisticKernel,Float64}
 
 function Base.show(io::IO, b::FiniteTempBasis)
-    print(io, "$(length(b))-element FiniteTempBasis{$(statistics(b))} with ")
+    print(io, "$(length(b))-element FiniteTempBasis{$(typeof(statistics(b)))} with ")
     println(io, "β = $(β(b)), ωmax = $(ωmax(b)) and singular values:")
     for s in b.s[begin:(end - 1)]
         println(io, " $s")

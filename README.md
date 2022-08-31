@@ -13,12 +13,24 @@ The package can be installed with the Julia package manager. From the Julia REPL
 pkg> add SparseIR
 ```
 
+**_Note_**: We recommend using the current stable release version 1.8 of Julia while supporting the LTS release 1.6 and newer.
+In case you find yourself running an older version, [juliaup](https://github.com/JuliaLang/juliaup) makes installing and maintaining an up-to-date version quite pleasant.
+
+### Manual installation from source
+
+You should almost never have to do this, but it is possible to install SparseIR.jl from source as follows:
+```sh
+git clone https://github.com/SpM-lab/SparseIR.jl.git
+julia -e "import Pkg; Pkg.add(path=\"SparseIR.jl\")"
+```
+This is *not* recommended, as you will get the unstable development version and no updates.
+
 ## Usage
 
 ```julia
 using SparseIR
-β = 10.0
-ωmax = 1.0
+β = 10
+ωmax = 1
 ε = 1e-7
 basis_f = FiniteTempBasis(Fermionic(), β, ωmax, ε)
 basis_b = FiniteTempBasis(Bosonic(), β, ωmax, ε)

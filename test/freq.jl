@@ -46,6 +46,10 @@ using SparseIR
         @test length(BosonicFreq(-10):BosonicFreq(4):BosonicFreq(60)) == 18
         @test length(FermionicFreq(1):BosonicFreq(100):FermionicFreq(3)) == 1
         @test length(FermionicFreq(1):BosonicFreq(100):FermionicFreq(-1001)) == 0
+
+        @test_throws MethodError FermionicFreq(5):BosonicFreq(100)
+        @test_throws ErrorException BosonicFreq(6):FermionicFreq(3):BosonicFreq(100)
+        @test_throws ErrorException FermionicFreq(7):FermionicFreq(3):FermionicFreq(101)
     end
 
     @testset "freqinvalid" begin

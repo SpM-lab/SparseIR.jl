@@ -47,7 +47,7 @@ include("_conftest.jl")
         io = IOBuffer()
         show(io, basis)
         s = String(take!(io))
-        @test occursin(r"FiniteTempBasis{Fermionic\(\)} with β = 3\.0, ωmax = 4\.0", s)
+        @test occursin(r"FiniteTempBasis{Fermionic} with β = 3\.0, ωmax = 4\.0", s)
 
         @test SparseIR.ωmax(SparseIR.rescale(basis, 2)) ≈ 6
 
