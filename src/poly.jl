@@ -135,11 +135,11 @@ Find segment of poly's domain that covers `x`.
     return i, x̃
 end
 
-function Base.:*(poly::PiecewiseLegendrePoly, factor)
+function Base.:*(poly::PiecewiseLegendrePoly, factor::Number)
     return PiecewiseLegendrePoly(poly.data * factor, poly.knots, poly.l;
                                  Δx=poly.Δx, symm=poly.symm)
 end
-Base.:*(factor, poly::PiecewiseLegendrePoly) = poly * factor
+Base.:*(factor::Number, poly::PiecewiseLegendrePoly) = poly * factor
 function Base.:+(p1::PiecewiseLegendrePoly, p2::PiecewiseLegendrePoly)
     p1.knots == p2.knots || error("knots must be the same")
     return PiecewiseLegendrePoly(p1.data + p2.data, p1.knots, -1;
