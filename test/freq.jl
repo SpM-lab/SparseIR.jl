@@ -19,6 +19,8 @@ using SparseIR
 
         @test SparseIR.value(pioverbeta, 3) == π / 3
         @test SparseIR.valueim(2 * pioverbeta, 3) == 2im * π / 3
+
+        @test !iszero(MatsubaraFreq(-3))
     end
 
     @testset "freqadd" begin

@@ -155,7 +155,7 @@ function SVEResult(kernel::AbstractKernel;
                    sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE)
     safe_ε, Twork, svd_strat = choose_accuracy(ε, Twork, svd_strat)
 
-    sve = sve_strat(kernel, Twork(safe_ε); n_gauss, T=Twork)
+    sve = sve_strat(kernel, safe_ε; n_gauss, T=Twork)
 
     svds = compute_svd.(matrices(sve); strategy=svd_strat)
     u_, s_, v_ = zip(svds...)
@@ -264,29 +264,29 @@ Choose work type and accuracy based on specs and defaults
 """
 function choose_accuracy(ε, Twork, svd_strat)
     ε, Twork, auto_svd_strat = choose_accuracy(ε, Twork)
-    svd_strat == :auto && (svd_strat = auto_svd_strat)
+    svd_strat === :auto && (svd_strat = auto_svd_strat)
     return ε, Twork, svd_strat
 end
 function choose_accuracy(ε, Twork)
     if ε ≥ sqrt(eps(Twork))
-        return ε, Twork, :default
+        return Twork(ε), Twork, :default
     else
         @warn """Basis cutoff is $ε, which is below √ε with ε = $(eps(Twork)).
         Expect singular values and basis functions for large l to have lower precision
         than the cutoff."""
-        return ε, Twork, :accurate
+        return Twork(ε), Twork, :accurate
     end
 end
 function choose_accuracy(ε, ::Nothing)
     if ε ≥ sqrt(eps(Float64))
-        return ε, Float64, :default
+        return Float64(ε), Float64, :default
     else
         if ε < sqrt(eps(T_MAX))
             @warn """Basis cutoff is $ε, which is below √ε with ε = $(eps(T_MAX)).
             Expect singular values and basis functions for large l to have lower precision
             than the cutoff."""
         end
-        return ε, T_MAX, :default
+        return T_MAX(ε), T_MAX, :default
     end
 end
 choose_accuracy(::Nothing, Twork) = sqrt(eps(Twork)), Twork, :default

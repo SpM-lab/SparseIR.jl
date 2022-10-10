@@ -151,7 +151,9 @@ end
 const pioverbeta = MatsubaraFreq(1)
 Base.oneunit(::MatsubaraFreq) = pioverbeta
 
-Base.rem(a::MatsubaraFreq, b::MatsubaraFreq) = MatsubaraFreq(rem(a.n, b.n))
+Base.rem(a::MatsubaraFreq, b::FermionicFreq) = MatsubaraFreq(rem(a.n, b.n))
+Base.rem(a::MatsubaraFreq{S}, b::BosonicFreq) where {S} = MatsubaraFreq{S}(rem(a.n, b.n))
 Base.div(a::MatsubaraFreq, b::MatsubaraFreq) = MatsubaraFreq(div(a.n, b.n))
 
-Base.:(:)(start::MatsubaraFreq, stop::MatsubaraFreq) = start:BosonicFreq(2):stop
+Base.:(:)(start::MatsubaraFreq{S}, stop::MatsubaraFreq{S}) where {S} =
+    start:BosonicFreq(2):stop

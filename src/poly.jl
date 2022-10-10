@@ -201,12 +201,13 @@ function (polys::PiecewiseLegendrePolyVector)(x::AbstractArray)
 end
 
 function Base.getproperty(polys::PiecewiseLegendrePolyVector, sym::Symbol)
-    if sym ∈ (:xmin, :xmax, :knots, :Δx, :polyorder, :nsegments, :xm, :inv_xs, :norm)
+    if sym ∈ (:xmin, :xmax, :knots, :Δx, :polyorder, :xm, :inv_xs, :norm)
         return getproperty(first(polys), sym)
-    elseif sym == :symm
+    elseif sym === :symm
         return map(poly -> poly.symm, polys)
-    elseif sym == :data
-        return mapreduce(poly -> poly.data, (x...) -> cat(x...; dims=3), polys)
+    elseif sym === :data
+        init = Array{Float64, 3}(undef, size(first(polys).data)..., 0)
+        return mapreduce(poly -> poly.data, (x...) -> cat(x...; dims=3), polys; init)
     else
         return getfield(polys, sym)
     end
@@ -277,7 +278,7 @@ end
 function Base.getproperty(polyFTs::PiecewiseLegendreFTVector, sym::Symbol)
     if sym ∈ (:stat, :n_asymp)
         return getproperty(first(polyFTs), sym)
-    elseif sym == :poly
+    elseif sym === :poly
         return map(poly -> poly.poly, polyFTs)
     else
         return getfield(polyFTs, sym)
@@ -361,7 +362,10 @@ end
             error("Cannot detect parity")
         end
     end
-    return n -> part(polyFT(2n + zeta(statistics(polyFT))))
+    return function(n)
+        stat = statistics(polyFT)
+        part(polyFT(MatsubaraFreq{typeof(stat)}(2n + zeta(stat))))
+    end
 end
 
 @inline function symmetrize_matsubara(x₀)
@@ -407,15 +411,15 @@ end
 Compute piecewise Legendre to Matsubara transform.
 """
 @inline function compute_unl_inner(poly::PiecewiseLegendrePoly, wn)
-    t_pin = Pqn(poly, wn)
+    t_pin = pqn(poly, wn)
     return dot(poly.data, transpose(t_pin))
 end
 @inline function compute_unl_inner(polys::PiecewiseLegendrePolyVector, wn)
-    t_pin = Pqn(polys, wn)
+    t_pin = pqn(polys, wn)
     return [dot(poly.data, transpose(t_pin)) for poly in polys]
 end
 
-@inline function Pqn(poly, wn)
+@inline function pqn(poly, wn)
     p        = transpose(range(0; length=poly.polyorder))
     wred     = π / 2 * wn
     phase_wi = phase_stable(poly, wn)
