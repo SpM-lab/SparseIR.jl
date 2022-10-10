@@ -10,8 +10,6 @@ and associated sparse-sampling objects.
 
   - basis_f::FiniteTempBasis: Fermion basis
   - basis_b::FiniteTempBasis: Boson basis
-  - beta::Float64: Inverse temperature
-  - ωmax::Float64: Cut-off frequency
   - tau::Vector{Float64}: Sampling points in the imaginary-time domain
   - wn_f::Vector{Int}: Sampling fermionic frequencies
   - wn_b::Vector{Int}: Sampling bosonic frequencies
@@ -20,6 +18,10 @@ and associated sparse-sampling objects.
   - smpl_wn_f::MatsubaraSampling: Sparse sampling for Matsubara frequency & fermion
   - smpl_wn_b::MatsubaraSampling: Sparse sampling for Matsubara frequency & boson
   - sve_result::Tuple{PiecewiseLegendrePoly,Vector{Float64},PiecewiseLegendrePoly}: Results of SVE
+
+# Getters
+  - beta::Float64: Inverse temperature
+  - ωmax::Float64: Cut-off frequency
 """
 struct FiniteTempBasisSet
     basis_f    :: DEFAULT_FINITE_TEMP_BASIS{Fermionic}
