@@ -34,7 +34,7 @@ notebooks for several many-body methods - GF(2), GW, Eliashberg equations,
 Lichtenstein formula, FLEX, ... - are presented.
 
 Refer to the [API documentation] for more details on how to work
-with the python library.
+with the Julia library.
 
 There is also a [Python library] and (currently somewhat restricted)
 [Fortran library] available for the IR basis and sparse sampling.
