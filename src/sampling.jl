@@ -101,10 +101,11 @@ end
 Like [`evaluate`](@ref), but write the result to `buffer`.
 Please use dim = 1 or N to avoid allocating large temporary arrays internally.
 """
-function evaluate!(buffer::AbstractArray, smpl::AbstractSampling, al; dim=1)
-    bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 1), size(al)[(dim + 1):end]...)
-    if size(buffer) ≠ bufsize
-        msg = "Buffer has the wrong size (got $(size(buffer)), expected $bufsize)."
+function evaluate!(buffer::AbstractArray{T, N}, smpl::AbstractSampling,
+                   al::AbstractArray{S, N}; dim=1) where {S,T,N}
+    resultsize = ntuple(j -> j == dim ? size(smpl.matrix, 1) : size(al, j), N)
+    if size(buffer) ≠ resultsize
+        msg = "Buffer has the wrong size (got $(size(buffer)), expected $resultsize)."
         throw(DimensionMismatch(msg))
     end
     return matop_along_dim!(buffer, smpl.matrix, al, dim, mul!)
@@ -146,11 +147,10 @@ Use `dim = 1` or `dim = N` to avoid allocating large temporary arrays internally
 The length of `workarr` cannot be smaller than [`SparseIR.workarrlength`](@ref)`(smpl, al)`.
 """
 function fit!(buffer::Array{S,N}, smpl::AbstractSampling, al::Array{T,N}; dim=1,
-              workarr::Vector{S}=Vector{S}(undef, workarrlength(smpl, al; dim))) where {S,T,
-                                                                                        N}
-    bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 2), size(al)[(dim + 1):end]...)
-    if size(buffer) ≠ bufsize
-        msg = "Buffer has the wrong size (got $(size(buffer)), expected $bufsize)."
+              workarr::Vector{S}=Vector{S}(undef, workarrlength(smpl, al; dim))) where {S,T,N}
+    resultsize = ntuple(j -> j == dim ? size(smpl.matrix, 2) : size(al, j), N)
+    if size(buffer) ≠ resultsize
+        msg = "Buffer has the wrong size (got $(size(buffer)), expected $resultsize)."
         throw(DimensionMismatch(msg))
     end
     length(workarr) ≥ workarrlength(smpl, al; dim) ||

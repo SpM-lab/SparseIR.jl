@@ -83,7 +83,7 @@ a ⪅ b = leaq(a, b)
     end
 
     @testset "truncate" begin
-        sve = SparseIR.CentrosymmSVE(LogisticKernel(5), 1e-6; n_gauss=-1, T=Float64)
+        sve = SparseIR.CentrosymmSVE(LogisticKernel(5), 1e-6, Float64; n_gauss=-1)
 
         svds = SparseIR.compute_svd.(SparseIR.matrices(sve))
         u_, s_, v_ = zip(svds...)

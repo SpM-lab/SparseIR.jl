@@ -33,7 +33,7 @@ struct SamplingSVE{T<:AbstractFloat,K<:AbstractKernel} <: AbstractSVE
     gauss_y :: Rule{T}
 end
 
-function SamplingSVE(kernel, ε; n_gauss=-1, T=Float64)
+function SamplingSVE(kernel, ε, ::Type{T}=Float64; n_gauss=-1) where {T}
     sve_hints_ = sve_hints(kernel, ε)
     n_gauss = (n_gauss < 0) ? ngauss(sve_hints_) : n_gauss
     rule = legendre(n_gauss, T)
@@ -78,9 +78,9 @@ struct CentrosymmSVE{K<:AbstractKernel,T,SVEEVEN<:AbstractSVE,SVEODD<:AbstractSV
     nsvals_hint :: Int
 end
 
-function CentrosymmSVE(kernel, ε; InnerSVE=SamplingSVE, n_gauss, T)
-    even = InnerSVE(get_symmetrized(kernel, +1), ε; n_gauss, T)
-    odd = InnerSVE(get_symmetrized(kernel, -1), ε; n_gauss, T)
+function CentrosymmSVE(kernel, ε, ::Type{T}; InnerSVE=SamplingSVE, n_gauss) where {T}
+    even = InnerSVE(get_symmetrized(kernel, +1), ε, T; n_gauss)
+    odd = InnerSVE(get_symmetrized(kernel, -1), ε, T; n_gauss)
     return CentrosymmSVE(kernel, ε, even, odd, max(even.nsvals_hint, odd.nsvals_hint))
 end
 
@@ -94,9 +94,9 @@ struct SVEResult{T,K,TP}
 end
 
 """
-    SVEResult(kernel::AbstractKernel;
+    SVEResult(kernel::AbstractKernel[, T];
         Twork=nothing, ε=nothing, n_sv=typemax(Int),
-        n_gauss=-1, T=Float64, svd_strat=:auto,
+        n_gauss=-1, svd_strat=:auto,
         sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE
     )
 
@@ -149,13 +149,12 @@ using a collocation).
 Returns:
 An `SVEResult` containing the truncated singular value expansion.
 """
-function SVEResult(kernel::AbstractKernel;
+function SVEResult(kernel::AbstractKernel, ::Type{T}=Float64;
                    Twork=nothing, cutoff=nothing, ε=nothing, n_sv=typemax(Int),
-                   n_gauss=-1, T=Float64, svd_strat=:auto,
-                   sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE)
+                   n_gauss=-1, svd_strat=:auto,
+                   sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE) where {T}
     safe_ε, Twork, svd_strat = choose_accuracy(ε, Twork, svd_strat)
-
-    sve = sve_strat(kernel, safe_ε; n_gauss, T=Twork)
+    sve = sve_strat(kernel, safe_ε, Twork; n_gauss)
 
     svds = compute_svd.(matrices(sve); strategy=svd_strat)
     u_, s_, v_ = zip(svds...)
@@ -191,7 +190,7 @@ matrices(sve::CentrosymmSVE) = (only(matrices(sve.even)), only(matrices(sve.odd)
 Construct the SVE result from the SVD. If not given, `T` is inferred from `u`, `s` and `v`.
 """
 function postprocess(sve::SamplingSVE, u, s, v,
-                     T=promote_type(eltype(u), eltype(s), eltype(v)))
+                     ::Type{T}=promote_type(eltype(u), eltype(s), eltype(v))) where {T}
     s = T.(s)
     u_x = u ./ sqrt.(sve.gauss_x.w)
     v_y = v ./ sqrt.(sve.gauss_y.w)
@@ -215,7 +214,7 @@ function postprocess(sve::SamplingSVE, u, s, v,
     return SVEResult(ulx, s, vly, sve.kernel, sve.ε)
 end
 
-function postprocess(sve::CentrosymmSVE, u, s, v, T)
+function postprocess(sve::CentrosymmSVE, u, s, v, ::Type{T}) where {T}
     u_even, s_even, v_even = postprocess(sve.even, u[1], s[1], v[1], T)
     u_odd, s_odd, v_odd = postprocess(sve.odd, u[2], s[2], v[2], T)
 

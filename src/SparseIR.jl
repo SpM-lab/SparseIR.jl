@@ -18,6 +18,7 @@ using LinearAlgebra: LinearAlgebra, cond, dot, svd, SVD, QRIteration, mul!
 using LinearAlgebra.BLAS: gemm!
 using QuadGK: gauss, quadgk
 using Bessels: sphericalbesselj
+using SnoopPrecompile
 
 Base.sinh(x::Float64x2) = setprecision(() -> Float64x2(sinh(big(x))), precision(Float64x2))
 Base.cosh(x::Float64x2) = setprecision(() -> Float64x2(cosh(big(x))), precision(Float64x2))
@@ -43,15 +44,28 @@ include("dlr.jl")
 include("basis_set.jl")
 
 # Precompile
-precompile(FiniteTempBasis, (Statistics, Float64, Float64, Float64))
-for cls in [:TauSampling, :MatsubaraSampling]
-    for func in [:fit, :evaluate]
-        for vartype in [:Float64, :ComplexF64]
-            for dim in [:1, :2, :3, :4, :5, :6, :7]
-                @eval precompile($(func), ($(cls), Array{$(vartype),$(dim)}))
-            end
-        end
-    end
+@precompile_all_calls begin
+    basis = FiniteTempBasis(Fermionic(), 1e-1, 1e-1, 1e-5)
+	τ_smpl = TauSampling(basis)
+	iω_smpl = MatsubaraSampling(basis)
+
+    basis = FiniteTempBasis(Bosonic(), 1e-1, 1e-1, 1e-5)
+	τ_smpl = TauSampling(basis)
+	iω_smpl = MatsubaraSampling(basis)
+
+    basis = FiniteTempBasis(Fermionic(), 1e-1, 1e-1)
+	τ_smpl = TauSampling(basis)
+	iω_smpl = MatsubaraSampling(basis)
+
+    basis = FiniteTempBasis(Bosonic(), 1e-1, 1e-1)
+	τ_smpl = TauSampling(basis)
+	iω_smpl = MatsubaraSampling(basis)
+
+	Giω = evaluate(iω_smpl, basis.s)
+	Gτ = evaluate(τ_smpl, basis.s)
+	
+	fit(τ_smpl, Gτ)
+	fit(iω_smpl, Giω)
 end
 
 end # module

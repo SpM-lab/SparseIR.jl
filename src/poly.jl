@@ -362,10 +362,8 @@ end
             error("Cannot detect parity")
         end
     end
-    return function(n)
-        stat = statistics(polyFT)
-        part(polyFT(MatsubaraFreq{typeof(stat)}(2n + zeta(stat))))
-    end
+    stat = statistics(polyFT)
+    n -> part(polyFT(MatsubaraFreq{typeof(stat)}(2n + zeta(stat))))
 end
 
 @inline function symmetrize_matsubara(x₀)
