@@ -54,34 +54,34 @@ Example usage
 using SparseIR
 
 function main(β = 10, ωmax = 8, ε = 1e-6)
-	# Construct the IR basis and sparse sampling for fermionic propagators
-	basis = FiniteTempBasis(Fermionic(), β, ωmax, ε)
-	sτ = TauSampling(basis)
-	siω = MatsubaraSampling(basis)
-	
-	# Solve the single impurity Anderson model coupled to a bath with a
-	# semicircular density of states with unit half bandwidth.
-	U = 1.2
-	ρ₀(ω) = 2/π * √(1 - clamp(ω, -1, +1)^2)
-	
-	# Compute the IR basis coefficients for the non-interacting propagator
-	ρ₀l = overlap.(basis.v, ρ₀)
-	G₀l = -basis.s .* ρ₀l
-	
-	# Self-consistency loop: alternate between second-order expression for the
-	# self-energy and the Dyson equation until convergence.
-	Gl = copy(G₀l)
-	Gl_prev = zero(Gl)
-	G₀iω = evaluate(siω, G₀l)
-	while !isapprox(Gl, Gl_prev, atol=ε)
-	    Gl_prev = copy(Gl)
-	    Gτ = evaluate(sτ, Gl)
-	    Στ = @. U^2 * Gτ^3
-	    Σl = fit(sτ, Στ)
-	    Σiω = evaluate(siω, Σl)
-	    Giω = @. 1/(1/G₀iω - Σiω)
-	    Gl = fit(siω, Giω)
-	end
+    # Construct the IR basis and sparse sampling for fermionic propagators
+    basis = FiniteTempBasis(Fermionic(), β, ωmax, ε)
+    sτ = TauSampling(basis)
+    siω = MatsubaraSampling(basis)
+    
+    # Solve the single impurity Anderson model coupled to a bath with a
+    # semicircular density of states with unit half bandwidth.
+    U = 1.2
+    ρ₀(ω) = 2/π * √(1 - clamp(ω, -1, +1)^2)
+    
+    # Compute the IR basis coefficients for the non-interacting propagator
+    ρ₀l = overlap.(basis.v, ρ₀)
+    G₀l = -basis.s .* ρ₀l
+    
+    # Self-consistency loop: alternate between second-order expression for the
+    # self-energy and the Dyson equation until convergence.
+    Gl = copy(G₀l)
+    Gl_prev = zero(Gl)
+    G₀iω = evaluate(siω, G₀l)
+    while !isapprox(Gl, Gl_prev, atol=ε)
+        Gl_prev = copy(Gl)
+        Gτ = evaluate(sτ, Gl)
+        Στ = @. U^2 * Gτ^3
+        Σl = fit(sτ, Στ)
+        Σiω = evaluate(siω, Σl)
+        Giω = @. 1/(1/G₀iω - Σiω)
+        Gl = fit(siω, Giω)
+    end
 end
 ```
 
