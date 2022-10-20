@@ -1,31 +1,33 @@
 SparseIR - intermediate representation of propagators in Julia
 ==============================================================
+[![][docs-stable-img]][docs-stable-url]
+[![][docs-dev-img]][docs-dev-url] 
+[![][GHA-img]][GHA-url]
+[![][codecov-img]][codecov-url]
 
-| **Documentation**                                                               | **Build Status**                                                                                |
-|:-------------------------------------------------------------------------------:|:-----------------------------------------------------------------------------------------------:|
-| [![][docs-stable-img]][docs-stable-url] [![][docs-dev-img]][docs-dev-url] | [![][GHA-img]][GHA-url] [![][codecov-img]][codecov-url] |
+This library provides routines for constructing and working with the
+intermediate representation of correlation functions.  It provides:
 
-Pure Julia implementation of [sparse-ir](`https://github.com/SpM-lab/sparse-ir`) for the intermediate representation of propagators.
+ - on-the-fly computation of basis functions for arbitrary cutoff Λ
+ - basis functions and singular values are accurate to full precision
+ - routines for sparse sampling
 
-## Installation
-The package can be installed with the Julia package manager. From the Julia REPL, type `]` to enter the Pkg REPL mode and run:
-
+Installation
+------------
+SparseIR can be installed with the Julia package manager.  Simply run the following from the command line:
 ```
-pkg> add SparseIR
+julia -e 'import Pkg; Pkg.add("SparseIR")'
 ```
+We support Julia, version 1.6 and above, and recommend Julia 1.8 or above for optimal performance.  We only 
+depend on a few quad-precision libraries for the accurate computation of the singular value decomposition,
+which are automatically installed.  (A full list of dependencies can be found in `Project.toml`.)
 
-**_Note_**: We recommend using the current stable release version 1.8 of Julia while supporting the LTS release 1.6 and newer.
-In case you find yourself running an older version, [juliaup](https://github.com/JuliaLang/juliaup) makes installing and maintaining an up-to-date version quite pleasant.
-
-### Manual installation from source
-
-You should almost never have to do this, but it is possible to install SparseIR.jl from source as follows:
-```sh
-git clone https://github.com/SpM-lab/SparseIR.jl.git
-julia -e "import Pkg; Pkg.add(path=\"SparseIR.jl\")"
+To manually install the current development version, you can use the following:
 ```
-This is *not* recommended, as you will get the unstable development version and no updates.
-
+# Only recommended for developers - no automatic updates!
+git clone https://github.com/SpM-lab/SparseIR.jl
+julia -e 'import Pkg; Pkg.develop(path="SparseIR.jl")'
+```
 
 Documentation and tutorial
 --------------------------
@@ -57,18 +59,34 @@ basis_f = FiniteTempBasis(Fermionic(), β, ωmax, ε)
 basis_b = FiniteTempBasis(Bosonic(), β, ωmax, ε)
 ```
 
+License and citation
+--------------------
+This software is released under the MIT License.  See LICENSE for details.
 
+If you find the intermediate representation, sparse sampling, or this software
+useful in your research, please consider citing the following papers:
+
+ - Hiroshi Shinaoka et al., [Phys. Rev. B 96, 035147]  (2017)
+ - Jia Li et al., [Phys. Rev. B 101, 035144] (2020)
+ - Markus Wallerberger et al., [arXiv 2206.11762] (2022)
+
+If you are discussing sparse sampling in your research specifically, please
+also consider citing an independently discovered, closely related approach, the
+MINIMAX isometry method (Merzuk Kaltak and Georg Kresse,
+[Phys. Rev. B 101, 205145], 2020).
+
+[Phys. Rev. B 96, 035147]: https://doi.org/10.1103/PhysRevB.96.035147
+[Phys. Rev. B 101, 035144]: https://doi.org/10.1103/PhysRevB.101.035144
+[arXiv 2206.11762]: https://doi.org/10.48550/arXiv.2206.11762
+[Phys. Rev. B 101, 205145]: https://doi.org/10.1103/PhysRevB.101.205145
 
 
 [docs-dev-img]: https://img.shields.io/badge/docs-dev-blue.svg
 [docs-dev-url]: https://spm-lab.github.io/SparseIR.jl/dev/
-
 [docs-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
 [docs-stable-url]: https://spm-lab.github.io/SparseIR.jl/stable/
-
 [GHA-img]: https://github.com/SpM-lab/SparseIR.jl/workflows/CI/badge.svg
 [GHA-url]: https://github.com/SpM-lab/SparseIR.jl/actions?query=workflows/CI
-
 [codecov-img]: https://codecov.io/gh/SpM-lab/SparseIR.jl/branch/main/graph/badge.svg?token=tdMvTruYa4
 [codecov-url]: https://codecov.io/gh/SpM-lab/SparseIR.jl
 
