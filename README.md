@@ -1,4 +1,5 @@
-# SparseIR
+SparseIR - intermediate representation of propagators in Julia
+==============================================================
 
 | **Documentation**                                                               | **Build Status**                                                                                |
 |:-------------------------------------------------------------------------------:|:-----------------------------------------------------------------------------------------------:|
@@ -25,7 +26,27 @@ julia -e "import Pkg; Pkg.add(path=\"SparseIR.jl\")"
 ```
 This is *not* recommended, as you will get the unstable development version and no updates.
 
-## Usage
+
+Documentation and tutorial
+--------------------------
+Check out our [comprehensive tutorial], where we self-contained
+notebooks for several many-body methods - GF(2), GW, Eliashberg equations,
+Lichtenstein formula, FLEX, ... - are presented.
+
+Refer to the [API documentation] for more details on how to work
+with the python library.
+
+There is also a [Python library] and (currently somewhat restricted)
+[Fortran library] available for the IR basis and sparse sampling.
+
+[comprehensive tutorial]: https://spm-lab.github.io/sparse-ir-tutorial
+[API documentation]: https://spm-lab.github.io/SparseIR.jl/stable/
+[Python library]: https://github.com/SpM-lab/sparse-ir
+[Fortran library]: https://github.com/SpM-lab/sparse-ir-fortran
+
+
+Example usage
+-------------
 
 ```julia
 using SparseIR
@@ -36,8 +57,6 @@ basis_f = FiniteTempBasis(Fermionic(), β, ωmax, ε)
 basis_b = FiniteTempBasis(Bosonic(), β, ωmax, ε)
 ```
 
-## Tutorial and sample codes
-More detailed tutorial and sample codes are available [online](https://spm-lab.github.io/sparse-ir-tutorial/).
 
 
 
