@@ -31,7 +31,7 @@ julia -e 'import Pkg; Pkg.develop(path="SparseIR.jl")'
 
 Documentation and tutorial
 --------------------------
-Check out our [comprehensive tutorial], where we self-contained
+Check out our [comprehensive tutorial], where self-contained
 notebooks for several many-body methods - GF(2), GW, Eliashberg equations,
 Lichtenstein formula, FLEX, ... - are presented.
 
