@@ -78,8 +78,8 @@ using adaptive Gauss-Legendre quadrature.
 `points` is a sequence of break points in the integration interval where local
 difficulties of the integrand may occur (e.g. singularities, discontinuities).
 """
-function overlap(poly::PiecewiseLegendrePoly{T}, f;
-                 rtol=eps(T), return_error=false, maxevals=10^4, points=T[]) where {T}
+function overlap(poly::PiecewiseLegendrePoly{T}, f::F;
+                 rtol=eps(T), return_error=false, maxevals=10^4, points=T[]) where {T,F}
     int_result, int_error = quadgk(x -> poly(x) * f(x),
                                    unique!(sort!([poly.knots; points]))...;
                                    rtol, order=10, maxevals)
@@ -214,8 +214,8 @@ function Base.getproperty(polys::PiecewiseLegendrePolyVector, sym::Symbol)
 end
 
 # Backward compatibility
-function overlap(polys::PiecewiseLegendrePolyVector{T}, f;
-                 rtol=eps(T), return_error=false) where {T}
+function overlap(polys::PiecewiseLegendrePolyVector{T}, f::F;
+                 rtol=eps(T), return_error=false) where {T,F}
     return overlap.(polys, f; rtol, return_error)
 end
 

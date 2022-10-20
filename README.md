@@ -9,7 +9,7 @@ This library provides routines for constructing and working with the
 intermediate representation of correlation functions.  It provides:
 
  - on-the-fly computation of basis functions for arbitrary cutoff Λ
- - basis functions and singular values are accurate to full precision
+ - basis functions and singular values accurate to full precision
  - routines for sparse sampling
 
 Installation
@@ -18,7 +18,7 @@ SparseIR can be installed with the Julia package manager.  Simply run the follow
 ```
 julia -e 'import Pkg; Pkg.add("SparseIR")'
 ```
-We support Julia, version 1.6 and above, and recommend Julia 1.8 or above for optimal performance.  We only 
+We support Julia version 1.6 and above, and recommend Julia 1.8 or above for optimal performance.  We only 
 depend on a few quad-precision libraries for the accurate computation of the singular value decomposition,
 which are automatically installed.  (A full list of dependencies can be found in `Project.toml`.)
 
@@ -52,16 +52,42 @@ Example usage
 
 ```julia
 using SparseIR
-β = 10
-ωmax = 1
-ε = 1e-7
-basis_f = FiniteTempBasis(Fermionic(), β, ωmax, ε)
-basis_b = FiniteTempBasis(Bosonic(), β, ωmax, ε)
+
+function main(β = 10, ωmax = 8, ε = 1e-6)
+	# Construct the IR basis and sparse sampling for fermionic propagators
+	basis = FiniteTempBasis(Fermionic(), β, ωmax, ε)
+	sτ = TauSampling(basis)
+	siω = MatsubaraSampling(basis)
+	
+	# Solve the single impurity Anderson model coupled to a bath with a
+	# semicircular density of states with unit half bandwidth.
+	U = 1.2
+	ρ₀(ω) = 2/π * √(1 - clamp(ω, -1, +1)^2)
+	
+	# Compute the IR basis coefficients for the non-interacting propagator
+	ρ₀l = overlap.(basis.v, ρ₀)
+	G₀l = -basis.s .* ρ₀l
+	
+	# Self-consistency loop: alternate between second-order expression for the
+	# self-energy and the Dyson equation until convergence.
+	Gl = copy(G₀l)
+	Gl_prev = zero(Gl)
+	G₀iω = evaluate(siω, G₀l)
+	while !isapprox(Gl, Gl_prev, atol=ε)
+	    Gl_prev = copy(Gl)
+	    Gτ = evaluate(sτ, Gl)
+	    Στ = @. U^2 * Gτ^3
+	    Σl = fit(sτ, Στ)
+	    Σiω = evaluate(siω, Σl)
+	    Giω = @. 1/(1/G₀iω - Σiω)
+	    Gl = fit(siω, Giω)
+	end
+end
 ```
 
 License and citation
 --------------------
-This software is released under the MIT License.  See LICENSE for details.
+This software is released under the MIT License.  See `LICENSE` for details.
 
 If you find the intermediate representation, sparse sampling, or this software
 useful in your research, please consider citing the following papers:
