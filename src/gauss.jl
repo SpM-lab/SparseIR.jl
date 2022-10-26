@@ -80,8 +80,8 @@ function joinrules(rules::AbstractVector{Rule{T}}) where {T<:AbstractFloat}
     a = first(rules).a
     b = last(rules).b
 
-    x_forward  = reduce(vcat, rule.x_forward .+ (rule.a - a) for rule in rules)
-    x_backward = reduce(vcat, rule.x_backward .+ (b - rule.b) for rule in rules)
+    x_forward  = reduce(vcat, rule.x_forward .+ (rule.a - a) for rule in rules; init=T[])
+    x_backward = reduce(vcat, rule.x_backward .+ (b - rule.b) for rule in rules; init=T[])
 
     return Rule(x, w, a, b, x_forward, x_backward)
 end

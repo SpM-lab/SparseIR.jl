@@ -59,10 +59,10 @@ struct AugmentedBasis{S<:Statistics,B<:FiniteTempBasis{S},A<:AugmentationTuple,F
 end
 
 function AugmentedBasis(basis::AbstractBasis, augmentations...)
-    augmentations = Tuple(create(aug, basis) for aug in augmentations)
-    u = AugmentedTauFunction(basis.u, augmentations)
-    û = AugmentedMatsubaraFunction(basis.uhat, augmentations)
-    return AugmentedBasis(basis, augmentations, u, û)
+    augs = create.(augmentations, basis)
+    u = AugmentedTauFunction(basis.u, augs)
+    û = AugmentedMatsubaraFunction(basis.uhat, augs)
+    return AugmentedBasis(basis, augs, u, û)
 end
 
 naug(basis::AugmentedBasis) = length(basis.augmentations)
@@ -124,8 +124,8 @@ function (a::AbstractAugmentedFunction)(x)
 end
 function (a::AbstractAugmentedFunction)(x::AbstractArray)
     fbasis_x = fbasis(a)(x)
-    faug_x = [faug_l.(transpose(x)) for faug_l in faug(a)]
-    return vcat(faug_x..., fbasis_x)
+    faug_x = reduce(vcat, faug_l.(transpose(x)) for faug_l in faug(a))
+    return vcat(faug_x, fbasis_x)
 end
 
 function Base.getindex(a::AbstractAugmentedFunction, r::AbstractRange)
@@ -150,9 +150,9 @@ AugmentedTauFunction(fbasis, faug) = AugmentedTauFunction(AugmentedFunction(fbas
 xmin(aτ::AugmentedTauFunction) = fbasis(aτ).xmin
 xmax(aτ::AugmentedTauFunction) = fbasis(aτ).xmax
 
-function deriv(aτ::AugmentedTauFunction, n=1)
+function deriv(aτ::AugmentedTauFunction, n=Val(1))
     dbasis = deriv.(fbasis(aτ), n)
-    daug = [deriv(faug_l, n) for faug_l in faug(aτ)]
+    daug = deriv.(faug(aτ), n)
     return AugmentedTauFunction(dbasis, daug)
 end
 
@@ -196,7 +196,7 @@ function (aug::TauConst)(n::BosonicFreq)
 end
 (::TauConst)(::FermionicFreq) = error("TauConst is not a Fermionic basis.")
 
-function deriv(aug::TauConst, n=1)
+function deriv(aug::TauConst, ::Val{n}=Val(1)) where {n}
     iszero(n) && return aug
     return τ -> zero(β(aug))
 end
@@ -227,7 +227,7 @@ function (aug::TauLinear)(n::BosonicFreq)
 end
 (::TauLinear)(::FermionicFreq) = error("TauLinear is not a Fermionic basis.")
 
-function deriv(aug::TauLinear, n=1)
+function deriv(aug::TauLinear, ::Val{n}=Val(1)) where {n}
     iszero(n) && return aug
     isone(n) && return τ -> aug.norm * 2 / β(aug)
     return τ -> zero(β(aug))
@@ -253,4 +253,4 @@ function (aug::MatsubaraConst)(::MatsubaraFreq)
     return one(β(aug))
 end
 
-deriv(aug::MatsubaraConst, _=1) = aug
+deriv(aug::MatsubaraConst, _=Val(1)) = aug

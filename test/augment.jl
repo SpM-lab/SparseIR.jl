@@ -106,7 +106,7 @@ using LinearAlgebra
             @test tc(MatsubaraFreq(92)) == 0.0
             @test_throws ErrorException tc(MatsubaraFreq(93))
             @test SparseIR.deriv(tc)(4.2) == 0.0
-            @test SparseIR.deriv(tc, 0) == tc
+            @test SparseIR.deriv(tc, Val(0)) == tc
         end
 
         @testset "TauLinear" begin
@@ -119,9 +119,9 @@ using LinearAlgebra
             @test tl(MatsubaraFreq(0)) == 0.0
             @test tl(MatsubaraFreq(92)) ≈ sqrt(3 / 123) * 2 / im * 123 / (92 * π)
             @test_throws ErrorException tl(MatsubaraFreq(93))
-            @test SparseIR.deriv(tl, 0) == tl
+            @test SparseIR.deriv(tl, Val(0)) == tl
             @test SparseIR.deriv(tl)(4.2) ≈ sqrt(3 / 123) * 2 / 123
-            @test SparseIR.deriv(tl, 2)(4.2) == 0.0
+            @test SparseIR.deriv(tl, Val(2))(4.2) == 0.0
         end
 
         @testset "MatsubaraConst" begin
@@ -135,7 +135,7 @@ using LinearAlgebra
             @test mc(MatsubaraFreq(92)) == 1.0
             @test mc(MatsubaraFreq(93)) == 1.0
             @test SparseIR.deriv(mc) == mc
-            @test SparseIR.deriv(mc, 0) == mc
+            @test SparseIR.deriv(mc, Val(0)) == mc
         end
     end
 end

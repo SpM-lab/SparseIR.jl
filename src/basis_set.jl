@@ -37,7 +37,7 @@ struct FiniteTempBasisSet
     Create basis sets for fermion and boson and associated sampling objects.
     Fermion and bosonic bases are constructed by SVE of the logistic kernel.
     """
-    function FiniteTempBasisSet(β::Number, ωmax::Number, ε=nothing;
+    function FiniteTempBasisSet(β::Real, ωmax::Real, ε=nothing;
                                 sve_result=SVEResult(LogisticKernel(β * ωmax); ε))
         basis_f = FiniteTempBasis(Fermionic(), β, ωmax, ε; sve_result)
         basis_b = FiniteTempBasis(Bosonic(), β, ωmax, ε; sve_result)

@@ -113,14 +113,14 @@ Base.:+(a::MatsubaraFreq, b::MatsubaraFreq) = MatsubaraFreq(statistics(a) + stat
 Base.:-(a::MatsubaraFreq, b::MatsubaraFreq) = MatsubaraFreq(statistics(a) + statistics(b), a.n - b.n)
 Base.:+(a::MatsubaraFreq)                   = a
 Base.:-(a::MatsubaraFreq)                   = MatsubaraFreq(statistics(a), -a.n)
-Base.:*(a::BosonicFreq, c::Integer)         = MatsubaraFreq(statistics(a), a.n * c)
+Base.:*(a::BosonicFreq, c::Integer)         = BosonicFreq(a.n * c)
 Base.:*(a::FermionicFreq, c::Integer)       = MatsubaraFreq(a.n * c)
 Base.:*(c::Integer, a::MatsubaraFreq)       = a * c
 
 Base.sign(a::MatsubaraFreq)                     = sign(a.n)
 Base.zero(::MatsubaraFreq)                      = BosonicFreq(0)
 Base.iszero(::FermionicFreq)                    = false
-Base.iszero(self::BosonicFreq)                  = iszero(self.n)
+Base.iszero(a::BosonicFreq)                     = iszero(a.n)
 Base.isless(a::MatsubaraFreq, b::MatsubaraFreq) = isless(a.n, b.n)
 
 # This is to get rid of the weird "promotion failed to change any of the types"
@@ -138,13 +138,13 @@ function Base.promote_rule(::Type{T1}, ::Type{T2}) where {T1<:MatsubaraFreq,T2<:
         We disallow this.  Please use `$T1(x)` explicitly."""))
 end
 
-function Base.show(io::IO, self::MatsubaraFreq)
-    if self.n == 0
+function Base.show(io::IO, a::MatsubaraFreq)
+    if a.n == 0
         print(io, "0")
-    elseif self.n == 1
+    elseif a.n == 1
         print(io, "π/β")
     else
-        print(io, self.n, "π/β")
+        print(io, a.n, "π/β")
     end
 end
 

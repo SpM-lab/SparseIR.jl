@@ -57,7 +57,7 @@ function Base.show(io::IO, p::PiecewiseLegendrePoly)
     print(io, "PiecewiseLegendrePoly on [$(p.xmin), $(p.xmax)], order=$(p.polyorder)")
 end
 
-@inline function (poly::PiecewiseLegendrePoly)(x::Number)
+@inline function (poly::PiecewiseLegendrePoly)(x::Real)
     i, x̃ = split(poly, x)
     return legval(x̃, view(poly.data, :, i)) * poly.norm[i]
 end
@@ -91,11 +91,11 @@ function overlap(poly::PiecewiseLegendrePoly{T}, f::F;
 end
 
 """
-    deriv(poly)
+    deriv(poly[, ::Val{n}=Val(1)])
 
-Get polynomial for the derivative.
+Get polynomial for the `n`th derivative.
 """
-function deriv(poly::PiecewiseLegendrePoly, n=1)
+function deriv(poly::PiecewiseLegendrePoly, ::Val{n}=Val(1)) where {n}
     ddata = legder(poly.data, n)
 
     scale = poly.inv_xs .^ n
@@ -126,7 +126,7 @@ Split segment.
 
 Find segment of poly's domain that covers `x`.
 """
-@inline function split(poly, x::Number)
+@inline function split(poly, x::Real)
     @boundscheck check_domain(poly, x)
 
     i = max(searchsortedlast(poly.knots, x; lt=≤), 1)
@@ -200,14 +200,17 @@ function (polys::PiecewiseLegendrePolyVector)(x::AbstractArray)
     return reshape(mapreduce(polys, vcat, x), (size(polys)..., size(x)...))
 end
 
-function Base.getproperty(polys::PiecewiseLegendrePolyVector, sym::Symbol)
+function Base.getproperty(polys::PiecewiseLegendrePolyVector{T}, sym::Symbol) where {T}
     if sym ∈ (:xmin, :xmax, :knots, :Δx, :polyorder, :xm, :inv_xs, :norm)
         return getproperty(first(polys), sym)
     elseif sym === :symm
         return map(poly -> poly.symm, polys)
     elseif sym === :data
-        init = Array{Float64, 3}(undef, size(first(polys).data)..., 0)
-        return mapreduce(poly -> poly.data, (x...) -> cat(x...; dims=3), polys; init)
+        data = Array{T, 3}(undef, size(first(polys).data)..., length(polys))
+        for i in eachindex(polys)
+            data[:, :, i] .= polys[i].data
+        end
+        return data
     else
         return getfield(polys, sym)
     end
@@ -351,7 +354,7 @@ function sign_changes(û::PiecewiseLegendreFT; part=nothing, grid=DEFAULT_GRID)
     return MatsubaraFreq.(statistics(û), x₀)
 end
 
-@inline function func_for_part(polyFT::PiecewiseLegendreFT, part=nothing)
+@inline function func_for_part(polyFT::PiecewiseLegendreFT{T,S}, part=nothing) where {T,S}
     if isnothing(part)
         parity = polyFT.poly.symm
         if parity == 1
@@ -362,8 +365,10 @@ end
             error("Cannot detect parity")
         end
     end
-    stat = statistics(polyFT)
-    n -> part(polyFT(MatsubaraFreq{typeof(stat)}(2n + zeta(stat))))
+    f = let polyFT=polyFT
+        n -> part(polyFT(MatsubaraFreq{S}(2n + zeta(polyFT))))::Float64
+    end
+    return f
 end
 
 @inline function symmetrize_matsubara(x₀)
@@ -436,7 +441,7 @@ Fourier integral of the `l`-th Legendre polynomial::
     return w < 0 ? conj(result) : result
 end
 
-# Works like numpy.choices
+# Works like numpy.choose
 @inline choose(a, choices) = [choices[a[i]][i] for i in eachindex(a)]
 
 """
@@ -475,12 +480,12 @@ Compute the following phase factor in a stable way:
         shift_arg = wn * xmid_diff
     else
         delta_wn, wn = modf(wn)
-        wn           = trunc(Int, wn)
-        shift_arg    = wn * xmid_diff
+        wn = trunc(Int, wn)
+        shift_arg = wn * xmid_diff
         @. shift_arg += delta_wn * (extra_shift + xmid_diff)
     end
 
     phase_shifted = @. cispi(shift_arg / 2)
-    corr          = @. im^mod(wn * (extra_shift + 1), 4)
+    corr = @. im^mod(wn * (extra_shift + 1), 4)
     return corr .* phase_shifted
 end

@@ -1,7 +1,7 @@
 function find_all(f::F, xgrid::AbstractVector{T}) where {F, T}
     fx::Vector{Float64} = f.(xgrid)
     hit = iszero.(fx)
-    x_hit = @view xgrid[hit]
+    x_hit = xgrid[hit]
 
     sign_change = @views @. signbit(fx[begin:(end - 1)]) ≠ signbit(fx[(begin + 1):end])
     @. @views sign_change &= ~hit[begin:(end - 1)] & ~hit[(begin + 1):end]
@@ -9,9 +9,9 @@ function find_all(f::F, xgrid::AbstractVector{T}) where {F, T}
 
     where_a = [sign_change; false]
     where_b = [false; sign_change]
-    a = @view xgrid[where_a]
-    b = @view xgrid[where_b]
-    fa = @view fx[where_a]
+    a = xgrid[where_a]
+    b = xgrid[where_b]
+    fa = fx[where_a]
 
     ϵ_x = if T <: AbstractFloat
         eps(T) * maximum(abs, xgrid)
@@ -57,23 +57,23 @@ function refine_grid(grid, ::Val{α}) where {α}
     return newgrid
 end
 
-function discrete_extrema(f::Function, xgrid)
+function discrete_extrema(f::F, xgrid) where {F<:Function}
     fx::Vector{Float64} = f.(xgrid)
-    absfx               = abs.(fx)
+    absfx = abs.(fx)
 
     # Forward differences: derivativesignchange[i] now means that the secant 
     # changes sign fx[i+1]. This means that the extremum is STRICTLY between 
     # x[i] and x[i+2].
     signdfdx = signbit.(diff(fx))
-    derivativesignchange   = @views (signdfdx[begin:(end - 1)] .≠ signdfdx[(begin + 1):end])
-    derivativesignchange_a = [derivativesignchange; false; false]
-    derivativesignchange_b = [false; false; derivativesignchange]
+    derivativesignchange = @views (signdfdx[begin:(end - 1)] .≠ signdfdx[(begin + 1):end])
+    derivativesignchange_a = BitVector([derivativesignchange; false; false])
+    derivativesignchange_b = BitVector([false; false; derivativesignchange])
 
-    a      = xgrid[derivativesignchange_a]
-    b      = xgrid[derivativesignchange_b]
+    a = xgrid[derivativesignchange_a]
+    b = xgrid[derivativesignchange_b]
     absf_a = absfx[derivativesignchange_a]
     absf_b = absfx[derivativesignchange_b]
-    res    = bisect_discr_extremum.(abs ∘ f, a, b, absf_a, absf_b)
+    res = bisect_discr_extremum.(abs ∘ f, a, b, absf_a, absf_b)
 
     # We consider the outer points to be extrema if there is a decrease
     # in magnitude or a sign change inwards

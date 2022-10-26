@@ -60,7 +60,7 @@ end
 Construct a finite temperature basis suitable for the given `statistics` and
 cutoffs `β` and `ωmax`.
 """
-function FiniteTempBasis(statistics::Statistics, β::Number, ωmax::Number, ε=nothing;
+function FiniteTempBasis(statistics::Statistics, β::Real, ωmax::Real, ε=nothing;
                          max_size=typemax(Int), kernel=LogisticKernel(β * ωmax),
                          sve_result=SVEResult(kernel; ε))
     β > 0 || throw(DomainError(β, "Inverse temperature β must be positive"))
@@ -156,7 +156,7 @@ end
 Construct `FiniteTempBasis` objects for fermion and bosons using the same
 `LogisticKernel` instance.
 """
-function finite_temp_bases(β::AbstractFloat, ωmax::AbstractFloat, ε,
+function finite_temp_bases(β::Real, ωmax::Real, ε::Real,
                            sve_result=SVEResult(LogisticKernel(β * ωmax); ε))
     basis_f = FiniteTempBasis(Fermionic(), β, ωmax, ε; sve_result)
     basis_b = FiniteTempBasis(Bosonic(), β, ωmax, ε; sve_result)

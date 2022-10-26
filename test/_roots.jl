@@ -3,10 +3,12 @@ using SparseIR
 
 @testset "_roots.jl" begin
     @testset "discrete_extrema" begin
-        @test SparseIR.discrete_extrema(x -> x, 0:8) == [8]
-        @test SparseIR.discrete_extrema(x -> x - eps(), 0:8) == [0, 8]
-        @test SparseIR.discrete_extrema(x -> x^2, -8:8) == [-8, 0, 8]
-        @test SparseIR.discrete_extrema(x -> 1, -8:8) == []
+        nonnegative = collect(0:8)
+        symmetric = collect(-8:8)
+        @test SparseIR.discrete_extrema(x -> x, nonnegative) == [8]
+        @test SparseIR.discrete_extrema(x -> x - eps(), nonnegative) == [0, 8]
+        @test SparseIR.discrete_extrema(x -> x^2, symmetric) == [-8, 0, 8]
+        @test SparseIR.discrete_extrema(x -> 1, symmetric) == []
     end
 
     @testset "midpoint" begin

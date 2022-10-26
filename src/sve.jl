@@ -152,9 +152,9 @@ An `SVEResult` containing the truncated singular value expansion.
 function SVEResult(kernel::AbstractKernel, ::Type{T}=Float64;
                    Twork=nothing, cutoff=nothing, ε=nothing, n_sv=typemax(Int),
                    n_gauss=-1, svd_strat=:auto,
-                   sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE) where {T}
+                   SVEstrat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE) where {T}
     safe_ε, Twork, svd_strat = choose_accuracy(ε, Twork, svd_strat)
-    sve = sve_strat(kernel, safe_ε, Twork; n_gauss)
+    sve = SVEstrat(kernel, safe_ε, Twork; n_gauss)
 
     svds = compute_svd.(matrices(sve); strategy=svd_strat)
     u_, s_, v_ = zip(svds...)
