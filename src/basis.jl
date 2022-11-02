@@ -40,16 +40,16 @@ the variables.
     points `w`, you can call the function `v(w)`.  To obtain a single
     basis function, a slice or a subset `l`, you can use `v[l]`.
 """
-struct FiniteTempBasis{S,K,T,TP} <: AbstractBasis{S}
+struct FiniteTempBasis{S,K} <: AbstractBasis{S}
     kernel     :: K
-    sve_result :: SVEResult{T,K,TP}
-    accuracy   :: T
-    β          :: T
-    u          :: PiecewiseLegendrePolyVector{T}
-    v          :: PiecewiseLegendrePolyVector{T}
-    s          :: Vector{T}
-    uhat       :: PiecewiseLegendreFTVector{T,S}
-    uhat_full  :: PiecewiseLegendreFTVector{T,S}
+    sve_result :: SVEResult{K}
+    accuracy   :: Float64
+    β          :: Float64
+    u          :: PiecewiseLegendrePolyVector
+    v          :: PiecewiseLegendrePolyVector
+    s          :: Vector{Float64}
+    uhat       :: PiecewiseLegendreFTVector{S}
+    uhat_full  :: PiecewiseLegendreFTVector{S}
 end
 
 """
@@ -97,8 +97,6 @@ function FiniteTempBasis(statistics::Statistics, β::Real, ωmax::Real, ε=nothi
 
     return FiniteTempBasis(kernel, sve_result, accuracy, float(β), u, v, s, û, û_full)
 end
-
-const DEFAULT_FINITE_TEMP_BASIS{S} = FiniteTempBasis{S,LogisticKernel,Float64}
 
 function Base.show(io::IO, b::FiniteTempBasis)
     print(io, "$(length(b))-element FiniteTempBasis{$(typeof(statistics(b)))} with ")

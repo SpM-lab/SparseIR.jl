@@ -47,7 +47,7 @@ function legder(c::AbstractMatrix{T}, cnt=1) where {T}
     cnt ≥ 0 || throw(DomainError(cnt, "The order of derivation needs to be non-negative"))
     cnt == 0 && return c
 
-    c = deepcopy(c)
+    c = copy(c)
     n, m = size(c)
     if cnt ≥ n
         return zeros(T, (1, m))

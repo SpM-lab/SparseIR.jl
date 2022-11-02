@@ -22,7 +22,7 @@ be reconstructed from the singular vectors `u` and `v` as follows:
 """
 struct SamplingSVE{T<:AbstractFloat,K<:AbstractKernel} <: AbstractSVE
     kernel      :: K
-    ε           :: T
+    ε           :: Float64
     n_gauss     :: Int
     nsvals_hint :: Int
 
@@ -69,10 +69,10 @@ Chebyshev system [1], then even and odd basis functions alternate.
 
 [1]: A. Karlin, Total Positivity (1968).
 """
-struct CentrosymmSVE{K<:AbstractKernel,T,SVEEVEN<:AbstractSVE,SVEODD<:AbstractSVE} <:
+struct CentrosymmSVE{K<:AbstractKernel,SVEEVEN<:AbstractSVE,SVEODD<:AbstractSVE} <:
        AbstractSVE
     kernel      :: K
-    ε           :: T
+    ε           :: Float64
     even        :: SVEEVEN
     odd         :: SVEODD
     nsvals_hint :: Int
@@ -84,17 +84,17 @@ function CentrosymmSVE(kernel, ε, ::Type{T}; InnerSVE=SamplingSVE, n_gauss) whe
     return CentrosymmSVE(kernel, ε, even, odd, max(even.nsvals_hint, odd.nsvals_hint))
 end
 
-struct SVEResult{T,K,TP}
-    u::PiecewiseLegendrePolyVector{T}
-    s::Vector{T}
-    v::PiecewiseLegendrePolyVector{T}
+struct SVEResult{K}
+    u::PiecewiseLegendrePolyVector
+    s::Vector{Float64}
+    v::PiecewiseLegendrePolyVector
 
-    kernel :: K
-    ε      :: TP
+    kernel::K
+    ε::Float64
 end
 
 """
-    SVEResult(kernel::AbstractKernel[, T];
+    SVEResult(kernel::AbstractKernel;
         Twork=nothing, ε=nothing, n_sv=typemax(Int),
         n_gauss=-1, svd_strat=:auto,
         sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE
@@ -137,9 +137,8 @@ using a collocation).
   - `n_sv::Integer`: Maximum basis size. If given, only at most the `n_sv` most
     significant singular values and associated singular functions are returned.
   - `n_gauss (int): Order of Legendre polynomials. Defaults to kernel hinted value.
-  - `T`: Data type of the result.
-  - `Twork``: Working data type. Defaults to a data type with machine epsilon of at most `ε^2`and at most`cutoff`, or otherwise most
-    accurate data type available.
+  - `Twork``: Working data type. Defaults to a data type with machine epsilon of at 
+    most `ε^2`and at most `cutoff`, or otherwise most accurate data type available.
   - `sve_strat::AbstractSVE`: SVE to SVD translation strategy. Defaults to `SamplingSVE`,
     optionally wrapped inside of a `CentrosymmSVE` if the kernel is centrosymmetric.
   - `svd_strat` ('fast' or 'default' or 'accurate'): SVD solver. Defaults to fast
@@ -149,10 +148,10 @@ using a collocation).
 Returns:
 An `SVEResult` containing the truncated singular value expansion.
 """
-function SVEResult(kernel::AbstractKernel, ::Type{T}=Float64;
+function SVEResult(kernel::AbstractKernel;
                    Twork=nothing, cutoff=nothing, ε=nothing, n_sv=typemax(Int),
                    n_gauss=-1, svd_strat=:auto,
-                   SVEstrat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE) where {T}
+                   SVEstrat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE)
     safe_ε, Twork, svd_strat = choose_accuracy(ε, Twork, svd_strat)
     sve = SVEstrat(kernel, safe_ε, Twork; n_gauss)
 
@@ -160,7 +159,7 @@ function SVEResult(kernel::AbstractKernel, ::Type{T}=Float64;
     u_, s_, v_ = zip(svds...)
     isnothing(cutoff) && (cutoff = 2 * eps(Twork))
     u, s, v = truncate(u_, s_, v_; rtol=cutoff, lmax=n_sv)
-    return postprocess(sve, u, s, v, T)
+    return postprocess(sve, u, s, v)
 end
 
 function part(sve::SVEResult; ε=sve.ε, max_size=typemax(Int))
@@ -185,13 +184,12 @@ end
 matrices(sve::CentrosymmSVE) = (only(matrices(sve.even)), only(matrices(sve.odd)))
 
 """
-    postprocess(sve::AbstractSVE, u, s, v[, T])
+    postprocess(sve::AbstractSVE, u, s, v)
 
-Construct the SVE result from the SVD. If not given, `T` is inferred from `u`, `s` and `v`.
+Construct the SVE result from the SVD.
 """
-function postprocess(sve::SamplingSVE, u, s, v,
-                     ::Type{T}=promote_type(eltype(u), eltype(s), eltype(v))) where {T}
-    s = T.(s)
+function postprocess(sve::SamplingSVE, u, s, v)
+    s = Float64.(s)
     u_x = u ./ sqrt.(sve.gauss_x.w)
     v_y = v ./ sqrt.(sve.gauss_y.w)
 
@@ -208,15 +206,15 @@ function postprocess(sve::SamplingSVE, u, s, v,
     v_data .*= sqrt.(0.5 .* transpose(dsegs_y))
 
     # Construct polynomials
-    ulx = PiecewiseLegendrePolyVector(T.(u_data), T.(sve.segs_x))
-    vly = PiecewiseLegendrePolyVector(T.(v_data), T.(sve.segs_y))
+    ulx = PiecewiseLegendrePolyVector(Float64.(u_data), Float64.(sve.segs_x))
+    vly = PiecewiseLegendrePolyVector(Float64.(v_data), Float64.(sve.segs_y))
     canonicalize!(ulx, vly)
     return SVEResult(ulx, s, vly, sve.kernel, sve.ε)
 end
 
-function postprocess(sve::CentrosymmSVE, u, s, v, ::Type{T}) where {T}
-    u_even, s_even, v_even = postprocess(sve.even, u[1], s[1], v[1], T)
-    u_odd, s_odd, v_odd = postprocess(sve.odd, u[2], s[2], v[2], T)
+function postprocess(sve::CentrosymmSVE, u, s, v)
+    u_even, s_even, v_even = postprocess(sve.even, u[1], s[1], v[1])
+    u_odd, s_odd, v_odd = postprocess(sve.odd, u[2], s[2], v[2])
 
     # Merge two sets
     u = [u_even; u_odd]
@@ -268,28 +266,28 @@ function choose_accuracy(ε, Twork, svd_strat)
 end
 function choose_accuracy(ε, Twork)
     if ε ≥ sqrt(eps(Twork))
-        return Twork(ε), Twork, :default
+        return ε, Twork, :default
     else
         @warn """Basis cutoff is $ε, which is below √ε with ε = $(eps(Twork)).
         Expect singular values and basis functions for large l to have lower precision
         than the cutoff."""
-        return Twork(ε), Twork, :accurate
+        return ε, Twork, :accurate
     end
 end
 function choose_accuracy(ε, ::Nothing)
     if ε ≥ sqrt(eps(Float64))
-        return Float64(ε), Float64, :default
+        return ε, Float64, :default
     else
         if ε < sqrt(eps(T_MAX))
             @warn """Basis cutoff is $ε, which is below √ε with ε = $(eps(T_MAX)).
             Expect singular values and basis functions for large l to have lower precision
             than the cutoff."""
         end
-        return T_MAX(ε), T_MAX, :default
+        return ε, T_MAX, :default
     end
 end
 choose_accuracy(::Nothing, Twork) = sqrt(eps(Twork)), Twork, :default
-choose_accuracy(::Nothing, ::Nothing) = sqrt(eps(T_MAX)), T_MAX, :default
+choose_accuracy(::Nothing, ::Nothing) = Float64(sqrt(eps(T_MAX))), T_MAX, :default
 
 """
     canonicalize!(u, v)

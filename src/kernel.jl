@@ -251,7 +251,7 @@ end
 
 Compute matrix for kernel from Gauss rules.
 """
-function matrix_from_gauss(kernel, gauss_x, gauss_y)
+function matrix_from_gauss(kernel, gauss_x::Rule{T}, gauss_y::Rule{T})::Matrix{T} where {T}
     # (1 ± x) is problematic around x = -1 and x = 1, where the quadrature
     # nodes are clustered most tightly. Thus we have the need for the
     # matrix method.

@@ -24,8 +24,8 @@ and associated sparse-sampling objects.
   - ωmax::Float64: Cut-off frequency
 """
 struct FiniteTempBasisSet
-    basis_f    :: DEFAULT_FINITE_TEMP_BASIS{Fermionic}
-    basis_b    :: DEFAULT_FINITE_TEMP_BASIS{Bosonic}
+    basis_f    :: FiniteTempBasis{Fermionic,LogisticKernel}
+    basis_b    :: FiniteTempBasis{Bosonic,LogisticKernel}
     smpl_tau_f :: TauSampling64
     smpl_tau_b :: TauSampling64
     smpl_wn_f  :: MatsubaraSampling64F

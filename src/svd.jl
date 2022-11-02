@@ -8,7 +8,8 @@ function compute_svd(A::AbstractMatrix{T_MAX}; n_sv_hint=nothing, strategy=:defa
         @info "strategy is set but will not be used in the current implementation!"
     end
 
-    return tsvd(A)
+    u, s, v = tsvd(A)
+    return u, s, v
 end
 
 function compute_svd(A::AbstractMatrix; n_sv_hint=nothing, strategy=:default)

@@ -90,7 +90,7 @@ a ⪅ b = leaq(a, b)
 
         for lmax in 3:20
             u, s, v = SparseIR.truncate(u_, s_, v_; lmax)
-            u, s, v = SparseIR.postprocess(sve, u, s, v, Float64)
+            u, s, v = SparseIR.postprocess(sve, u, s, v)
             @test length(u) == length(s) == length(v)
             @test length(s) ≤ lmax - 1
         end

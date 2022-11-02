@@ -7,8 +7,8 @@ function find_all(f::F, xgrid::AbstractVector{T}) where {F, T}
     @. @views sign_change &= ~hit[begin:(end - 1)] & ~hit[(begin + 1):end]
     any(sign_change) || return x_hit
 
-    where_a = [sign_change; false]
-    where_b = [false; sign_change]
+    where_a = BitVector([sign_change; false])
+    where_b = BitVector([false; sign_change])
     a = xgrid[where_a]
     b = xgrid[where_b]
     fa = fx[where_a]

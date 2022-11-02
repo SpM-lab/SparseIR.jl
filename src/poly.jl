@@ -7,20 +7,20 @@ Models a function on the interval ``[xmin, xmax]`` as a set of segments on the
 intervals ``S[i] = [a[i], a[i+1]]``, where on each interval the function
 is expanded in scaled Legendre polynomials.
 """
-struct PiecewiseLegendrePoly{T} <: Function
+struct PiecewiseLegendrePoly <: Function
     polyorder :: Int
-    xmin      :: T
-    xmax      :: T
+    xmin      :: Float64
+    xmax      :: Float64
 
-    knots :: Vector{T}
-    Δx    :: Vector{T}
-    data  :: Matrix{T}
+    knots :: Vector{Float64}
+    Δx    :: Vector{Float64}
+    data  :: Matrix{Float64}
     symm  :: Int
     l     :: Int
 
-    xm     :: Vector{T}
-    inv_xs :: Vector{T}
-    norm   :: Vector{T}
+    xm     :: Vector{Float64}
+    inv_xs :: Vector{Float64}
+    norm   :: Vector{Float64}
 
     function PiecewiseLegendrePoly(polyorder::Integer, xmin::AbstractFloat,
                                    xmax::AbstractFloat, knots::AbstractVector,
@@ -30,8 +30,7 @@ struct PiecewiseLegendrePoly{T} <: Function
         !any(isnan, data) || error("data contains NaN")
         issorted(knots) || error("knots must be monotonically increasing")
         Δx ≈ diff(knots) || error("Δx must work with knots")
-        return new{eltype(knots)}(polyorder, xmin, xmax, knots, Δx, data, symm, l, xm,
-                                  inv_xs, norm)
+        return new(polyorder, xmin, xmax, knots, Δx, data, symm, l, xm, inv_xs, norm)
     end
 end
 
@@ -78,8 +77,8 @@ using adaptive Gauss-Legendre quadrature.
 `points` is a sequence of break points in the integration interval where local
 difficulties of the integrand may occur (e.g. singularities, discontinuities).
 """
-function overlap(poly::PiecewiseLegendrePoly{T}, f::F;
-                 rtol=eps(T), return_error=false, maxevals=10^4, points=T[]) where {T,F}
+function overlap(poly::PiecewiseLegendrePoly, f::F;
+                 rtol=eps(), return_error=false, maxevals=10^4, points=Float64[]) where {F}
     int_result, int_error = quadgk(x -> poly(x) * f(x),
                                    unique!(sort!([poly.knots; points]))...;
                                    rtol, order=10, maxevals)
@@ -156,11 +155,11 @@ Base.:-(p1::PiecewiseLegendrePoly, p2::PiecewiseLegendrePoly) = p1 + (-p2)
 #################################
 
 """
-    PiecewiseLegendrePolyVector{T}
+    PiecewiseLegendrePolyVector
 
-Alias for `Vector{PiecewiseLegendrePoly{T}}`.
+Alias for `Vector{PiecewiseLegendrePoly}`.
 """
-const PiecewiseLegendrePolyVector{T} = Vector{PiecewiseLegendrePoly{T}}
+const PiecewiseLegendrePolyVector = Vector{PiecewiseLegendrePoly}
 
 function Base.show(io::IO, polys::PiecewiseLegendrePolyVector)
     print(io, "$(length(polys))-element PiecewiseLegendrePolyVector ")
@@ -200,13 +199,13 @@ function (polys::PiecewiseLegendrePolyVector)(x::AbstractArray)
     return reshape(mapreduce(polys, vcat, x), (size(polys)..., size(x)...))
 end
 
-function Base.getproperty(polys::PiecewiseLegendrePolyVector{T}, sym::Symbol) where {T}
+function Base.getproperty(polys::PiecewiseLegendrePolyVector, sym::Symbol)
     if sym ∈ (:xmin, :xmax, :knots, :Δx, :polyorder, :xm, :inv_xs, :norm)
         return getproperty(first(polys), sym)
     elseif sym === :symm
         return map(poly -> poly.symm, polys)
     elseif sym === :data
-        data = Array{T, 3}(undef, size(first(polys).data)..., length(polys))
+        data = Array{Float64, 3}(undef, size(first(polys).data)..., length(polys))
         for i in eachindex(polys)
             data[:, :, i] .= polys[i].data
         end
@@ -217,8 +216,8 @@ function Base.getproperty(polys::PiecewiseLegendrePolyVector{T}, sym::Symbol) wh
 end
 
 # Backward compatibility
-function overlap(polys::PiecewiseLegendrePolyVector{T}, f::F;
-                 rtol=eps(T), return_error=false) where {T,F}
+function overlap(polys::PiecewiseLegendrePolyVector, f::F;
+                 rtol=eps(), return_error=false) where {F}
     return overlap.(polys, f; rtol, return_error)
 end
 
@@ -257,21 +256,20 @@ The polynomial is continued either periodically (`freq=:even`), in which
 case `n` must be even, or antiperiodically (`freq=:odd`), in which case
 `n` must be odd.
 """
-struct PiecewiseLegendreFT{T,S<:Statistics} <: Function
-    poly       :: PiecewiseLegendrePoly{T}
+struct PiecewiseLegendreFT{S<:Statistics} <: Function
+    poly       :: PiecewiseLegendrePoly
     statistics :: S
-    n_asymp    :: T
-    model      :: PowerModel{T}
+    n_asymp    :: Float64
+    model      :: PowerModel{Float64}
 end
 
-function PiecewiseLegendreFT(poly::PiecewiseLegendrePoly{T}, stat::Statistics;
-                             n_asymp=Inf) where {T}
+function PiecewiseLegendreFT(poly::PiecewiseLegendrePoly, stat::Statistics; n_asymp=Inf)
     (poly.xmin, poly.xmax) == (-1, 1) || error("Only interval [-1, 1] is supported")
     model = power_model(stat, poly)
-    return PiecewiseLegendreFT(poly, stat, T(n_asymp), model)
+    return PiecewiseLegendreFT(poly, stat, Float64(n_asymp), model)
 end
 
-const PiecewiseLegendreFTVector{T,S} = Vector{PiecewiseLegendreFT{T,S}}
+const PiecewiseLegendreFTVector{S} = Vector{PiecewiseLegendreFT{S}}
 
 function PiecewiseLegendreFTVector(polys::PiecewiseLegendrePolyVector,
                                    stat::Statistics; n_asymp=Inf)
@@ -298,8 +296,8 @@ zeta(polyFTs::PiecewiseLegendreFTVector)       = zeta(first(polyFTs))
 
 Obtain Fourier transform of polynomial for given `MatsubaraFreq` `ω`.
 """
-function (polyFT::Union{PiecewiseLegendreFT{T,S},
-                        PiecewiseLegendreFTVector{T,S}})(ω::MatsubaraFreq{S}) where {T,S}
+function (polyFT::Union{PiecewiseLegendreFT{S},
+                        PiecewiseLegendreFTVector{S}})(ω::MatsubaraFreq{S}) where {S}
     n = Int(ω)
     if abs(n) < polyFT.n_asymp
         return compute_unl_inner(polyFT.poly, n)
@@ -354,7 +352,7 @@ function sign_changes(û::PiecewiseLegendreFT; part=nothing, grid=DEFAULT_GRID)
     return MatsubaraFreq.(statistics(û), x₀)
 end
 
-@inline function func_for_part(polyFT::PiecewiseLegendreFT{T,S}, part=nothing) where {T,S}
+@inline function func_for_part(polyFT::PiecewiseLegendreFT{S}, part=nothing) where {S}
     if isnothing(part)
         parity = polyFT.poly.symm
         if parity == 1
@@ -365,10 +363,9 @@ end
             error("Cannot detect parity")
         end
     end
-    f = let polyFT=polyFT
+    let polyFT=polyFT
         n -> part(polyFT(MatsubaraFreq{S}(2n + zeta(polyFT))))::Float64
     end
-    return f
 end
 
 @inline function symmetrize_matsubara(x₀)
