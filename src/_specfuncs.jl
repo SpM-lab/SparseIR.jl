@@ -26,9 +26,9 @@ function legvander(x::AbstractVector{T}, deg::Integer) where {T}
     # Use forward recursion to generate the entries. This is not as accurate
     # as reverse recursion in this application but it is more efficient.
     @inbounds begin
-        v[:, 1] .= one(T)
+        for i in eachindex(x) v[i, 1] = one(T) end
         if deg > 0
-            v[:, 2] .= x
+            for i in eachindex(x) v[i, 2] = x[i] end
             for i in 2:deg
                 invi = inv(i)
                 @views @. v[:, i + 1] = v[:, i] * x * (2 - invi) - v[:, i - 1] * (1 - invi)

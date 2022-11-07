@@ -154,7 +154,7 @@ end
 Construct `FiniteTempBasis` objects for fermion and bosons using the same
 `LogisticKernel` instance.
 """
-function finite_temp_bases(β::Real, ωmax::Real, ε::Real,
+function finite_temp_bases(β::Real, ωmax::Real, ε=nothing,
                            sve_result=SVEResult(LogisticKernel(β * ωmax); ε))
     basis_f = FiniteTempBasis(Fermionic(), β, ωmax, ε; sve_result)
     basis_b = FiniteTempBasis(Bosonic(), β, ωmax, ε; sve_result)

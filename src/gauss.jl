@@ -10,7 +10,7 @@ Approximation of an integral over `[a, b]` by a sum over discrete points `x` wit
 where we generally have superexponential convergence for smooth ``f(x)`` in 
 the number of quadrature points.
 """
-struct Rule{T}
+struct Rule{T<:AbstractFloat}
     x          :: Vector{T}
     w          :: Vector{T}
     a          :: T
@@ -70,7 +70,7 @@ end
 
 Join multiple Gauss quadratures together.
 """
-function joinrules(rules::AbstractVector{Rule{T}}) where {T<:AbstractFloat}
+function joinrules(rules::AbstractVector{Rule{T}}) where {T}
     for i in Iterators.drop(eachindex(rules), 1)
         rules[i - 1].b == rules[i].a || error("rules must be contiguous")
     end

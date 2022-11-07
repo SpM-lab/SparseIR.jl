@@ -27,7 +27,7 @@ function rrqr!(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat}
     taus = Vector{T}(undef, k)
     swapcol = Vector{T}(undef, m)
 
-    xnorms = norm.(eachcol(A))
+    xnorms = sqrt.(dropdims(sum(abs2, A; dims=1); dims=1))
     pnorms = copy(xnorms)
     sqrteps = sqrt(eps(T))
 

@@ -22,8 +22,8 @@ struct PiecewiseLegendrePoly <: Function
     inv_xs :: Vector{Float64}
     norm   :: Vector{Float64}
 
-    function PiecewiseLegendrePoly(polyorder::Integer, xmin::AbstractFloat,
-                                   xmax::AbstractFloat, knots::AbstractVector,
+    function PiecewiseLegendrePoly(polyorder::Integer, xmin::Real,
+                                   xmax::Real, knots::AbstractVector,
                                    Δx::AbstractVector, data::AbstractMatrix, symm::Integer,
                                    l::Integer, xm::AbstractVector, inv_xs::AbstractVector,
                                    norm::AbstractVector)
@@ -166,13 +166,13 @@ function Base.show(io::IO, polys::PiecewiseLegendrePolyVector)
     print(io, "on [$(polys.xmin), $(polys.xmax)]")
 end
 
-function PiecewiseLegendrePolyVector(data::AbstractArray{T,3}, knots::Vector{T};
+function Vector{PiecewiseLegendrePoly}(data::AbstractArray{T,3}, knots::Vector{T};
                                      symm=zeros(Int, size(data, 3))) where {T<:Real}
     return [PiecewiseLegendrePoly(data[:, :, i], knots, i - 1; symm=symm[i])
             for i in axes(data, 3)]
 end
 
-function PiecewiseLegendrePolyVector(polys::PiecewiseLegendrePolyVector,
+function Vector{PiecewiseLegendrePoly}(polys::PiecewiseLegendrePolyVector,
                                      knots::AbstractVector; Δx=diff(knots), symm=0)
     length(polys) == length(symm) ||
         throw(DimensionMismatch("Sizes of polys and symm don't match"))
@@ -182,7 +182,7 @@ function PiecewiseLegendrePolyVector(polys::PiecewiseLegendrePolyVector,
     end
 end
 
-function PiecewiseLegendrePolyVector(data::AbstractArray{T,3},
+function Vector{PiecewiseLegendrePoly}(data::AbstractArray{T,3},
                                      polys::PiecewiseLegendrePolyVector) where {T}
     size(data, 3) == length(polys) ||
         throw(DimensionMismatch("Sizes of data and polys don't match"))

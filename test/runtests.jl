@@ -1,7 +1,4 @@
 using Test
-using SparseIR
-using Random
-using MultiFloats
 
 include("_conftest.jl")
 

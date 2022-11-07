@@ -1,7 +1,7 @@
 using Test
-using LinearAlgebra
 using SparseIR
 using SparseIR._LinAlg
+using LinearAlgebra
 using MultiFloats
 
 @testset "_linalg.jl" begin

@@ -327,16 +327,17 @@ function truncate(u, s, v; rtol=0.0, lmax=typemax(Int))
     # Determine singular value cutoff. Note that by selecting a cutoff even
     # in the case of lmax, we make sure to never remove parts of a degenerate
     # singular value space, rather, we reduce the size of the basis.
-    cutoff = rtol * first(sall)
-    if lmax < length(sall)
-        cutoff = max(cutoff, sall[lmax])
+    cutoff = if lmax < length(sall)
+        max(rtol * first(sall), sall[lmax])
+    else
+        rtol * first(sall)
     end
 
     # Determine how many singular values survive in each group
-    scount = [count(>(cutoff), si) for si in s]
+    scount = map(si -> count(>(cutoff), si), s)
 
-    u_cut = [ui[:, 1:counti] for (ui, counti) in zip(u, scount)]
-    s_cut = [si[1:counti] for (si, counti) in zip(s, scount)]
-    v_cut = [vi[:, 1:counti] for (vi, counti) in zip(v, scount)]
+    u_cut = map((ui, scounti) -> ui[:, 1:scounti], u, scount)
+    s_cut = map((si, scounti) -> si[1:scounti], s, scount)
+    v_cut = map((vi, scounti) -> vi[:, 1:scounti], v, scount)
     return u_cut, s_cut, v_cut
 end
