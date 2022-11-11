@@ -167,13 +167,13 @@ function Base.show(io::IO, polys::PiecewiseLegendrePolyVector)
 end
 
 function Vector{PiecewiseLegendrePoly}(data::AbstractArray{T,3}, knots::Vector{T};
-                                     symm=zeros(Int, size(data, 3))) where {T<:Real}
+                                       symm=zeros(Int, size(data, 3))) where {T<:Real}
     return [PiecewiseLegendrePoly(data[:, :, i], knots, i - 1; symm=symm[i])
             for i in axes(data, 3)]
 end
 
 function Vector{PiecewiseLegendrePoly}(polys::PiecewiseLegendrePolyVector,
-                                     knots::AbstractVector; Δx=diff(knots), symm=0)
+                                       knots::AbstractVector; Δx=diff(knots), symm=0)
     length(polys) == length(symm) ||
         throw(DimensionMismatch("Sizes of polys and symm don't match"))
 
@@ -183,12 +183,12 @@ function Vector{PiecewiseLegendrePoly}(polys::PiecewiseLegendrePolyVector,
 end
 
 function Vector{PiecewiseLegendrePoly}(data::AbstractArray{T,3},
-                                     polys::PiecewiseLegendrePolyVector) where {T}
+                                       polys::PiecewiseLegendrePolyVector) where {T}
     size(data, 3) == length(polys) ||
         throw(DimensionMismatch("Sizes of data and polys don't match"))
 
     polys_new = deepcopy(polys)
-    for i in eachindex(polys)
+    @inbounds for i in eachindex(polys)
         polys_new[i].data .= data[:, :, i]
     end
     return polys_new
@@ -266,18 +266,17 @@ end
 function PiecewiseLegendreFT(poly::PiecewiseLegendrePoly, stat::Statistics; n_asymp=Inf)
     (poly.xmin, poly.xmax) == (-1, 1) || error("Only interval [-1, 1] is supported")
     model = power_model(stat, poly)
-    return PiecewiseLegendreFT(poly, stat, Float64(n_asymp), model)
+    PiecewiseLegendreFT(poly, stat, Float64(n_asymp), model)
 end
 
 const PiecewiseLegendreFTVector{S} = Vector{PiecewiseLegendreFT{S}}
 
-function PiecewiseLegendreFTVector(polys::PiecewiseLegendrePolyVector,
-                                   stat::Statistics; n_asymp=Inf)
-    return [PiecewiseLegendreFT(poly, stat; n_asymp) for poly in polys]
-end
+PiecewiseLegendreFTVector(polys::PiecewiseLegendrePolyVector,
+                                   stat::Statistics; n_asymp=Inf) =
+    [PiecewiseLegendreFT(poly, stat; n_asymp) for poly in polys]
 
 function Base.getproperty(polyFTs::PiecewiseLegendreFTVector, sym::Symbol)
-    if sym ∈ (:stat, :n_asymp)
+    if sym === :stat || sym === :n_asymp
         return getproperty(first(polyFTs), sym)
     elseif sym === :poly
         return map(poly -> poly.poly, polyFTs)
@@ -309,9 +308,8 @@ end
 (polyFT::PiecewiseLegendreFT)(n::Integer)       = polyFT(MatsubaraFreq(n))
 (polyFT::PiecewiseLegendreFTVector)(n::Integer) = polyFT(MatsubaraFreq(n))
 (polyFT::PiecewiseLegendreFT)(n::AbstractArray) = polyFT.(n)
-function (polyFTs::PiecewiseLegendreFTVector)(n::AbstractArray)
-    return reshape(mapreduce(polyFTs, vcat, n), (size(polyFTs)..., size(n)...))
-end
+(polyFTs::PiecewiseLegendreFTVector)(n::AbstractArray) =
+    reshape(mapreduce(polyFTs, vcat, n), (size(polyFTs)..., size(n)...))
 
 """
     giw(polyFT, wn)

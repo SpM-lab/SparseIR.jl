@@ -1,6 +1,6 @@
 using Test
 using SparseIR
-using LinearAlgebra
+using SparseIR.LinearAlgebra
 
 include("_conftest.jl")
 
@@ -23,7 +23,7 @@ include("_conftest.jl")
     @testset "slice" begin
         sve_result = sve_logistic[42]
 
-        basis = FiniteTempBasis(Fermionic(), 4.2, 10.0; sve_result)
+        basis = FiniteTempBasis{Fermionic}(4.2, 10.0; sve_result)
         @test length(basis[1:4]) == 4
     end
 

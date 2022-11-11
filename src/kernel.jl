@@ -153,7 +153,7 @@ function yrange end
 yrange(::AbstractKernel)              = (-1, 1)
 yrange(kernel::AbstractReducedKernel) = (0, last(yrange(kernel.inner)))
 
-function compute(::LogisticKernel, u₊, u₋, v)
+@inline function compute(::LogisticKernel, u₊, u₋, v)
     # By introducing u_± = (1 ± x)/2 and v = Λ * y, we can write
     # the kernel in the following two ways:
     #
@@ -168,7 +168,7 @@ function compute(::LogisticKernel, u₊, u₋, v)
     return enum / denom
 end
 
-function compute(kernel::RegularizedBoseKernel, u₊, u₋, v)
+@inline function compute(kernel::RegularizedBoseKernel, u₊, u₋, v)
     # With "reduced variables" u, v we have:
     #
     #   K = -1/Λ * exp(-u_+ * v) * v / (exp(-v) - 1)
@@ -305,7 +305,7 @@ end
 
 get_symmetrized(::AbstractReducedKernel, sign) = error("cannot symmetrize twice")
 
-function callreduced(kernel::AbstractReducedKernel, x, y, x₊, x₋)
+@inline function callreduced(kernel::AbstractReducedKernel, x, y, x₊, x₋)
     x, y = check_domain(kernel, x, y)
 
     # The reduced kernel is defined only over the interval [0, 1], which
@@ -349,7 +349,7 @@ function (kernel::AbstractKernel)(x, y,
     return compute(kernel, u₊, u₋, v)
 end
 
-function (kernel::LogisticKernelOdd)(x, y,
+@inline function (kernel::LogisticKernelOdd)(x, y,
                                      x₊=x - first(xrange(kernel)),
                                      x₋=last(xrange(kernel)) - x)
     result = callreduced(kernel, x, y, x₊, x₋)
@@ -363,7 +363,7 @@ function (kernel::LogisticKernelOdd)(x, y,
     return (xy_small && cosh_finite) ? -sinh(v_half * x) / cosh(v_half) : result
 end
 
-function (kernel::RegularizedBoseKernelOdd)(x, y,
+@inline function (kernel::RegularizedBoseKernelOdd)(x, y,
                                             x₊=x - first(xrange(kernel)),
                                             x₋=last(xrange(kernel)) - x)
     result = callreduced(kernel, x, y, x₊, x₋)

@@ -1,8 +1,8 @@
 using Test
 using SparseIR
 using SparseIR._LinAlg
-using LinearAlgebra
-using MultiFloats
+using SparseIR.LinearAlgebra
+using SparseIR: Float64x2
 
 @testset "_linalg.jl" begin
     @testset "jacobi with T = $T" for T in (Float64, Float64x2)

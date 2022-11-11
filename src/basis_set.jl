@@ -39,8 +39,8 @@ struct FiniteTempBasisSet
     """
     function FiniteTempBasisSet(β::Real, ωmax::Real, ε=nothing;
                                 sve_result=SVEResult(LogisticKernel(β * ωmax); ε))
-        basis_f = FiniteTempBasis(Fermionic(), β, ωmax, ε; sve_result)
-        basis_b = FiniteTempBasis(Bosonic(), β, ωmax, ε; sve_result)
+        basis_f = FiniteTempBasis{Fermionic}(β, ωmax, ε; sve_result)
+        basis_b = FiniteTempBasis{Bosonic}(β, ωmax, ε; sve_result)
 
         tau_sampling_f = TauSampling(basis_f)
         tau_sampling_b = TauSampling(basis_b)

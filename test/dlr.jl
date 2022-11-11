@@ -45,7 +45,7 @@ include("_conftest.jl")
         β = 2
         ωmax = 21
         ε = 1e-7
-        basis_b = FiniteTempBasis(Bosonic(), β, ωmax, ε; sve_result=sve_logistic[β * ωmax])
+        basis_b = FiniteTempBasis{Bosonic}(β, ωmax, ε; sve_result=sve_logistic[β * ωmax])
 
         # G(iw) = sum_p coeff_p U^{DLR}(iw, omega_p)
         coeff = [1.1, 2.0]

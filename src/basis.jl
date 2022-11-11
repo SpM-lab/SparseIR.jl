@@ -52,21 +52,27 @@ struct FiniteTempBasis{S,K} <: AbstractBasis{S}
     uhat_full  :: PiecewiseLegendreFTVector{S}
 end
 
+
+FiniteTempBasis{S}(β::Real, ωmax::Real, ε=nothing; max_size=nothing,
+                   kernel=LogisticKernel(β * ωmax),
+                   sve_result=SVEResult(kernel; ε)) where {S} = 
+    FiniteTempBasis(S(), β, ωmax, ε; max_size, kernel,sve_result)
+
 """
     FiniteTempBasis(statistics, β, ωmax, ε=nothing;
-                    max_size=typemax(Int), kernel=LogisticKernel(β * ωmax),
+                    max_size=nothing, kernel=LogisticKernel(β * ωmax),
                     sve_result=SVEResult(kernel; ε))
 
 Construct a finite temperature basis suitable for the given `statistics` and
 cutoffs `β` and `ωmax`.
 """
 function FiniteTempBasis(statistics::Statistics, β::Real, ωmax::Real, ε=nothing;
-                         max_size=typemax(Int), kernel=LogisticKernel(β * ωmax),
+                         max_size=nothing, kernel=LogisticKernel(β * ωmax),
                          sve_result=SVEResult(kernel; ε))
     β > 0 || throw(DomainError(β, "Inverse temperature β must be positive"))
     ωmax ≥ 0 || throw(DomainError(ωmax, "Frequency cutoff ωmax must be non-negative"))
 
-    u_, s_, v_ = isnothing(ε) ? part(sve_result; max_size) : part(sve_result; ε, max_size)
+    u_, s_, v_ = part(sve_result; ε, max_size)
 
     if length(sve_result.s) > length(s_)
         accuracy = sve_result.s[length(s_) + 1] / first(sve_result.s)
@@ -91,8 +97,7 @@ function FiniteTempBasis(statistics::Statistics, β::Real, ωmax::Real, ε=nothi
     # HACK: as we don't yet support Fourier transforms on anything but the
     # unit interval, we need to scale the underlying data.
     û_base_full = PiecewiseLegendrePolyVector(√β * sve_result.u.data, sve_result.u)
-    û_full = PiecewiseLegendreFTVector(û_base_full, statistics;
-                                        n_asymp=conv_radius(kernel))
+    û_full = PiecewiseLegendreFTVector(û_base_full, statistics; n_asymp=conv_radius(kernel))
     û = û_full[1:length(s)]
 
     return FiniteTempBasis(kernel, sve_result, accuracy, float(β), u, v, s, û, û_full)
@@ -156,8 +161,8 @@ Construct `FiniteTempBasis` objects for fermion and bosons using the same
 """
 function finite_temp_bases(β::Real, ωmax::Real, ε=nothing,
                            sve_result=SVEResult(LogisticKernel(β * ωmax); ε))
-    basis_f = FiniteTempBasis(Fermionic(), β, ωmax, ε; sve_result)
-    basis_b = FiniteTempBasis(Bosonic(), β, ωmax, ε; sve_result)
+    basis_f = FiniteTempBasis{Fermionic}(β, ωmax, ε; sve_result)
+    basis_b = FiniteTempBasis{Bosonic}(β, ωmax, ε; sve_result)
     return basis_f, basis_b
 end
 

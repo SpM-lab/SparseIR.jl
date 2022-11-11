@@ -1,7 +1,7 @@
 using Test
 using SparseIR
-
-using Random, LinearAlgebra
+using SparseIR.LinearAlgebra
+using Random
 
 include("_conftest.jl")
 
@@ -9,7 +9,7 @@ include("_conftest.jl")
     @testset "alias" begin
         β = 1
         ωmax = 10
-        basis = FiniteTempBasis(Fermionic(), β, ωmax; sve_result=sve_logistic[β * ωmax])
+        basis = FiniteTempBasis{Fermionic}(β, ωmax; sve_result=sve_logistic[β * ωmax])
         @test TauSampling(basis) isa TauSampling64
     end
 
@@ -125,13 +125,13 @@ include("_conftest.jl")
     end
 
     @testset "conditioning" begin
-        basis = FiniteTempBasis(Fermionic(), 3, 3, 1e-6)
+        basis = FiniteTempBasis{Fermionic}(3, 3, 1e-6)
         @test cond(TauSampling(basis)) < 3
         @test cond(MatsubaraSampling(basis)) < 5
         @test_logs (:warn, r"Sampling matrix is poorly conditioned \(cond = \d\.\d+e\d+\)\.") TauSampling(basis, [1.0, 1.0])
         @test_logs (:warn, r"Sampling matrix is poorly conditioned \(cond = \d\.\d+e\d+\)\.") MatsubaraSampling(basis, [FermionicFreq(1), FermionicFreq(1)])
 
-        basis = FiniteTempBasis(Fermionic(), 3, 3, 1e-2)
+        basis = FiniteTempBasis{Fermionic}(3, 3, 1e-2)
         @test cond(TauSampling(basis)) < 2
         @test cond(MatsubaraSampling(basis)) < 3
     end

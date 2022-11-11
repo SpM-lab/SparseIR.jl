@@ -1,6 +1,6 @@
 using Test
 using SparseIR
-using Logging
+using Logging: with_logger, NullLogger
 
 include("_conftest.jl")
 
@@ -39,11 +39,11 @@ include("_conftest.jl")
 
     @testset "FiniteTempBasis" begin
         with_logger(NullLogger()) do
-            basis = FiniteTempBasis(Fermionic(), 1e-3, 1e-3, 1e-100)
+            basis = FiniteTempBasis{Fermionic}(1e-3, 1e-3, 1e-100)
             @test SparseIR.sve_result(basis).s * sqrt(1e-3 / 2 * 1e-3) ≈ basis.s
             @test SparseIR.accuracy(basis) ≈ last(basis.s) / first(basis.s)
         end
-        basis = FiniteTempBasis(Fermionic(), 3, 4, 1e-6)
+        basis = FiniteTempBasis{Fermionic}(3, 4, 1e-6)
         io = IOBuffer()
         show(io, basis)
         s = String(take!(io))
@@ -60,7 +60,7 @@ include("_conftest.jl")
         """) SparseIR.default_sampling_points(sve.u, 100)
 
 
-        basis = FiniteTempBasis(Bosonic(), 3, 4, 1e-6)
+        basis = FiniteTempBasis{Bosonic}(3, 4, 1e-6)
 
         @test_logs (:warn, r"""
         Requesting 13 Bosonic\(\) sampling frequencies for basis size
@@ -75,8 +75,8 @@ include("_conftest.jl")
 
         bset = FiniteTempBasisSet(β, ωmax, ε)
 
-        basis_f = FiniteTempBasis(Fermionic(), β, ωmax, ε)
-        basis_b = FiniteTempBasis(Bosonic(), β, ωmax, ε)
+        basis_f = FiniteTempBasis{Fermionic}(β, ωmax, ε)
+        basis_b = FiniteTempBasis{Bosonic}(β, ωmax, ε)
         @test SparseIR.β(bset) == β
         @test SparseIR.ωmax(bset) == ωmax
         @test bset.tau == SparseIR.sampling_points(TauSampling(basis_f))

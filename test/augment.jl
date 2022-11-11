@@ -1,12 +1,12 @@
 using Test
 using SparseIR
-using LinearAlgebra
+using SparseIR.LinearAlgebra
 
 @testset "augment.jl" begin
     @testset "Augmented bosonic basis" begin
         ωmax = 2
         β = 1000
-        basis = FiniteTempBasis(Bosonic(), β, ωmax, 1e-6)
+        basis = FiniteTempBasis{Bosonic}(β, ωmax, 1e-6)
         basis_aug = AugmentedBasis(basis, TauConst, TauLinear)
 
         @test all(isone, SparseIR.significance(basis_aug)[1:3])
@@ -57,7 +57,7 @@ using LinearAlgebra
     @testset "unit tests" begin
         β = 1000
         ωmax = 2
-        basis = FiniteTempBasis(Bosonic(), β, ωmax, 1e-6)
+        basis = FiniteTempBasis{Bosonic}(β, ωmax, 1e-6)
         basis_aug = AugmentedBasis(basis, TauConst, TauLinear)
 
         @testset "getindex" begin

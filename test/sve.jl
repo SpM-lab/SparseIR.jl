@@ -1,7 +1,7 @@
 using Test
 using SparseIR
-using MultiFloats
-using Logging
+using SparseIR: Float64x2
+using Logging: with_logger, NullLogger
 
 include("_conftest.jl")
 
@@ -25,13 +25,13 @@ a ⪅ b = leaq(a, b)
 
 @testset "sve.jl" begin
     @testset "smooth with Λ = $Λ" for Λ in (10, 42, 10_000)
-        basis = FiniteTempBasis(Fermionic(), 1, Λ; sve_result=sve_logistic[Λ])
+        basis = FiniteTempBasis{Fermionic}(1, Λ; sve_result=sve_logistic[Λ])
         check_smooth(basis.u, basis.s, 2 * maximum(basis.u(1)), 24)
         check_smooth(basis.v, basis.s, 50, 20)
     end
 
     @testset "num roots u with Λ = $Λ" for Λ in (10, 42, 10_000)
-        basis = FiniteTempBasis(Fermionic(), 1, Λ; sve_result=sve_logistic[Λ])
+        basis = FiniteTempBasis{Fermionic}(1, Λ; sve_result=sve_logistic[Λ])
         for ui in basis.u
             ui_roots = SparseIR.roots(ui)
             @test length(ui_roots) == ui.l
@@ -83,7 +83,7 @@ a ⪅ b = leaq(a, b)
     end
 
     @testset "truncate" begin
-        sve = SparseIR.CentrosymmSVE(LogisticKernel(5), 1e-6, Float64; n_gauss=-1)
+        sve = SparseIR.CentrosymmSVE(LogisticKernel(5), 1e-6, Float64)
 
         svds = SparseIR.compute_svd.(SparseIR.matrices(sve))
         u_, s_, v_ = zip(svds...)

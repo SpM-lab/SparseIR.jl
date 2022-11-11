@@ -55,7 +55,7 @@ using SparseIR
 
 function main(β = 10, ωmax = 8, ε = 1e-6)
     # Construct the IR basis and sparse sampling for fermionic propagators
-    basis = FiniteTempBasis(Fermionic(), β, ωmax, ε)
+    basis = FiniteTempBasis{Fermionic}(β, ωmax, ε)
     sτ = TauSampling(basis)
     siω = MatsubaraSampling(basis)
     

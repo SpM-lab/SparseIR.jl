@@ -33,9 +33,9 @@ struct SamplingSVE{T<:AbstractFloat,K<:AbstractKernel} <: AbstractSVE
     gauss_y :: Rule{T}
 end
 
-function SamplingSVE(kernel, ε, ::Type{T}=Float64; n_gauss=-1) where {T}
+function SamplingSVE(kernel, ε, ::Type{T}=Float64; n_gauss=nothing) where {T}
     sve_hints_ = sve_hints(kernel, ε)
-    n_gauss = (n_gauss < 0) ? ngauss(sve_hints_) : n_gauss
+    n_gauss = something(n_gauss, ngauss(sve_hints_))
     rule = legendre(n_gauss, T)
     segs_x, segs_y = T.(segments_x(sve_hints_)), T.(segments_y(sve_hints_))
     gauss_x, gauss_y = piecewise(rule, segs_x), piecewise(rule, segs_y)
@@ -78,7 +78,7 @@ struct CentrosymmSVE{K<:AbstractKernel,SVEEVEN<:AbstractSVE,SVEODD<:AbstractSVE}
     nsvals_hint :: Int
 end
 
-function CentrosymmSVE(kernel, ε, ::Type{T}; InnerSVE=SamplingSVE, n_gauss) where {T}
+function CentrosymmSVE(kernel, ε, ::Type{T}; InnerSVE=SamplingSVE, n_gauss=nothing) where {T}
     even = InnerSVE(get_symmetrized(kernel, +1), ε, T; n_gauss)
     odd = InnerSVE(get_symmetrized(kernel, -1), ε, T; n_gauss)
     return CentrosymmSVE(kernel, ε, even, odd, max(even.nsvals_hint, odd.nsvals_hint))
@@ -95,8 +95,8 @@ end
 
 """
     SVEResult(kernel::AbstractKernel;
-        Twork=nothing, ε=nothing, n_sv=typemax(Int),
-        n_gauss=-1, svd_strat=:auto,
+        Twork=nothing, ε=nothing, lmax=typemax(Int),
+        n_gauss=nothing, svd_strat=:auto,
         sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE
     )
 
@@ -134,7 +134,7 @@ using a collocation).
     reprsents the accuracy to which the kernel is reproduced, whereas
     `ε` is the accuracy to which the singular values and vectors
     are guaranteed.
-  - `n_sv::Integer`: Maximum basis size. If given, only at most the `n_sv` most
+  - `lmax::Integer`: Maximum basis size. If given, only at most the `lmax` most
     significant singular values and associated singular functions are returned.
   - `n_gauss (int): Order of Legendre polynomials. Defaults to kernel hinted value.
   - `Twork``: Working data type. Defaults to a data type with machine epsilon of at 
@@ -149,22 +149,25 @@ Returns:
 An `SVEResult` containing the truncated singular value expansion.
 """
 function SVEResult(kernel::AbstractKernel;
-                   Twork=nothing, cutoff=nothing, ε=nothing, n_sv=typemax(Int),
-                   n_gauss=-1, svd_strat=:auto,
+                   Twork=nothing, cutoff=nothing, ε=nothing, lmax=typemax(Int),
+                   n_gauss=nothing, svd_strat=:auto,
                    SVEstrat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE)
     safe_ε, Twork, svd_strat = choose_accuracy(ε, Twork, svd_strat)
     sve = SVEstrat(kernel, safe_ε, Twork; n_gauss)
 
     svds = compute_svd.(matrices(sve); strategy=svd_strat)
     u_, s_, v_ = zip(svds...)
-    isnothing(cutoff) && (cutoff = 2 * eps(Twork))
-    u, s, v = truncate(u_, s_, v_; rtol=cutoff, lmax=n_sv)
+    cutoff = something(cutoff, 2eps(Twork))
+    u, s, v = truncate(u_, s_, v_; rtol=cutoff, lmax)
     return postprocess(sve, u, s, v)
 end
 
-function part(sve::SVEResult; ε=sve.ε, max_size=typemax(Int))
+function part(sve::SVEResult; ε=nothing, max_size=nothing)
+    ε = something(ε, sve.ε)
     cut = count(≥(ε * first(sve.s)), sve.s)
-    cut = min(cut, max_size)
+    if !isnothing(max_size)
+        cut = min(cut, max_size)
+    end
     return sve.u[1:cut], sve.s[1:cut], sve.v[1:cut]
 end
 

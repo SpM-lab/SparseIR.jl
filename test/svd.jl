@@ -1,7 +1,7 @@
 using Test
 using SparseIR
-using MultiFloats
-using LinearAlgebra
+using SparseIR: Float64x2
+using SparseIR.LinearAlgebra
 
 @testset "svd.jl" begin
     mat64x2 = Float64x2.(rand(4, 6))

@@ -8,7 +8,7 @@ using FFTW
         β = 100
         ωmax = Λ / β
         ϵ = 1e-8
-        b = FiniteTempBasis(Fermionic(), β, ωmax, ϵ)
+        b = FiniteTempBasis{Fermionic}(β, ωmax, ϵ)
 
         x = y = 0.1
         τ = β / 2 * (x + 1)
@@ -33,7 +33,7 @@ using FFTW
         ωmax = Λ / β
         ϵ = 1e-15
 
-        b = FiniteTempBasis(Fermionic(), β, ωmax, ϵ)
+        b = FiniteTempBasis{Fermionic}(β, ωmax, ϵ)
 
         # Sparse sampling in τ
         smpl_τ = TauSampling(b)
