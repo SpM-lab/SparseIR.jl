@@ -96,7 +96,7 @@ One can now perform a [singular value expansion] of this kernel, which
 generates two sets of orthonormal basis functions, one set $v_\ell(\omega)$ for
 real frequency side $\omega$, and one set $u_\ell(\tau)$ for the same object in
 imaginary (Euclidean) time $\tau$, together with a "coupling" strength
-$s\_ell$ between the two sides.
+$s_\ell$ between the two sides.
 
 By this construction, the imaginary time basis can be shown to be *optimal* in
 terms of compactness.
