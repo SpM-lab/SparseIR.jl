@@ -19,9 +19,9 @@ using LinearAlgebra.BLAS: gemm!
 using QuadGK: gauss, quadgk
 using Bessels: sphericalbesselj
 
+# FIXME: These are piracy, but needed to make MultiFloats work for us.
 @inline Base.sinh(x::Float64x2) = 0.5 * (exp(x) - exp(-x))
 @inline Base.cosh(x::Float64x2) = 0.5 * (exp(x) + exp(-x))
-# FIXME: remove hypot if MultiFloats is fixed
 @inline Base.Math.hypot(x::Float64x2, y::Float64x2) = Base.Math._hypot(x, y)
 
 include("_linalg.jl")

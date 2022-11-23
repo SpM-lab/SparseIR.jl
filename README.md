@@ -6,7 +6,7 @@ SparseIR - intermediate representation of propagators in Julia
 [![][codecov-img]][codecov-url]
 
 This library provides routines for constructing and working with the
-intermediate representation of correlation functions.  It provides:
+intermediate representation of correlation functions. It provides:
 
  - on-the-fly computation of basis functions for arbitrary cutoff Λ
  - basis functions and singular values accurate to full precision
@@ -14,20 +14,22 @@ intermediate representation of correlation functions.  It provides:
 
 Installation
 ------------
-SparseIR can be installed with the Julia package manager.  Simply run the following from the command line:
+SparseIR can be installed with the Julia package manager. Simply run the following from the command line:
 ```
 julia -e 'import Pkg; Pkg.add("SparseIR")'
 ```
-We support Julia version 1.6 and above, and recommend Julia 1.8 or above for optimal performance.  We only 
-depend on a few quad-precision libraries for the accurate computation of the singular value decomposition,
-which are automatically installed.  (A full list of dependencies can be found in `Project.toml`.)
+We support Julia version 1.6 and above, and recommend Julia 1.8 or above for optimal performance. We 
+depend on a quad-precision library and an SVD library for the accurate computation of the singular
+value decomposition, a quadrature library for expansion coefficients and a Bessel functions
+package for the Fourier transformed basis. All of these are automatically installed.
+(A formal list of dependencies can be found in `Project.toml`.)
 
 To manually install the current development version, you can use the following:
 ```
-# Only recommended for developers - no automatic updates!
-git clone https://github.com/SpM-lab/SparseIR.jl
-julia -e 'import Pkg; Pkg.develop(path="SparseIR.jl")'
+julia -e 'import Pkg; Pkg.develop(url="https://github.com/SpM-lab/SparseIR.jl")'
 ```
+> **Warning**
+> This is recommended only for developers - you won't get automatic updates!
 
 Documentation and tutorial
 --------------------------
@@ -46,10 +48,8 @@ There is also a [Python library] and (currently somewhat restricted)
 [Python library]: https://github.com/SpM-lab/sparse-ir
 [Fortran library]: https://github.com/SpM-lab/sparse-ir-fortran
 
-
 Example usage
 -------------
-
 ```julia
 using SparseIR
 
@@ -85,9 +85,28 @@ function main(β = 10, ωmax = 8, ε = 1e-6)
 end
 ```
 
+You may want to start with reading up on the [intermediate representation].
+It is tied to the analytic continuation of bosonic/fermionic spectral
+functions from (real) frequencies to imaginary time, a transformation mediated
+by a kernel $K$. The kernel depends on a cutoff, which you should choose to
+be $\Lambda \geq \beta \omega_{\mathrm{max}}$, where $\beta$ is the inverse
+temperature and $\omega_{\mathrm{max}}$ is the bandwidth.
+
+One can now perform a [singular value expansion] of this kernel, which
+generates two sets of orthonormal basis functions, one set $v_\ell(\omega)$ for
+real frequency side $\omega$, and one set $u_\ell(\tau)$ for the same object in
+imaginary (Euclidean) time $\tau$, together with a "coupling" strength
+$s\_ell$ between the two sides.
+
+By this construction, the imaginary time basis can be shown to be *optimal* in
+terms of compactness.
+
+[intermediate representation]: https://arxiv.org/abs/2106.12685
+[singular value expansion]: https://w.wiki/3poQ
+
 License and citation
 --------------------
-This software is released under the MIT License.  See `LICENSE` for details.
+This software is released under the MIT License. See `LICENSE` for details.
 
 If you find the intermediate representation, sparse sampling, or this software
 useful in your research, please consider citing the following papers:

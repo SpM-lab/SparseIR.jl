@@ -1,5 +1,5 @@
 function find_all(f::F, xgrid::AbstractVector{T}) where {F, T}
-    fx::Vector{Float64} = f.(xgrid)
+    fx = map(Float64 ∘ f, xgrid)#::Vector{Float64}
     hit = iszero.(fx)
     x_hit = xgrid[hit]
 
