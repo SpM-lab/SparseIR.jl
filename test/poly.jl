@@ -2,7 +2,7 @@ using Test
 using SparseIR
 using SparseIR.LinearAlgebra
 
-include("_conftest.jl")
+isdefined(Main, :sve_logistic) || include("_conftest.jl")
 
 @testset "poly.jl" begin
     @testset "shape" begin

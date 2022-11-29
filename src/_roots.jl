@@ -36,8 +36,8 @@ function bisect(f, a, b, fa, ϵ_x)
     end
 end
 
-@inline closeenough(a::T, b::T, ϵ) where {T<:AbstractFloat} = isapprox(a, b; rtol=0, atol=ϵ)
-@inline closeenough(a::T, b::T, _) where {T<:Integer} = a == b
+closeenough(a::T, b::T, ϵ) where {T<:AbstractFloat} = isapprox(a, b; rtol=0, atol=ϵ)
+closeenough(a::T, b::T, _) where {T<:Integer} = a == b
 
 function refine_grid(grid, ::Val{α}) where {α}
     n = length(grid)
@@ -108,6 +108,6 @@ end
 
 # This implementation of `midpoint` is performance-optimized but safe
 # only if `lo <= hi`.
-@inline midpoint(lo::T, hi::T) where {T<:Integer} = lo + ((hi - lo) >>> 0x01)
-@inline midpoint(lo::T, hi::T) where {T<:AbstractFloat} = lo + ((hi - lo) * T(0.5))
-@inline midpoint(lo, hi) = midpoint(promote(lo, hi)...)
+midpoint(lo::T, hi::T) where {T<:Integer} = lo + ((hi - lo) >>> 0x01)
+midpoint(lo::T, hi::T) where {T<:AbstractFloat} = lo + ((hi - lo) * T(0.5))
+midpoint(lo, hi) = midpoint(promote(lo, hi)...)

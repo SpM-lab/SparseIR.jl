@@ -2,7 +2,7 @@ using Test
 using SparseIR
 using Logging: with_logger, NullLogger
 
-include("_conftest.jl")
+isdefined(Main, :sve_logistic) || include("_conftest.jl")
 
 @testset "basis.jl" begin
     @testset "consistency" begin

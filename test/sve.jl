@@ -3,7 +3,7 @@ using SparseIR
 using SparseIR: Float64x2
 using Logging: with_logger, NullLogger
 
-include("_conftest.jl")
+isdefined(Main, :sve_logistic) || include("_conftest.jl")
 
 function check_smooth(u, s, uscale, fudge_factor)
     ε = eps(eltype(s))

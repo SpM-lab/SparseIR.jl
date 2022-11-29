@@ -18,8 +18,8 @@ struct Rule{T<:AbstractFloat}
     x_forward  :: Vector{T}
     x_backward :: Vector{T}
 
-    function Rule(x::Vector{T}, w::Vector{T}, a=-one(T), b=one(T), x_forward=x .- a,
-                  x_backward=b .- x) where {T}
+    function Rule(x::Vector{T}, w::Vector{T}, a=-one(T), b=one(T),
+                  x_forward=x .- a, x_backward=b .- x) where {T}
         a ≤ b || error("a must be ≤ b")
         all(≤(b), x) || error("x must be ≤ b")
         all(≥(a), x) || error("x must be ≥ a")
@@ -37,7 +37,7 @@ Reseat quadrature rule to new domain.
 """
 function reseat(rule::Rule, a, b)
     scaling = (b - a) / (rule.b - rule.a)
-    x = (rule.x .- (rule.a + rule.b) / 2) * scaling .+ (a + b) / 2
+    x = @. (rule.x - (rule.a + rule.b) / 2) * scaling + (a + b) / 2
     w = rule.w * scaling
     x_forward = rule.x_forward * scaling
     x_backward = rule.x_backward * scaling
@@ -49,9 +49,8 @@ end
 
 Scale weights by `factor`.
 """
-function scale(rule, factor)
-    return Rule(rule.x, rule.w * factor, rule.a, rule.b, rule.x_forward, rule.x_backward)
-end
+scale(rule, factor) =
+    Rule(rule.x, rule.w * factor, rule.a, rule.b, rule.x_forward, rule.x_backward)
 
 """
     piecewise(rule, edges)
@@ -71,7 +70,7 @@ end
 Join multiple Gauss quadratures together.
 """
 function joinrules(rules::AbstractVector{Rule{T}}) where {T}
-    for i in Iterators.drop(eachindex(rules), 1)
+    @inbounds for i in Iterators.drop(eachindex(rules), 1)
         rules[i - 1].b == rules[i].a || error("rules must be contiguous")
     end
 
@@ -105,7 +104,6 @@ function legendre_collocation(rule, n=length(rule.x))
     return res
 end
 
-function Base.convert(::Type{Rule{T}}, rule::Rule) where {T}
-    return Rule(T.(rule.x), T.(rule.w), T(rule.a), T(rule.b),
-                T.(rule.x_forward), T.(rule.x_backward))
-end
+Base.convert(::Type{Rule{T}}, rule::Rule) where {T} =
+    Rule(T.(rule.x), T.(rule.w), T(rule.a), T(rule.b),
+         T.(rule.x_forward), T.(rule.x_backward))

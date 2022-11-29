@@ -10,7 +10,7 @@ See also: [`AugmentedBasis`](@ref)
 """
 abstract type AbstractAugmentation <: Function end
 
-const AugmentationTuple = Tuple{Vararg{<:AbstractAugmentation}}
+const AugmentationTuple = Tuple{Vararg{AbstractAugmentation}}
 
 create(aug::AbstractAugmentation, ::AbstractBasis) = aug
 β(aug::AbstractAugmentation) = aug.β
@@ -85,10 +85,10 @@ significance(basis::AugmentedBasis) =
 
 function default_tau_sampling_points(basis::AugmentedBasis)
     x = default_sampling_points(basis.basis.sve_result.u, length(basis))
-    return β(basis) / 2 * (x .+ 1)
+    β(basis) / 2 * (x .+ 1)
 end
-function default_matsubara_sampling_points(basis::AugmentedBasis)
-    return default_matsubara_sampling_points(basis.basis.uhat_full, length(basis))
+function default_matsubara_sampling_points(basis::AugmentedBasis; positive_only=false)
+    default_matsubara_sampling_points(basis.basis.uhat_full, length(basis); positive_only)
 end
 
 function iswellconditioned(basis::AugmentedBasis)
@@ -124,7 +124,7 @@ function (a::AbstractAugmentedFunction)(x)
 end
 function (a::AbstractAugmentedFunction)(x::AbstractArray)
     fbasis_x = fbasis(a)(x)
-    faug_x = reduce(vcat, faug_l.(transpose(x)) for faug_l in faug(a))
+    faug_x = reduce(vcat, faug_l.(reshape(x, (1, :))) for faug_l in faug(a))
     return vcat(faug_x, fbasis_x)
 end
 
@@ -188,11 +188,11 @@ create(::Type{TauConst}, basis::AbstractBasis{Bosonic}) = TauConst(β(basis))
 
 function (aug::TauConst)(τ)
     0 ≤ τ ≤ β(aug) || throw(DomainError(τ, "τ must be in [0, β]."))
-    return 1 / √(β(aug))
+    return 1 / sqrt(β(aug))
 end
 function (aug::TauConst)(n::BosonicFreq)
     iszero(n) || return zero(β(aug))
-    return √(β(aug))
+    return sqrt(β(aug))
 end
 (::TauConst)(::FermionicFreq) = error("TauConst is not a Fermionic basis.")
 
@@ -208,7 +208,7 @@ struct TauLinear <: AbstractAugmentation
     norm :: Float64
     function TauLinear(β)
         β > 0 || throw(DomainError(β, "Temperature must be positive."))
-        norm = √(3 / β)
+        norm = sqrt(3 / β)
         return new(β, norm)
     end
 end

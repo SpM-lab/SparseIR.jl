@@ -4,9 +4,9 @@
 SVE to SVD translation by sampling technique [1].
 
 Maps the singular value expansion (SVE) of a kernel `kernel` onto the singular
-value decomposition of a matrix `A`.  This is achieved by choosing two
+value decomposition of a matrix `A`. This is achieved by choosing two
 sets of Gauss quadrature rules: `(x, wx)` and `(y, wy)` and
-approximating the integrals in the SVE equations by finite sums.  This
+approximating the integrals in the SVE equations by finite sums. This
 implies that the singular values of the SVE are well-approximated by the
 singular values of the following matrix:
 
@@ -56,7 +56,7 @@ singular functions:
     u[l](x) = ured[l](x) + sign[l] * ured[l](-x)
     v[l](y) = vred[l](y) + sign[l] * ured[l](-y)
 
-where `sign[l]` is either `+1` or `-1`.  This means that the singular value
+where `sign[l]` is either `+1` or `-1`. This means that the singular value
 expansion can be block-diagonalized into an even and an odd part by
 (anti-)symmetrizing the kernel:
 
@@ -64,7 +64,7 @@ expansion can be block-diagonalized into an even and an odd part by
     K_odd  = K(x, y) - K(x, -y)
 
 The `l`th basis function, restricted to the positive interval, is then
-the singular function of one of these kernels.  If the kernel generates a
+the singular function of one of these kernels. If the kernel generates a
 Chebyshev system [1], then even and odd basis functions alternate.
 
 [1]: A. Karlin, Total Positivity (1968).
@@ -122,11 +122,11 @@ using a collocation).
 
   - `ε::Real`: Accuracy target for the basis: attempt to have singular values down
     to a relative magnitude of `ε`, and have each singular value
-    and singular vector be accurate to `ε`.  A `Twork` with
+    and singular vector be accurate to `ε`. A `Twork` with
     a machine epsilon of `ε^2` or lower is required to satisfy
     this. Defaults to `2.2e-16` if xprec is available, and `1.5e-8`
     otherwise.
-  - `cutoff::Real`: Relative cutoff for the singular values.  A `Twork` with
+  - `cutoff::Real`: Relative cutoff for the singular values. A `Twork` with
     machine epsilon of `cutoff` is required to satisfy this.
     Defaults to a small multiple of the machine epsilon.
     
@@ -181,7 +181,7 @@ SVD problems underlying the SVE.
 function matrices(sve::SamplingSVE)
     result = matrix_from_gauss(sve.kernel, sve.gauss_x, sve.gauss_y)
     result .*= sqrt.(sve.gauss_x.w)
-    result .*= sqrt.(transpose(sve.gauss_y.w))
+    result .*= sqrt.(reshape(sve.gauss_y.w, (1, :)))
     return (result,)
 end
 matrices(sve::CentrosymmSVE) = (only(matrices(sve.even)), only(matrices(sve.odd)))
@@ -205,8 +205,8 @@ function postprocess(sve::SamplingSVE, u, s, v)
 
     dsegs_x = diff(sve.segs_x)
     dsegs_y = diff(sve.segs_y)
-    u_data .*= sqrt.(0.5 .* transpose(dsegs_x))
-    v_data .*= sqrt.(0.5 .* transpose(dsegs_y))
+    u_data .*= sqrt.(0.5 .* reshape(dsegs_x, (1, :)))
+    v_data .*= sqrt.(0.5 .* reshape(dsegs_y, (1, :)))
 
     # Construct polynomials
     ulx = PiecewiseLegendrePolyVector(Float64.(u_data), Float64.(sve.segs_x))
@@ -243,8 +243,8 @@ function postprocess(sve::CentrosymmSVE, u, s, v)
 
     poly_flip_x = (-1) .^ range(0; length=size(first(u).data, 1))
     for i in eachindex(u, v)
-        u_pos_data = u[i].data / √2
-        v_pos_data = v[i].data / √2
+        u_pos_data = u[i].data / sqrt(2)
+        v_pos_data = v[i].data / sqrt(2)
 
         u_neg_data = reverse(u_pos_data; dims=2) .* poly_flip_x * signs[i]
         v_neg_data = reverse(v_pos_data; dims=2) .* poly_flip_x * signs[i]

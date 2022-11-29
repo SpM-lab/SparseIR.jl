@@ -16,7 +16,6 @@ include("_conftest.jl")
     include("_linalg.jl")
     include("_roots.jl")
     include("_specfuncs.jl")
-    include("scipost_sample_code.jl")
 end
 
-nothing # otherwise we get messy output from the testset printed in the REPL
+nothing # without this we get messy output from the testset printed in the REPL

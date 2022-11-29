@@ -153,7 +153,7 @@ function yrange end
 yrange(::AbstractKernel)              = (-1, 1)
 yrange(kernel::AbstractReducedKernel) = (0, last(yrange(kernel.inner)))
 
-@inline function compute(::LogisticKernel, u₊, u₋, v)
+function compute(::LogisticKernel, u₊, u₋, v)
     # By introducing u_± = (1 ± x)/2 and v = Λ * y, we can write
     # the kernel in the following two ways:
     #
@@ -163,12 +163,13 @@ yrange(kernel::AbstractReducedKernel) = (0, last(yrange(kernel.inner)))
     # We need to use the upper equation for v ≥ 0 and the lower one for
     # v < 0 to avoid overflowing both numerator and denominator
 
-    enum  = exp(-abs(v) * (v ≥ 0 ? u₊ : u₋))
-    denom = 1 + exp(-abs(v))
+    mabsv = -abs(v)
+    enum = exp(mabsv * ifelse(v ≥ 0, u₊, u₋))
+    denom = 1 + exp(mabsv)
     return enum / denom
 end
 
-@inline function compute(kernel::RegularizedBoseKernel, u₊, u₋, v)
+function compute(kernel::RegularizedBoseKernel, u₊, u₋, v::T) where {T}
     # With "reduced variables" u, v we have:
     #
     #   K = -1/Λ * exp(-u_+ * v) * v / (exp(-v) - 1)
@@ -178,11 +179,10 @@ end
     # lower one for v < 0 to avoid overflow.
     absv = abs(v)
     enum = exp(-absv * (v ≥ 0 ? u₊ : u₋))
-    T = eltype(v)
 
     # The expression ``v / (exp(v) - 1)`` is tricky to evaluate: firstly,
     # it has a singularity at v=0, which can be cured by treating that case
-    # separately.  Secondly, the denominator loses precision around 0 since
+    # separately. Secondly, the denominator loses precision around 0 since
     # exp(v) = 1 + v + ..., which can be avoided using expm1(...)
     denom = absv ≥ 1e-200 ? absv / expm1(-absv) : -one(absv)
     return -1 / T(kernel.Λ) * enum * denom
@@ -255,24 +255,26 @@ function matrix_from_gauss(kernel, gauss_x::Rule{T}, gauss_y::Rule{T})::Matrix{T
     # (1 ± x) is problematic around x = -1 and x = 1, where the quadrature
     # nodes are clustered most tightly. Thus we have the need for the
     # matrix method.
-    return @inbounds kernel.(gauss_x.x, transpose(gauss_y.x),
-                             gauss_x.x_forward, gauss_x.x_backward)
+    n = length(gauss_x.x)
+    m = length(gauss_y.x)
+    res = Matrix{T}(undef, n, m)
+    Threads.@threads for i in eachindex(gauss_x.x)
+        @inbounds @simd for j in eachindex(gauss_y.x)
+            res[i, j] = kernel(gauss_x.x[i], gauss_y.x[j],
+                               gauss_x.x_forward[i], gauss_x.x_backward[i])
+        end
+    end
+    res
 end
 
-"""
-    check_domain(kernel, x, y)
-
-Check that `(x, y)` lies within `kernel`'s domain and return it.
-"""
-@inline function check_domain(kernel, x, y)
+function Base.checkbounds(::Type{Bool}, kernel::AbstractKernel, x::Real, y::Real)
     xmin, xmax = xrange(kernel)
-    xmin ≤ x ≤ xmax || throw(DomainError(x, "x value not in range [$xmin, $xmax]"))
-
     ymin, ymax = yrange(kernel)
-    ymin ≤ y ≤ ymax || throw(DomainError(y, "y value not in range [$ymin, $ymax]"))
-
-    return x, y
+    (xmin ≤ x ≤ xmax) && (ymin ≤ y ≤ ymax)
 end
+
+Base.checkbounds(kernel::AbstractKernel, x::Real, y::Real) =
+    checkbounds(Bool, kernel, x, y) || throw(BoundsError(kernel, (x, y)))
 
 function compute_uv(Λ, x, y, x₊=1 + x, x₋=1 - x)
     u₊ = x₊ / 2
@@ -305,8 +307,8 @@ end
 
 get_symmetrized(::AbstractReducedKernel, sign) = error("cannot symmetrize twice")
 
-@inline function callreduced(kernel::AbstractReducedKernel, x, y, x₊, x₋)
-    x, y = check_domain(kernel, x, y)
+function callreduced(kernel::AbstractReducedKernel, x, y, x₊, x₋)
+    @boundscheck checkbounds(kernel, x, y)
 
     # The reduced kernel is defined only over the interval [0, 1], which
     # means we must add one to get the x_plus for the inner kernels. We
@@ -344,38 +346,42 @@ cancellation expected.
 function (kernel::AbstractKernel)(x, y,
                                   x₊=x - first(xrange(kernel)),
                                   x₋=last(xrange(kernel)) - x)
-    @boundscheck x, y = check_domain(kernel, x, y)
+    @boundscheck checkbounds(kernel, x, y)
     u₊, u₋, v = compute_uv(kernel.Λ, x, y, x₊, x₋)
     return compute(kernel, u₊, u₋, v)
 end
 
-@inline function (kernel::LogisticKernelOdd)(x, y,
+function (kernel::LogisticKernelOdd)(x, y,
                                      x₊=x - first(xrange(kernel)),
                                      x₋=last(xrange(kernel)) - x)
-    result = callreduced(kernel, x, y, x₊, x₋)
-
     # For x * y around 0, antisymmetrization introduces cancellation, which
     # reduces the relative precision. To combat this, we replace the
     # values with the explicit form
-    v_half      = kernel.inner.Λ / 2 * y
-    xy_small    = x * v_half < 1
+    v_half = kernel.inner.Λ / 2 * y
+    xy_small = x * v_half < 1
     cosh_finite = v_half < 85
-    return (xy_small && cosh_finite) ? -sinh(v_half * x) / cosh(v_half) : result
+    if xy_small && cosh_finite
+        return -sinh(v_half * x) / cosh(v_half)
+    else
+        return callreduced(kernel, x, y, x₊, x₋)
+    end
 end
 
-@inline function (kernel::RegularizedBoseKernelOdd)(x, y,
+function (kernel::RegularizedBoseKernelOdd)(x, y,
                                             x₊=x - first(xrange(kernel)),
                                             x₋=last(xrange(kernel)) - x)
-    result = callreduced(kernel, x, y, x₊, x₋)
-
     # For x * y around 0, antisymmetrization introduces cancellation, which
-    # reduces the relative precision.  To combat this, we replace the
-    # values with the explicit form
-    v_half     = kernel.inner.Λ / 2 * y
-    xv_half    = x * v_half
-    xy_small   = xv_half < 1
+    # reduces the relative precision. To combat this, we replace the
+    # values with the explicit form.
+    v_half = kernel.inner.Λ / 2 * y
+    xv_half = x * v_half
+    xy_small = xv_half < 1
     sinh_range = 1e-200 < v_half < 85
-    return xy_small && sinh_range ? -y * sinh(xv_half) / sinh(v_half) : result
+    if xy_small && sinh_range
+        return -y * sinh(xv_half) / sinh(v_half)
+    else
+        return callreduced(kernel, x, y, x₊, x₋)
+    end
 end
 
 segments_x(hints::SVEHintsReduced) = symm_segments(segments_x(hints.inner_hints))
@@ -452,7 +458,7 @@ Convergence radius of the Matsubara basis asymptotic model.
 
 For improved relative numerical accuracy, the IR basis functions on the
 Matsubara axis `uhat(basis, n)` can be evaluated from an asymptotic
-expression for `abs(n) > conv_radius`.  If `isinf(conv_radius)`, then
+expression for `abs(n) > conv_radius`. If `isinf(conv_radius)`, then
 the asymptotics are unused (the default).
 """
 function conv_radius end

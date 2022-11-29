@@ -29,7 +29,10 @@ struct PiecewiseLegendrePoly <: Function
                                    norm::AbstractVector)
         !any(isnan, data) || error("data contains NaN")
         issorted(knots) || error("knots must be monotonically increasing")
-        Δx ≈ diff(knots) || error("Δx must work with knots")
+        # Δx ≈ diff(knots) || error("Δx must work with knots")
+        @inbounds for i in eachindex(Δx)
+            Δx[i] ≈ knots[i+1] - knots[i] || error("Δx must work with knots")
+        end
         return new(polyorder, xmin, xmax, knots, Δx, data, symm, l, xm, inv_xs, norm)
     end
 end
@@ -56,11 +59,11 @@ function Base.show(io::IO, p::PiecewiseLegendrePoly)
     print(io, "PiecewiseLegendrePoly on [$(p.xmin), $(p.xmax)], order=$(p.polyorder)")
 end
 
-@inline function (poly::PiecewiseLegendrePoly)(x::Real)
+function (poly::PiecewiseLegendrePoly)(x::Real)
     i, x̃ = split(poly, x)
     return legval(x̃, view(poly.data, :, i)) * poly.norm[i]
 end
-@inline (poly::PiecewiseLegendrePoly)(xs::AbstractVector) = poly.(xs)
+(poly::PiecewiseLegendrePoly)(xs::AbstractVector) = poly.(xs)
 
 """
     overlap(poly::PiecewiseLegendrePoly, f; 
@@ -97,8 +100,12 @@ Get polynomial for the `n`th derivative.
 function deriv(poly::PiecewiseLegendrePoly, ::Val{n}=Val(1)) where {n}
     ddata = legder(poly.data, n)
 
-    scale = poly.inv_xs .^ n
-    ddata .*= transpose(scale)
+    # scale = reshape(poly.inv_xs, (1, :)) .^ n
+    # ddata .*= scale
+    # @show size(ddata) size(poly.inv_xs)
+    @views @inbounds for i in axes(ddata, 2)
+        ddata[:, i] .*= poly.inv_xs[i] ^ n
+    end
     return PiecewiseLegendrePoly(ddata, poly; symm=(-1)^n * poly.symm)
 end
 
@@ -113,10 +120,11 @@ function roots(poly::PiecewiseLegendrePoly; tol=1e-10, alpha=Val(2))
     return find_all(poly, grid)
 end
 
-@inline function check_domain(poly::PiecewiseLegendrePoly, x)
-    poly.xmin ≤ x ≤ poly.xmax || throw(DomainError(x, "x is outside the domain"))
-    return true
-end
+Base.checkbounds(::Type{Bool}, poly::PiecewiseLegendrePoly, x::Real) =
+    poly.xmin ≤ x ≤ poly.xmax
+
+Base.checkbounds(poly::PiecewiseLegendrePoly, x::Real) =
+    checkbounds(Bool, poly, x) || throw(BoundsError(poly, x))
 
 """
     split(poly, x)
@@ -125,8 +133,8 @@ Split segment.
 
 Find segment of poly's domain that covers `x`.
 """
-@inline function split(poly, x::Real)
-    @boundscheck check_domain(poly, x)
+function split(poly, x::Real)
+    @boundscheck checkbounds(poly, x)
 
     i = max(searchsortedlast(poly.knots, x; lt=≤), 1)
     x̃ = x - poly.xm[i]
@@ -334,23 +342,23 @@ end
 
 Obtain extrema of Fourier-transformed polynomial.
 """
-function find_extrema(û::PiecewiseLegendreFT; part=nothing, grid=DEFAULT_GRID)
+function find_extrema(û::PiecewiseLegendreFT; part=nothing, grid=DEFAULT_GRID, positive_only=false)
     f  = func_for_part(û, part)
     x₀ = discrete_extrema(f, grid)
     x₀ .= 2x₀ .+ zeta(statistics(û))
-    x₀ = symmetrize_matsubara(x₀)
+    positive_only || symmetrize_matsubara!(x₀)
     return MatsubaraFreq.(statistics(û), x₀)
 end
 
-function sign_changes(û::PiecewiseLegendreFT; part=nothing, grid=DEFAULT_GRID)
+function sign_changes(û::PiecewiseLegendreFT; part=nothing, grid=DEFAULT_GRID, positive_only=false)
     f = func_for_part(û, part)
     x₀ = find_all(f, grid)
     x₀ .= 2x₀ .+ zeta(statistics(û))
-    x₀ = symmetrize_matsubara(x₀)
+    positive_only || symmetrize_matsubara!(x₀)
     return MatsubaraFreq.(statistics(û), x₀)
 end
 
-@inline function func_for_part(polyFT::PiecewiseLegendreFT{S}, part=nothing) where {S}
+function func_for_part(polyFT::PiecewiseLegendreFT{S}, part=nothing) where {S}
     if isnothing(part)
         parity = polyFT.poly.symm
         if parity == 1
@@ -366,15 +374,12 @@ end
     end
 end
 
-@inline function symmetrize_matsubara(x₀)
+function symmetrize_matsubara!(x₀)
     issorted(x₀) || error("set of Matsubara points not ordered")
     first(x₀) ≥ 0 || error("points must be non-negative")
-    if iszero(first(x₀))
-        x₀ = [-reverse(x₀); x₀[2:end]]
-    else
-        x₀ = [-reverse(x₀); x₀]
-    end
-    return x₀
+    revx₀ = reverse(x₀)
+    iszero(first(x₀)) && popfirst!(x₀)
+    prepend!(x₀, -revx₀)
 end
 
 function derivs(ppoly, x)
@@ -386,16 +391,17 @@ function derivs(ppoly, x)
     return res
 end
 
-function power_moments(stat, deriv_x1, l)
+function power_moments!(stat, deriv_x1, l)
     statsign = zeta(stat) == 1 ? -1 : 1
-    mmax     = length(deriv_x1)
-    coeff_lm = @. ((-1)^(1:mmax) + statsign * (-1)^l) * deriv_x1
-    return -statsign / √2 * coeff_lm
+    @inbounds for m in 1:length(deriv_x1)
+        deriv_x1[m] *= -(statsign * (-1)^m + (-1)^l) / sqrt(2)
+    end
+    deriv_x1
 end
 
 function power_model(stat, poly)
     deriv_x1 = derivs(poly, 1.0)
-    moments  = power_moments(stat, deriv_x1, poly.l)
+    moments = power_moments!(stat, deriv_x1, poly.l)
     return PowerModel(moments)
 end
 
@@ -408,20 +414,20 @@ end
 
 Compute piecewise Legendre to Matsubara transform.
 """
-@inline function compute_unl_inner(poly::PiecewiseLegendrePoly, wn)
+function compute_unl_inner(poly::PiecewiseLegendrePoly, wn)
     t_pin = pqn(poly, wn)
-    return dot(poly.data, transpose(t_pin))
+    return dot(poly.data, t_pin)
 end
-@inline function compute_unl_inner(polys::PiecewiseLegendrePolyVector, wn)
+function compute_unl_inner(polys::PiecewiseLegendrePolyVector, wn)
     t_pin = pqn(polys, wn)
-    return [dot(poly.data, transpose(t_pin)) for poly in polys]
+    return [dot(poly.data, t_pin) for poly in polys]
 end
 
-@inline function pqn(poly, wn)
-    p        = transpose(range(0; length=poly.polyorder))
-    wred     = π / 2 * wn
+function pqn(poly, wn)
+    p = reshape(range(0; length=poly.polyorder), (1, :))
+    wred = π / 2 * wn
     phase_wi = phase_stable(poly, wn)
-    return @. get_tnl(p, wred * poly.Δx / 2) * phase_wi / (√2 * poly.norm)
+    transpose(@. get_tnl(p, wred * poly.Δx / 2) * phase_wi / (sqrt(2) * poly.norm))
 end
 
 """
@@ -431,13 +437,13 @@ Fourier integral of the `l`-th Legendre polynomial::
 
     Tₗ(ω) == ∫ dx exp(iωx) Pₗ(x)
 """
-@inline function get_tnl(l, w)
+function get_tnl(l, w)
     result = 2im^l * sphericalbesselj(l, abs(w))
     return w < 0 ? conj(result) : result
 end
 
 # Works like numpy.choose
-@inline choose(a, choices) = [choices[a[i]][i] for i in eachindex(a)]
+choose(a, choices) = [choices[a[i]][i] for i in eachindex(a)]
 
 """
     shift_xmid(knots, Δx)
@@ -448,7 +454,7 @@ Return the midpoints `xmid` of the segments, as pair `(diff, shift)`,
 where shift is in `(0, 1, -1)` and `diff` is a float such that
 `xmid == shift + diff` to floating point accuracy.
 """
-@inline function shift_xmid(knots, Δx)
+function shift_xmid(knots, Δx)
     Δx_half = Δx ./ 2
     xmid_m1 = cumsum(Δx) - Δx_half
     xmid_p1 = -reverse(cumsum(reverse(Δx))) + Δx_half
@@ -468,7 +474,7 @@ Compute the following phase factor in a stable way:
 
     exp.(iπ/2 * wn * cumsum(poly.Δx))
 """
-@inline function phase_stable(poly, wn)
+function phase_stable(poly, wn)
     xmid_diff, extra_shift = shift_xmid(poly.knots, poly.Δx)
 
     if wn isa Integer

@@ -2,7 +2,7 @@ using Test
 using SparseIR
 using Random
 
-include("_conftest.jl")
+isdefined(Main, :sve_logistic) || include("_conftest.jl")
 
 @testset "dlr.jl" begin
     @testset "Compression with stat = $stat" for stat in (Fermionic(), Bosonic())
@@ -24,7 +24,7 @@ include("_conftest.jl")
 
         # Comparison on Matsubara frequencies
         smpl = MatsubaraSampling(basis)
-        smpl_for_dlr = MatsubaraSampling(dlr, SparseIR.sampling_points(smpl))
+        smpl_for_dlr = MatsubaraSampling(dlr; sampling_points=SparseIR.sampling_points(smpl))
 
         giv_ref = evaluate(smpl, Gl; dim=1)
         giv = evaluate(smpl_for_dlr, g_dlr)
@@ -61,16 +61,16 @@ include("_conftest.jl")
     end
 
     @testset "unit tests" begin
-        @testset "MatsubaraPoleBasis" begin
+        @testset "MatsubaraPoles" begin
             poles = [2.0, 3.3, 9.3]
             β = π
 
             n = rand(-12345:2:987, 100)
-            mpb = SparseIR.MatsubaraPoleBasis(Fermionic(), β, poles)
+            mpb = SparseIR.MatsubaraPoles{Fermionic}(β, poles)
             @test mpb(n) ≈ @. 1 / (im * n' - poles)
             
             n = rand(-234:2:13898, 100)
-            mbp = SparseIR.MatsubaraPoleBasis(Bosonic(), β, poles)
+            mbp = SparseIR.MatsubaraPoles{Bosonic}(β, poles)
             @test mbp(n) ≈ @. tanh(π / 2 * poles) / (im * n' - poles)
         end
 

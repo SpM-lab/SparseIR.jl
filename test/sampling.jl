@@ -3,7 +3,7 @@ using SparseIR
 using SparseIR.LinearAlgebra
 using Random
 
-include("_conftest.jl")
+isdefined(Main, :sve_logistic) || include("_conftest.jl")
 
 @testset "sampling.jl" begin
     @testset "alias" begin
@@ -92,11 +92,14 @@ include("_conftest.jl")
     end
 
     @testset "iω noise with stat = $stat, Λ = $Λ" for stat in (Bosonic(), Fermionic()),
-                                                      Λ in (10, 42)
+                                                      Λ in (10, 42),
+                                                      positive_only in (false, true)
 
         basis = FiniteTempBasis(stat, 1, Λ; sve_result=sve_logistic[Λ])
-        smpl = MatsubaraSampling(basis)
-        @test smpl isa (stat == Fermionic() ? MatsubaraSampling64F : MatsubaraSampling64B)
+        smpl = MatsubaraSampling(basis; positive_only)
+        if !positive_only
+            @test smpl isa (stat == Fermionic() ? MatsubaraSampling64F : MatsubaraSampling64B)
+        end
         @test issorted(smpl.sampling_points)
         Random.seed!(1312 + 161)
 
@@ -116,12 +119,11 @@ include("_conftest.jl")
         @inferred fit(smpl, Giwn_n)
         @inferred fit(smpl, Giwn_n, dim=1)
         Gℓ_n = fit(smpl, Giwn_n)
+        @test isapprox(Gℓ, Gℓ_n, atol=40 * sqrt(1 + positive_only) * noise * Gℓ_magn, rtol=0)
 
         Gℓ_n_inplace = similar(Gℓ_n)
         fit!(Gℓ_n_inplace, smpl, Giwn_n)
         @test Gℓ_n == Gℓ_n_inplace
-
-        @test isapprox(Gℓ, Gℓ_n, atol=40 * noise * Gℓ_magn, rtol=0)
     end
 
     @testset "conditioning" begin
@@ -129,11 +131,13 @@ include("_conftest.jl")
         @test cond(TauSampling(basis)) < 3
         @test cond(MatsubaraSampling(basis)) < 5
         @test_logs (:warn, r"Sampling matrix is poorly conditioned \(cond = \d\.\d+e\d+\)\.") TauSampling(basis, [1.0, 1.0])
-        @test_logs (:warn, r"Sampling matrix is poorly conditioned \(cond = \d\.\d+e\d+\)\.") MatsubaraSampling(basis, [FermionicFreq(1), FermionicFreq(1)])
+        @test_logs (:warn, r"Sampling matrix is poorly conditioned \(cond = \d\.\d+e\d+\)\.") MatsubaraSampling(basis, sampling_points=[FermionicFreq(1), FermionicFreq(1)])
 
         basis = FiniteTempBasis{Fermionic}(3, 3, 1e-2)
         @test cond(TauSampling(basis)) < 2
         @test cond(MatsubaraSampling(basis)) < 3
+        mat = complex(float(reduce(hcat, 1:10 for _ in 1:7)))
+        @test length(SparseIR.SplitSVD(mat).S) < 7
     end
 
     @testset "errors with stat = $stat, $sampling" for stat in (Bosonic(), Fermionic()),

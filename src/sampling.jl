@@ -24,11 +24,9 @@ function TauSampling(basis::AbstractBasis,
                      sampling_points=default_tau_sampling_points(basis))
     matrix   = eval_matrix(TauSampling, basis, sampling_points)
     sampling = TauSampling(sampling_points, matrix, svd(matrix))
-
     if iswellconditioned(basis) && cond(sampling) > 1e8
         @warn "Sampling matrix is poorly conditioned (cond = $(cond(sampling)))."
     end
-
     return sampling
 end
 
@@ -42,28 +40,43 @@ Sparse sampling in Matsubara frequencies.
 Allows the transformation between the IR basis and a set of sampling points
 in (scaled/unscaled) imaginary frequencies.
 """
-struct MatsubaraSampling{T<:MatsubaraFreq,TMAT,F<:SVD} <: AbstractSampling{T,TMAT,F}
+struct MatsubaraSampling{T<:MatsubaraFreq,TMAT,F} <: AbstractSampling{T,TMAT,F}
     sampling_points :: Vector{T}
     matrix          :: Matrix{TMAT}
     matrix_svd      :: F
+    positive_only   :: Bool
 end
 
 """
-    MatsubaraSampling(basis[, sampling_points])
+    MatsubaraSampling(basis; positive_only=false,
+                      sampling_points=default_matsubara_sampling_points(basis; positive_only))
 
 Construct a `MatsubaraSampling` object. If not given, the `sampling_points` are chosen as
 the (discrete) extrema of the highest-order basis function in Matsubara. This turns out
 to be close to optimal with respect to conditioning for this size (within a few percent).
-"""
-function MatsubaraSampling(basis::AbstractBasis,
-                           sampling_points=default_matsubara_sampling_points(basis))
-    matrix = eval_matrix(MatsubaraSampling, basis, sampling_points)
-    sampling = MatsubaraSampling(sampling_points, matrix, svd(matrix))
 
+By setting `positive_only=true`, one assumes that functions to be fitted are symmetric in
+Matsubara frequency, i.e.:
+```math
+    Ĝ(iν) = conj(Ĝ(-iν))
+```
+or equivalently, that they are purely real in imaginary time. In this case, sparse sampling
+is performed over non-negative frequencies only, cutting away half of the necessary sampling
+space.
+"""
+function MatsubaraSampling(basis::AbstractBasis; positive_only=false,
+                           sampling_points=default_matsubara_sampling_points(basis; positive_only))
+    issorted(sampling_points) || sort!(sampling_points)
+    if positive_only
+        Int(first(sampling_points)) ≥ 0 || error("invalid negative sampling frequencies")
+    end
+    matrix = eval_matrix(MatsubaraSampling, basis, sampling_points)
+    has_zero = iszero(first(sampling_points))
+    svd_matrix = positive_only ? SplitSVD(matrix; has_zero) : svd(matrix)
+    sampling = MatsubaraSampling(sampling_points, matrix, svd_matrix, positive_only)
     if iswellconditioned(basis) && cond(sampling) > 1e8
         @warn "Sampling matrix is poorly conditioned (cond = $(cond(sampling)))."
     end
-
     return sampling
 end
 
@@ -91,7 +104,7 @@ function evaluate(smpl::AbstractSampling{S,Tmat}, al::AbstractArray{T,N};
         throw(DimensionMismatch(msg))
     end
     bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 1), size(al)[(dim + 1):end]...)
-    buffer  = Array{promote_type(Tmat, T),N}(undef, bufsize)
+    buffer = Array{promote_type(Tmat, T),N}(undef, bufsize)
     return evaluate!(buffer, smpl, al; dim)
 end
 
@@ -134,9 +147,8 @@ end
 
 Return length of workarr for `fit!`.
 """
-function workarrlength(smpl::AbstractSampling, al::AbstractArray; dim=1)
-    return length(smpl.matrix_svd.S) * (length(al) ÷ size(al, dim))
-end
+workarrlength(smpl::AbstractSampling, al::AbstractArray; dim=1) =
+    length(smpl.matrix_svd.S) * (length(al) ÷ size(al, dim))
 
 """
     fit!(buffer::Array{S,N}, smpl::AbstractSampling, al::Array{T,N}; 
@@ -225,7 +237,7 @@ function matop!(buffer::AbstractArray{S,N}, mat, arr::AbstractArray{T,N}, op,
     return buffer
 end
 
-function div_noalloc!(buffer::AbstractArray{S,N}, mat::SVD, arr::AbstractArray{T,N},
+function div_noalloc!(buffer::AbstractArray{S,N}, mat, arr::AbstractArray{T,N},
                       workarr, dim) where {S,T,N}
     1 ≤ dim ≤ N || throw(DomainError(dim, "Dimension must be in [1, $N]"))
 
@@ -251,7 +263,7 @@ end
 
 function ldiv_noalloc!(Y::AbstractMatrix, A::SVD, B::AbstractMatrix, workarr)
     # Setup work space
-    worksize   = (size(A.U, 2), size(B, 2))
+    worksize = (size(A.U, 2), size(B, 2))
     worklength = prod(worksize)
     length(workarr) ≥ worklength ||
         throw(DimensionMismatch("size(workarr)=$(size(workarr)), min worksize=$worklength"))
@@ -264,7 +276,7 @@ end
 
 function rdiv_noalloc!(Y::AbstractMatrix, A::AbstractMatrix, B::SVD, workarr)
     # Setup work space
-    worksize   = (size(A, 1), size(B.U, 2))
+    worksize = (size(A, 1), size(B.U, 2))
     worklength = prod(worksize)
     length(workarr) ≥ worklength ||
         throw(DimensionMismatch("size(workarr)=$(size(workarr)), min worksize=$worklength"))
@@ -276,16 +288,66 @@ function rdiv_noalloc!(Y::AbstractMatrix, A::AbstractMatrix, B::SVD, workarr)
     return mul!(Y, workarr_view, conj(B.Vt))
 end
 
+struct SplitSVD{T}
+    A :: Matrix{Complex{T}}
+    UrealT :: Matrix{T}
+    UimagT :: Matrix{T}
+    S :: Vector{T}
+    V :: Matrix{T}
+end
+
+function SplitSVD(a::Matrix{<:Complex}, (u, s, v)::Tuple{AbstractMatrix{<:Complex}, AbstractVector{<:Real}, AbstractMatrix{<:Real}})
+    if any(iszero, s)
+        nonzero = findall(!iszero, s)
+        u, s, v = u[:, nonzero], s[nonzero], v[nonzero, :]
+    end
+    uT = transpose(u)
+    SplitSVD(a, real(uT), imag(uT), s, copy(v))
+end
+
+function SplitSVD(a::Matrix{<:Complex}; has_zero=false)
+    ssvd_result = split_complex(a; has_zero)
+    SplitSVD(a, ssvd_result)
+end
+
+function ldiv_noalloc!(Y::AbstractMatrix, A::SplitSVD, B::AbstractMatrix, workarr)
+    # Setup work space
+    worksize = (size(A.UrealT, 1), size(B, 2))
+    worklength = prod(worksize)
+    length(workarr) ≥ worklength ||
+        throw(DimensionMismatch("size(workarr)=$(size(workarr)), min worksize=$worklength"))
+    workarr_view = reshape(view(workarr, 1:worklength), worksize)
+
+    mul!(workarr_view, A.UrealT, real(B))
+    mul!(workarr_view, A.UimagT, imag(B), true, true)
+    workarr_view ./= A.S
+    return mul!(Y, A.V, workarr_view)
+end
+
+function split_complex(mat::Matrix{<:Complex}; has_zero=false, svd_algo=svd)
+    # split real and imaginary part into separate matrices
+	offset_imag = has_zero ? 2 : 1
+	rmat = [real(mat)
+            imag(mat)[offset_imag:end, :]]
+    
+    # perform real-valued SVD
+    ur, s, v = svd_algo(rmat)
+    
+	# undo the split of the resulting ur matrix
+	n = size(mat, 1)
+	u = complex(ur[1:n, :])
+    u[offset_imag:end, :] .+= im .* ur[n+1:end, :]
+    return u, s, v
+end
+
 const MatsubaraSampling64F = @static if VERSION ≥ v"1.8-"
-    MatsubaraSampling{FermionicFreq,ComplexF64,
-                      SVD{ComplexF64,Float64,Matrix{ComplexF64},Vector{Float64}}}
+    MatsubaraSampling{FermionicFreq,ComplexF64,SVD{ComplexF64,Float64,Matrix{ComplexF64},Vector{Float64}}}
 else
     MatsubaraSampling{FermionicFreq,ComplexF64,SVD{ComplexF64,Float64,Matrix{ComplexF64}}}
 end
 
 const MatsubaraSampling64B = @static if VERSION ≥ v"1.8-"
-    MatsubaraSampling{BosonicFreq,ComplexF64,
-                      SVD{ComplexF64,Float64,Matrix{ComplexF64},Vector{Float64}}}
+    MatsubaraSampling{BosonicFreq,ComplexF64,SVD{ComplexF64,Float64,Matrix{ComplexF64},Vector{Float64}}}
 else
     MatsubaraSampling{BosonicFreq,ComplexF64,SVD{ComplexF64,Float64,Matrix{ComplexF64}}}
 end

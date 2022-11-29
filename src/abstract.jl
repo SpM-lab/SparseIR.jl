@@ -32,13 +32,13 @@ Accuracy of the basis.
 Upper bound to the relative error of reprensenting a propagator with
 the given number of basis functions (number between 0 and 1).
 """
-accuracy(basis::AbstractBasis) = last(significance(basis))
+function accuracy end
 
 """
     significance(basis::AbstractBasis)
 
 Return vector `σ`, where `0 ≤ σ[i] ≤ 1` is the significance level of the `i`-th
-basis function.  If `ϵ` is the desired accuracy to which to represent a
+basis function. If `ϵ` is the desired accuracy to which to represent a
 propagator, then any basis function where `σ[i] < ϵ` can be neglected.
 
 For the IR basis, we simply have that `σ[i] = s[i] / first(s)`.
@@ -53,9 +53,14 @@ Default sampling points on the imaginary time/x axis.
 function default_tau_sampling_points end
 
 """
-    default_matsubara_sampling_points(basis::AbstractBasis)
+    default_matsubara_sampling_points(basis::AbstractBasis; positive_only=false)
 
 Default sampling points on the imaginary frequency axis.
+
+# Arguments
+- `positive_only::Bool`: Only return non-negative frequencies. This is useful if the
+    object to be fitted is symmetric in Matsubura frequency, `ĝ(ω) == conj(ĝ(-ω))`,
+    or, equivalently, real in imaginary time.
 """
 function default_matsubara_sampling_points end
 
@@ -113,7 +118,7 @@ Abstract base type for an integral kernel, i.e. a AbstractFloat binary function
     u(x) = ∫ K(x, y) v(y) dy
 ```
 where ``x ∈ [x_\mathrm{min}, x_\mathrm{max}]`` and
-``y ∈ [y_\mathrm{min}, y_\mathrm{max}]``.  For its SVE to exist,
+``y ∈ [y_\mathrm{min}, y_\mathrm{max}]``. For its SVE to exist,
 the kernel must be square-integrable, for its singular values to decay
 exponentially, it must be smooth.
 
@@ -155,13 +160,12 @@ basis coefficients `G_ir[l]` to time/frequency sampled on sparse points
         |  coefficients  |<----------------|  sampling points  |
         |________________|      fit        |___________________|
 """
-abstract type AbstractSampling{T,Tmat,F<:SVD} end
+abstract type AbstractSampling{T,Tmat,F} end
 
 Base.broadcastable(sampling::AbstractSampling) = Ref(sampling)
 
-function LinearAlgebra.cond(sampling::AbstractSampling)
+LinearAlgebra.cond(sampling::AbstractSampling) =
     first(sampling.matrix_svd.S) / last(sampling.matrix_svd.S)
-end
 
 sampling_points(sampling::AbstractSampling) = sampling.sampling_points
 

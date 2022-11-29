@@ -67,6 +67,8 @@ using SparseIR
         @test sign(BosonicFreq(24)) == 1
         @test sign(BosonicFreq(0)) == 0
         @test sign(BosonicFreq(-94)) == -1
+        @test BosonicFreq(24) % FermionicFreq(-7) == FermionicFreq(3)
+        @test FermionicFreq(123) % FermionicFreq(9) == BosonicFreq(6)
         @test promote_type(BosonicFreq, FermionicFreq) == MatsubaraFreq
 
         io = IOBuffer()

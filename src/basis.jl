@@ -19,7 +19,7 @@ the variables.
     These functions are stored as piecewise Legendre polynomials.
     
     To obtain the value of all basis functions at a point or a array of
-    points `x`, you can call the function `u(x)`.  To obtain a single
+    points `x`, you can call the function `u(x)`. To obtain a single
     basis function, a slice or a subset `l`, you can use `u[l]`.
 
   - `uhat::PiecewiseLegendreFT`:
@@ -37,7 +37,7 @@ the variables.
     These functions are stored as piecewise Legendre polynomials.
     
     To obtain the value of all basis functions at a point or a array of
-    points `w`, you can call the function `v(w)`.  To obtain a single
+    points `w`, you can call the function `v(w)`. To obtain a single
     basis function, a slice or a subset `l`, you can use `v[l]`.
 """
 struct FiniteTempBasis{S,K} <: AbstractBasis{S}
@@ -81,7 +81,7 @@ function FiniteTempBasis(statistics::Statistics, β::Real, ωmax::Real, ε=nothi
     end
 
     # The polynomials are scaled to the new variables by transforming the
-    # knots according to: tau = β/2 * (x + 1), w = ωmax * y.  Scaling
+    # knots according to: tau = β/2 * (x + 1), w = ωmax * y. Scaling
     # the data is not necessary as the normalization is inferred.
     ωmax = Λ(kernel) / β
     u_knots = β / 2 * (u_.knots .+ 1)
@@ -92,11 +92,11 @@ function FiniteTempBasis(statistics::Statistics, β::Real, ωmax::Real, ε=nothi
     # The singular values are scaled to match the change of variables, with
     # the additional complexity that the kernel may have an additional
     # power of w.
-    s = √(β / 2 * ωmax) * ωmax^(-ypower(kernel)) * s_
+    s = sqrt(β / 2 * ωmax) * ωmax^(-ypower(kernel)) * s_
 
     # HACK: as we don't yet support Fourier transforms on anything but the
     # unit interval, we need to scale the underlying data.
-    û_base_full = PiecewiseLegendrePolyVector(√β * sve_result.u.data, sve_result.u)
+    û_base_full = PiecewiseLegendrePolyVector(sqrt(β) * sve_result.u.data, sve_result.u)
     û_full = PiecewiseLegendreFTVector(û_base_full, statistics; n_asymp=conv_radius(kernel))
     û = û_full[1:length(s)]
 
@@ -127,14 +127,14 @@ kernel(basis::FiniteTempBasis) = basis.kernel
 
 function default_tau_sampling_points(basis::FiniteTempBasis)
     x = default_sampling_points(basis.sve_result.u, length(basis))
-    return β(basis) / 2 * (x .+ 1)
+    β(basis) / 2 * (x .+ 1)
 end
-function default_matsubara_sampling_points(basis::FiniteTempBasis)
-    return default_matsubara_sampling_points(basis.uhat_full, length(basis))
+function default_matsubara_sampling_points(basis::FiniteTempBasis; positive_only=false)
+    default_matsubara_sampling_points(basis.uhat_full, length(basis); positive_only)
 end
 function default_omega_sampling_points(basis::FiniteTempBasis)
     y = default_sampling_points(basis.sve_result.v, length(basis))
-    return ωmax(basis) * y
+    ωmax(basis) * y
 end
 
 """
@@ -143,7 +143,7 @@ end
 Return a basis for different temperature.
 
 Uses the same kernel with the same ``ε``, but a different
-temperature.  Note that this implies a different UV cutoff ``ωmax``,
+temperature. Note that this implies a different UV cutoff ``ωmax``,
 since ``Λ == β * ωmax`` stays constant.
 """
 function rescale(basis::FiniteTempBasis, new_β)
@@ -201,7 +201,7 @@ function default_sampling_points(u::PiecewiseLegendrePolyVector, L::Integer)
 end
 
 function default_matsubara_sampling_points(û::PiecewiseLegendreFTVector, L::Integer;
-                                           fence=false)
+                                           fence=false, positive_only=false)
     l_requested = L
 
     # The number of sign changes is always odd for bosonic basis and even for fermionic 
@@ -211,11 +211,11 @@ function default_matsubara_sampling_points(û::PiecewiseLegendreFTVector, L::In
 
     # As with the zeros, the sign changes provide excellent sampling points
     if l_requested < length(û)
-        ωn = sign_changes(û[l_requested + 1])
+        ωn = sign_changes(û[l_requested + 1]; positive_only)
     else
         # As a fallback, use the (discrete) extrema of the corresponding
         # highest-order basis function in Matsubara. This turns out to be okay.
-        ωn = find_extrema(last(û))
+        ωn = find_extrema(last(û); positive_only)
 
         # For bosonic bases, we must explicitly include the zero frequency,
         # otherwise the condition number blows up.
@@ -226,16 +226,19 @@ function default_matsubara_sampling_points(û::PiecewiseLegendreFTVector, L::In
         end
     end
 
-    length(ωn) == l_requested || @warn """
-        Requesting $l_requested $(statistics(û)) sampling frequencies for basis size
+    expected_size = l_requested
+    positive_only && (expected_size = div(expected_size + 1, 2))
+
+    length(ωn) == expected_size || @warn """
+        Requesting $expected_size $(statistics(û)) sampling frequencies for basis size
         L = $L, but $(length(ωn)) were returned. This may indicate a problem with precision.
         """
 
-    fence && fence_matsubara_sampling!(ωn)
+    fence && fence_matsubara_sampling!(ωn; positive_only)
     return ωn
 end
 
-function fence_matsubara_sampling!(ωn::Vector{<:MatsubaraFreq})
+function fence_matsubara_sampling!(ωn::Vector{<:MatsubaraFreq}; positive_only)
     # While the condition number for sparse sampling in tau saturates at a
     # modest level, the conditioning in Matsubara steadily deteriorates due
     # to the fact that we are not free to set sampling points continuously.
@@ -243,7 +246,8 @@ function fence_matsubara_sampling!(ωn::Vector{<:MatsubaraFreq})
     # by a factor of ~4 (still OK). To battle this, we fence the largest
     # frequency with two carefully chosen oversampling points, which brings
     # the two sampling problems within a factor of 2.
-    for ωn_outer in (first(ωn), last(ωn))
+    outer_frequencies = positive_only ? (last(ωn),) : (first(ωn), last(ωn))
+    for ωn_outer in outer_frequencies
         ωn_diff = BosonicFreq(2 * round(Int, 0.025 * Int(ωn_outer)))
         length(ωn) ≥ 20 && push!(ωn, ωn_outer - sign(ωn_outer) * ωn_diff)
         length(ωn) ≥ 42 && push!(ωn, ωn_outer + sign(ωn_outer) * ωn_diff)

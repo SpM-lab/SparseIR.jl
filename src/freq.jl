@@ -135,7 +135,7 @@ function Base.promote_rule(::Type{T1}, ::Type{T2}) where {T1<:MatsubaraFreq,T2<:
 
         You were probably mixing a number ($T2) and a Matsubara frequency ($T1)
         in an additive or comparative expression, e.g., `MatsubaraFreq(0) + 1`.
-        We disallow this.  Please use `$T1(x)` explicitly."""))
+        We disallow this. Please use `$T1(x)` explicitly."""))
 end
 
 function Base.show(io::IO, a::MatsubaraFreq)
@@ -143,6 +143,8 @@ function Base.show(io::IO, a::MatsubaraFreq)
         print(io, "0")
     elseif a.n == 1
         print(io, "π/β")
+    elseif a.n == -1
+        print(io, "-π/β")
     else
         print(io, a.n, "π/β")
     end

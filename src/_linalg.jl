@@ -100,7 +100,7 @@ Decomposes an `(m, n)` matrix `A` into the product:
 
 where `U` is a `(m, k)` matrix with orthogonal columns, `VT` is a `(k, n)`
 matrix with orthogonal rows and `s` are the singular values, a set of `k`
-nonnegative numbers in non-ascending order.  The SVD is truncated in the
+nonnegative numbers in non-ascending order. The SVD is truncated in the
 sense that singular values below `tol` are discarded.
 """
 function tsvd!(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat}
@@ -297,7 +297,7 @@ function svd_jacobi!(U::AbstractMatrix{T}; rtol=eps(T), maxiter=20) where {T}
     end
 
     s = norm.(eachcol(U))
-    U ./= transpose(s)
+    U ./= reshape(s, (1, :))
     return SVD(U, s, VT)
 end
 
