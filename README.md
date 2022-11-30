@@ -1,4 +1,4 @@
-SparseIR - intermediate representation of propagators in Julia
+SparseIR.jl - intermediate representation of propagators
 ==============================================================
 [![][docs-stable-img]][docs-stable-url]
 [![][docs-dev-img]][docs-dev-url] 
