@@ -136,8 +136,7 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         basis = FiniteTempBasis{Fermionic}(3, 3, 1e-2)
         @test cond(TauSampling(basis)) < 2
         @test cond(MatsubaraSampling(basis)) < 3
-        mat = complex(float(reduce(hcat, 1:10 for _ in 1:7)))
-        @test length(SparseIR.SplitSVD(mat).S) < 7
+        @test length(SparseIR.SplitSVD(ones(ComplexF64, (6, 8))).S) < 7
     end
 
     @testset "errors with stat = $stat, $sampling" for stat in (Bosonic(), Fermionic()),
