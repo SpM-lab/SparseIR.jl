@@ -83,11 +83,13 @@ function main(β = 10, ωmax = 8, ε = 1e-6)
         Στ = @. U^2 * Gτ^3
         Σl = fit(sτ, Στ)
         Σiω = evaluate(siω, Σl)
-        Giω = @. 1/(1/G₀iω - Σiω)
+        Giω = @. (G₀iω^-1 - Σiω)^-1
         Gl = fit(siω, Giω)
     end
 end
 ```
+
+![Plot of the so-computed self-energy](/assets/readme_plot.png)
 
 You may want to start with reading up on the [intermediate representation].
 It is tied to the analytic continuation of bosonic/fermionic spectral
