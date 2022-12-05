@@ -25,22 +25,19 @@ function rrqr!(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat}
 
     jpvt = collect(1:n)
     taus = Vector{T}(undef, k)
-    swapcol = Vector{T}(undef, m)
 
     xnorms = sqrt.(dropdims(sum(abs2, A; dims=1); dims=1))
     pnorms = copy(xnorms)
     sqrteps = sqrt(eps(T))
 
     @inbounds for i in 1:k
-        pvt = argmax(ii -> pnorms[ii], i:n)
+        pvt = argmax(@view pnorms[i:end]) + i - 1
         if i ≠ pvt
             jpvt[i], jpvt[pvt] = jpvt[pvt], jpvt[i]
             xnorms[pvt] = xnorms[i]
             pnorms[pvt] = pnorms[i]
 
-            swapcol .= @view A[:, i]
-            A[:, i] .= @view A[:, pvt]
-            A[:, pvt] .= swapcol
+            swapcols!(A, i, pvt)
         end
 
         tau_i = reflector!(@view A[i:end, i])
@@ -78,6 +75,14 @@ Truncated rank-revealing QR decomposition with full column pivoting.
 """
 rrqr(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat} = rrqr!(copy(A); rtol)
 
+function swapcols!(A::Matrix, i::Integer, j::Integer)
+    i == j && return A
+	@inbounds @simd ivdep for k in axes(A, 1)
+		A[k, i], A[k, j] = A[k, j], A[k, i]
+	end
+    return A
+end
+
 """
 Truncate RRQR result low-rank
 """
@@ -111,7 +116,7 @@ function tsvd!(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat}
 
     # RRQR is an excellent preconditioner for Jacobi. One should then perform
     # Jacobi on RT
-    RT_svd = svd!(Matrix(R'))
+    RT_svd = svd!(copy(R'))
 
     # Reconstruct A from QR
     U = Q * RT_svd.V
