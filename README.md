@@ -113,7 +113,7 @@ useful in your research, please consider citing the following papers:
 
  - Hiroshi Shinaoka et al., [Phys. Rev. B 96, 035147]  (2017)
  - Jia Li et al., [Phys. Rev. B 101, 035144] (2020)
- - Markus Wallerberger et al., [arXiv 2206.11762] (2022)
+ - Markus Wallerberger et al., [SoftwareX 21, 101266] (2022)
 
 If you are discussing sparse sampling in your research specifically, please
 also consider citing an independently discovered, closely related approach, the
@@ -122,7 +122,7 @@ MINIMAX isometry method (Merzuk Kaltak and Georg Kresse,
 
 [Phys. Rev. B 96, 035147]: https://doi.org/10.1103/PhysRevB.96.035147
 [Phys. Rev. B 101, 035144]: https://doi.org/10.1103/PhysRevB.101.035144
-[arXiv 2206.11762]: https://doi.org/10.48550/arXiv.2206.11762
+[SoftwareX 21, 101266]: https://doi.org/10.1016/j.softx.2022.101266
 [Phys. Rev. B 101, 205145]: https://doi.org/10.1103/PhysRevB.101.205145
 
 
