@@ -88,8 +88,10 @@ function main(β = 10, ωmax = 8, ε = 1e-6)
     end
 end
 ```
-
-![Plot of the so-computed self-energy](/assets/readme_plot.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/SpM-lab/SparseIR.jl/main/assets/dark.png">
+  <img alt="Plot of the so-computed self-energy" src="https://raw.githubusercontent.com/SpM-lab/SparseIR.jl/main/assets/light.png">
+</picture>
 
 You may want to start with reading up on the [intermediate representation].
 It is tied to the analytic continuation of bosonic/fermionic spectral
