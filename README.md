@@ -54,6 +54,14 @@ There is also a [Python library] and (currently somewhat restricted)
 
 Example usage
 -------------
+As a simple example, let us perform self-consistent second-order perturbation theory
+for the single impurity Anderson model at finite temperature.
+Its Hamiltonian is given by
+$$H = -\mu(c^\dagger_\uparrow c_\uparrow + c^\dagger_\downarrow c_\downarrow) + U c^\dagger_\uparrow c^\dagger_\downarrow c_\downarrow c_\uparrow + \sum_{p\sigma} \big(V_{p\sigma} f^\dagger_{p\sigma} c_\sigma + V^\star_{p\sigma} c^\dagger_\sigma f_{p\sigma}\big) + \sum_{p\sigma} \epsilon_p f^\dagger_{p\sigma} f_{p\sigma},$$
+where $U$ is the electron interaction strength, $\mu$ is the chemical potential, $c_\sigma$ annihilates an electron on the impurity,
+$f_{p\sigma}$ annihilates an electron in the bath, $\dagger$ denotes the Hermitian conjugate, $p\in\mathbb R$ is bath momentum, and $\sigma\in\{\uparrow, \downarrow\}$ is spin. The hybridization strength $V_{p\sigma}$ and
+bath energies $\epsilon_p$ are chosen such that the non-interacting density of states is semi-elliptic
+with a half-bandwidth of one, $\rho_0(\omega) = \frac2\pi\sqrt{1-\omega^2}$, $U=1.2$, $\beta=10$, and the system is half-filled, $\mu = U/2$.
 ```julia
 using SparseIR
 
