@@ -200,8 +200,9 @@ function postprocess(sve::SamplingSVE, u, s, v)
     v_y = reshape(v_y, (sve.n_gauss, length(sve.segs_y) - 1, length(s)))
 
     cmat = legendre_collocation(sve.rule)
-    u_data = reshape(cmat * reshape(u_x, (size(u_x, 1), :)), (:, size(u_x)[2:3]...))
-    v_data = reshape(cmat * reshape(v_y, (size(v_y, 1), :)), (:, size(v_y)[2:3]...))
+    u_data = reshape(cmat * reshape(u_x, (size(u_x, 1), :)), (:, size(u_x, 2), size(u_x, 3)))
+    v_data = reshape(cmat * reshape(v_y, (size(v_y, 1), :)), (:, size(v_y, 2), size(v_y, 3)))
+
 
     dsegs_x = diff(sve.segs_x)
     dsegs_y = diff(sve.segs_y)

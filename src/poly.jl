@@ -45,19 +45,18 @@ end
 function PiecewiseLegendrePoly(data::Matrix, knots::Vector, l::Integer;
                                Δx=diff(knots), symm=0)
     polyorder, nsegments = size(data)
-    size(knots) == (nsegments + 1,) || error("Invalid knots array")
-    xm     = @views @. (knots[begin:(end - 1)] + knots[(begin + 1):end]) / 2
+    length(knots) == nsegments + 1 || error("Invalid knots array")
+    xm = @views @. (knots[begin:(end - 1)] + knots[(begin + 1):end]) / 2
     inv_xs = 2 ./ Δx
-    norm   = sqrt.(inv_xs)
+    norm = sqrt.(inv_xs)
     return PiecewiseLegendrePoly(polyorder, first(knots), last(knots), knots,
                                  Δx, data, symm, l, xm, inv_xs, norm)
 end
 
 Base.size(::PiecewiseLegendrePoly) = ()
 
-function Base.show(io::IO, p::PiecewiseLegendrePoly)
+Base.show(io::IO, p::PiecewiseLegendrePoly) =
     print(io, "PiecewiseLegendrePoly on [$(p.xmin), $(p.xmax)], order=$(p.polyorder)")
-end
 
 function (poly::PiecewiseLegendrePoly)(x::Real)
     i, x̃ = split(poly, x)
@@ -100,9 +99,6 @@ Get polynomial for the `n`th derivative.
 function deriv(poly::PiecewiseLegendrePoly, ::Val{n}=Val(1)) where {n}
     ddata = legder(poly.data, n)
 
-    # scale = reshape(poly.inv_xs, (1, :)) .^ n
-    # ddata .*= scale
-    # @show size(ddata) size(poly.inv_xs)
     @views @inbounds for i in axes(ddata, 2)
         ddata[:, i] .*= poly.inv_xs[i] ^ n
     end
@@ -203,9 +199,8 @@ function Vector{PiecewiseLegendrePoly}(data::AbstractArray{T,3},
 end
 
 (polys::PiecewiseLegendrePolyVector)(x) = [poly(x) for poly in polys]
-function (polys::PiecewiseLegendrePolyVector)(x::AbstractArray)
-    return reshape(mapreduce(polys, vcat, x), (size(polys)..., size(x)...))
-end
+(polys::PiecewiseLegendrePolyVector)(x::AbstractArray) =
+    reshape(mapreduce(polys, vcat, x), (length(polys), size(x)...))
 
 function Base.getproperty(polys::PiecewiseLegendrePolyVector, sym::Symbol)
     if sym ∈ (:xmin, :xmax, :knots, :Δx, :polyorder, :xm, :inv_xs, :norm)
@@ -317,7 +312,7 @@ end
 (polyFT::PiecewiseLegendreFTVector)(n::Integer) = polyFT(MatsubaraFreq(n))
 (polyFT::PiecewiseLegendreFT)(n::AbstractArray) = polyFT.(n)
 (polyFTs::PiecewiseLegendreFTVector)(n::AbstractArray) =
-    reshape(mapreduce(polyFTs, vcat, n), (size(polyFTs)..., size(n)...))
+    reshape(mapreduce(polyFTs, vcat, n), (length(polyFTs), size(n)...))
 
 """
     giw(polyFT, wn)

@@ -20,8 +20,7 @@ Pseudo-Vandermonde matrix of degree `deg`.
 function legvander(x::AbstractVector{T}, deg::Integer) where {T}
     deg ≥ 0 || throw(DomainError(deg, "degree needs to be non-negative"))
 
-    vsize = (length(x), deg + 1)
-    v = Matrix{T}(undef, vsize...)
+    v = Matrix{T}(undef, length(x), deg + 1)
 
     # Use forward recursion to generate the entries. This is not as accurate
     # as reverse recursion in this application but it is more efficient.
