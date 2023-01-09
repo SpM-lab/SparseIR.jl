@@ -74,29 +74,30 @@ function FiniteTempBasis(statistics::Statistics, β::Real, ωmax::Real, ε=nothi
 
     u_, s_, v_ = part(sve_result; ε, max_size)
 
-    if length(sve_result.s) > length(s_)
-        accuracy = sve_result.s[length(s_) + 1] / first(sve_result.s)
+    accuracy = if length(sve_result.s) > length(s_)
+        sve_result.s[length(s_) + 1] / first(sve_result.s)
     else
-        accuracy = last(sve_result.s) / first(sve_result.s)
+        last(sve_result.s) / first(sve_result.s)
     end
 
     # The polynomials are scaled to the new variables by transforming the
     # knots according to: tau = β/2 * (x + 1), w = ωmax * y. Scaling
     # the data is not necessary as the normalization is inferred.
     ωmax = Λ(kernel) / β
-    u_knots = β / 2 * (u_.knots .+ 1)
-    v_knots = ωmax * v_.knots
-    u = PiecewiseLegendrePolyVector(u_, u_knots; Δx=β / 2 * u_.Δx, symm=u_.symm)
-    v = PiecewiseLegendrePolyVector(v_, v_knots; Δx=ωmax * v_.Δx, symm=v_.symm)
+    u_knots = (β / 2) .* (u_.knots .+ 1)
+    v_knots = ωmax .* v_.knots
+    u = PiecewiseLegendrePolyVector(u_, u_knots; Δx=(β / 2) .* u_.Δx, symm=u_.symm)
+    v = PiecewiseLegendrePolyVector(v_, v_knots; Δx=ωmax .* v_.Δx, symm=v_.symm)
 
     # The singular values are scaled to match the change of variables, with
     # the additional complexity that the kernel may have an additional
     # power of w.
-    s = sqrt(β / 2 * ωmax) * ωmax^(-ypower(kernel)) * s_
+    s = (sqrt(β / 2 * ωmax) * ωmax^(-ypower(kernel))) .* s_
 
     # HACK: as we don't yet support Fourier transforms on anything but the
     # unit interval, we need to scale the underlying data.
-    û_base_full = PiecewiseLegendrePolyVector(sqrt(β) * sve_result.u.data, sve_result.u)
+    test = sve_result.u.data
+    û_base_full = PiecewiseLegendrePolyVector(sqrt(β) .* sve_result.u.data, sve_result.u)
     û_full = PiecewiseLegendreFTVector(û_base_full, statistics; n_asymp=conv_radius(kernel))
     û = û_full[1:length(s)]
 

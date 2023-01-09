@@ -30,8 +30,8 @@ struct Bosonic <: Statistics end
 zeta(::Fermionic) = 1
 zeta(::Bosonic)   = 0
 
-allowed(::Fermionic, a::Integer) = isodd(a)
-allowed(::Bosonic, a::Integer)   = iseven(a)
+allowed(::Type{Fermionic}, a::Integer) = isodd(a)
+allowed(::Type{Bosonic}, a::Integer)   = iseven(a)
 
 Base.:+(::Fermionic, ::Bosonic)   = Fermionic()
 Base.:+(::Bosonic, ::Fermionic)   = Fermionic()
@@ -69,10 +69,7 @@ struct MatsubaraFreq{S<:Statistics} <: Number
     MatsubaraFreq(stat::Statistics, n::Integer) = new{typeof(stat)}(n)
 
     function MatsubaraFreq{S}(n::Integer) where {S<:Statistics}
-        stat = S()
-        if !allowed(stat, n)
-            throw(ArgumentError("Frequency $(n)π/β is not $stat"))
-        end
+        allowed(S, n) || error("Frequency $(n)π/β is not $stat")
         return new{S}(n)
     end
 end
@@ -134,8 +131,8 @@ function Base.promote_rule(::Type{T1}, ::Type{T2}) where {T1<:MatsubaraFreq,T2<:
         Will not promote (automatically convert) $T2 and $T1.
 
         You were probably mixing a number ($T2) and a Matsubara frequency ($T1)
-        in an additive or comparative expression, e.g., `MatsubaraFreq(0) + 1`.
-        We disallow this. Please use `$T1(x)` explicitly."""))
+        in an additive or comparative expression, e.g. `MatsubaraFreq(0) + 1`.
+        We disallow this. Please use `MatsubaraFreq(x)` explicitly."""))
 end
 
 function Base.show(io::IO, a::MatsubaraFreq)
@@ -157,5 +154,4 @@ Base.rem(a::MatsubaraFreq, b::FermionicFreq) = MatsubaraFreq(rem(a.n, b.n))
 Base.rem(a::MatsubaraFreq{S}, b::BosonicFreq) where {S} = MatsubaraFreq{S}(rem(a.n, b.n))
 Base.div(a::MatsubaraFreq, b::MatsubaraFreq) = MatsubaraFreq(div(a.n, b.n))
 
-Base.:(:)(start::MatsubaraFreq{S}, stop::MatsubaraFreq{S}) where {S} =
-    start:BosonicFreq(2):stop
+Base.:(:)(start::MatsubaraFreq{S}, stop::MatsubaraFreq{S}) where {S} = start:BosonicFreq(2):stop

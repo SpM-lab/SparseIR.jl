@@ -90,7 +90,7 @@ end
 
 Gauss-Legendre quadrature with `n` points on [-1, 1].
 """
-legendre(n, T=Float64) = Rule(gauss(T, n)...)
+legendre(n, ::Type{T}=Float64) where {T} = Rule(gauss(T, n)...)
 
 """
     legendre_collocation(rule, n=length(rule.x))

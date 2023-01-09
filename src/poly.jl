@@ -203,16 +203,16 @@ end
     reshape(mapreduce(polys, vcat, x), (length(polys), size(x)...))
 
 function Base.getproperty(polys::PiecewiseLegendrePolyVector, sym::Symbol)
-    if sym ∈ (:xmin, :xmax, :knots, :Δx, :polyorder, :xm, :inv_xs, :norm)
-        return getproperty(first(polys), sym)
-    elseif sym === :symm
+    if sym === :symm
         return map(poly -> poly.symm, polys)
     elseif sym === :data
         data = Array{Float64, 3}(undef, size(first(polys).data)..., length(polys))
-        for i in eachindex(polys)
+        @inbounds for i in eachindex(polys)
             data[:, :, i] .= polys[i].data
         end
         return data
+    elseif sym ∈ (:xmin, :xmax, :knots, :Δx, :polyorder, :xm, :inv_xs, :norm)
+        return getproperty(first(polys), sym)
     else
         return getfield(polys, sym)
     end

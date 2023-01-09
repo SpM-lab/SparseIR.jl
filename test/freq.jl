@@ -11,8 +11,8 @@ using SparseIR
 
         @test Int(MatsubaraFreq(Int32(4))) == 4
 
-        @test_throws ArgumentError FermionicFreq(4)
-        @test_throws ArgumentError BosonicFreq(-7)
+        @test_throws ErrorException FermionicFreq(4)
+        @test_throws ErrorException BosonicFreq(-7)
 
         @test FermionicFreq(5) < BosonicFreq(6)
         @test BosonicFreq(6) >= BosonicFreq(6)

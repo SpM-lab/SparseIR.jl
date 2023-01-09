@@ -138,7 +138,7 @@ function fit(smpl::AbstractSampling{S,Tmat}, al::AbstractArray{T,N};
         throw(DimensionMismatch(msg))
     end
     bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 2), size(al)[(dim + 1):N]...)
-    buffer  = Array{promote_type(Tmat, T),N}(undef, bufsize)
+    buffer = Array{promote_type(Tmat, T),N}(undef, bufsize)
     return fit!(buffer, smpl, al; dim)
 end
 
@@ -301,14 +301,11 @@ function SplitSVD(a::Matrix{<:Complex}, (u, s, v)::Tuple{AbstractMatrix{<:Comple
         nonzero = findall(!iszero, s)
         u, s, v = u[:, nonzero], s[nonzero], v[nonzero, :]
     end
-    uT = transpose(u)
-    SplitSVD(a, real(uT), imag(uT), s, copy(v))
+    ut = transpose(u)
+    SplitSVD(a, real(ut), imag(ut), s, copy(v))
 end
 
-function SplitSVD(a::Matrix{<:Complex}; has_zero=false)
-    ssvd_result = split_complex(a; has_zero)
-    SplitSVD(a, ssvd_result)
-end
+SplitSVD(a::Matrix{<:Complex}; has_zero=false) = SplitSVD(a, split_complex(a; has_zero))
 
 function ldiv_noalloc!(Y::AbstractMatrix, A::SplitSVD, B::AbstractMatrix, workarr)
     # Setup work space

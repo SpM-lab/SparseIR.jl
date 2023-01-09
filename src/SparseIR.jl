@@ -16,8 +16,10 @@ export TauSampling, MatsubaraSampling, evaluate, fit, evaluate!, fit!,
 using MultiFloats: Float64x2
 using LinearAlgebra: LinearAlgebra, cond, dot, svd, SVD, QRIteration, mul!
 using LinearAlgebra.BLAS: gemm!
+using Logging: with_logger, NullLogger
 using QuadGK: gauss, quadgk
 using Bessels: sphericalbesselj
+using SnoopPrecompile
 
 # FIXME: These are piracy, but needed to make MultiFloats work for us.
 Base.sinh(x::Float64x2) = 0.5 * (exp(x) - exp(-x))
@@ -41,5 +43,30 @@ include("augment.jl")
 include("sampling.jl")
 include("dlr.jl")
 include("basis_set.jl")
+
+@static if VERSION ≥ v"1.9-" # 1.9 adds support for object caching
+    # Precompile
+    with_logger(Base.NullLogger()) do
+        @precompile_all_calls begin
+            basis = FiniteTempBasis(Fermionic(), 1e-1, 1e-1, 1e-5)
+            τ_smpl = TauSampling(basis)
+            iω_smpl = MatsubaraSampling(basis)
+
+            basis = FiniteTempBasis(Bosonic(), 1e-1, 1e-1, 1e-5)
+            τ_smpl = TauSampling(basis)
+            iω_smpl = MatsubaraSampling(basis)
+
+            basis = FiniteTempBasis(Fermionic(), 1e-1, 1e-1)
+            τ_smpl = TauSampling(basis)
+            iω_smpl = MatsubaraSampling(basis)
+
+            Giω = evaluate(iω_smpl, basis.s)
+            Gτ = evaluate(τ_smpl, basis.s)
+            
+            fit(τ_smpl, Gτ)
+            fit(iω_smpl, Giω)
+        end
+    end
+end
 
 end # module
