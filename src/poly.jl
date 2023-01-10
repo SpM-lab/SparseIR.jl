@@ -211,7 +211,8 @@ function Base.getproperty(polys::PiecewiseLegendrePolyVector, sym::Symbol)
             data[:, :, i] .= polys[i].data
         end
         return data
-    elseif sym ∈ (:xmin, :xmax, :knots, :Δx, :polyorder, :xm, :inv_xs, :norm)
+    elseif (sym === :xmin      || sym === :xmax || sym === :knots  || sym === :Δx ||
+            sym === :polyorder || sym === :xm   || sym === :inv_xs || sym === :norm)
         return getproperty(first(polys), sym)
     else
         return getfield(polys, sym)
