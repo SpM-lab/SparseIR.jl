@@ -93,7 +93,6 @@ function FiniteTempBasis(statistics::Statistics, β::Real, ωmax::Real, ε=nothi
 
     # HACK: as we don't yet support Fourier transforms on anything but the
     # unit interval, we need to scale the underlying data.
-    test = sve_result.u.data
     û_base_full = PiecewiseLegendrePolyVector(sqrt(β) .* sve_result.u.data, sve_result.u)
     û_full = PiecewiseLegendreFTVector(û_base_full, statistics; n_asymp=conv_radius(kernel))
     û = û_full[1:length(s)]
@@ -257,3 +256,30 @@ function range_to_length(range::UnitRange)
     isone(first(range)) || error("Range must start at 1.")
     return last(range)
 end
+
+"""
+	evaluate(basis::FiniteTempBasis, a::Vector, τ::Real)
+
+Compute ``\\sum_l a_l U_l(τ)``.
+"""
+function evaluate(basis::FiniteTempBasis, a::Vector, τ::Real)
+	length(basis.u) == length(a) || error("wrong number of coefficients")
+	0 <= τ <= basis.β || error("τ is out of bounds")
+	sum(zip(a, basis.u)) do (aₗ, uₗ)
+		aₗ * uₗ(τ)
+	end
+end
+
+"""
+	evaluate(basis::FiniteTempBasis{S}, a::Vector, iω::MatsubaraFreq{S}) where {S}
+
+Compute ``\\sum_l a_l \\hat{U}_l(iω)``.
+"""
+function evaluate(basis::FiniteTempBasis{S}, a::Vector, iω::MatsubaraFreq{S}) where {S}
+	length(basis.uhat) == length(a) || error("wrong number of coefficients")
+	sum(zip(a, basis.uhat)) do (aₗ, ûₗ)
+		aₗ * ûₗ(iω)
+	end
+end
+
+evaluate(basis::FiniteTempBasis, a::Vector, x::AbstractArray) = evaluate.(basis, Ref(a), x)

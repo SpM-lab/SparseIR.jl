@@ -88,4 +88,23 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         show(io, bset)
         @test String(take!(io)) == "FiniteTempBasisSet with β = $β.0, ωmax = $ωmax"
     end
+
+    @testset "evaluate" begin
+        β = 0.8
+        basis = FiniteTempBasis{Fermionic}(β, 1.4)
+        Ĝ(iν) = 1 / (SparseIR.valueim(iν, β) + 0.25/SparseIR.valueim(iν, β))
+        smpl_ω = MatsubaraSampling(basis)
+        ωs = SparseIR.sampling_points(smpl_ω)
+        Gω = Ĝ.(ωs)
+        Gl = fit(smpl_ω, Gω)
+        ω_range = -FermionicFreq(1001):FermionicFreq(1001)
+        Gω_rec = evaluate(basis, Gl, ω_range)
+        @test Gω_rec ≈ Ĝ.(ω_range)
+
+        τs = range(0, β, 10^6)
+        iω = FermionicFreq(123)
+        f(τ) = cis(SparseIR.value(iω, β) * τ) * evaluate(basis, Gl, τ)
+        intf = (f(first(τs))/2 + sum(f, τs[2:end-1]) + f(last(τs))/2) * step(τs) # naive trapezoidal rule
+        @test Ĝ(iω) ≈ intf
+    end
 end
