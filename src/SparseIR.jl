@@ -11,7 +11,7 @@ export overlap
 export LogisticKernel, RegularizedBoseKernel
 export AugmentedBasis, TauConst, TauLinear, MatsubaraConst
 export TauSampling, MatsubaraSampling, evaluate, fit, evaluate!, fit!,
-       MatsubaraSampling64F, MatsubaraSampling64B, TauSampling64
+       MatsubaraSampling64F, MatsubaraSampling64B, TauSampling64, sampling_points
 
 using MultiFloats: Float64x2
 using LinearAlgebra: LinearAlgebra, cond, dot, svd, SVD, QRIteration, mul!

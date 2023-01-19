@@ -52,20 +52,17 @@ struct FiniteTempBasis{S,K} <: AbstractBasis{S}
     uhat_full  :: PiecewiseLegendreFTVector{S}
 end
 
+"""
+    FiniteTempBasis{S}(β, ωmax, ε=nothing; max_size=nothing, args...)
 
+Construct a finite temperature basis suitable for the given `S` (`Fermionic`
+or `Bosonic`) and cutoffs `β` and `ωmax`.
+"""
 FiniteTempBasis{S}(β::Real, ωmax::Real, ε=nothing; max_size=nothing,
                    kernel=LogisticKernel(β * ωmax),
                    sve_result=SVEResult(kernel; ε)) where {S} = 
     FiniteTempBasis(S(), β, ωmax, ε; max_size, kernel,sve_result)
 
-"""
-    FiniteTempBasis(statistics, β, ωmax, ε=nothing;
-                    max_size=nothing, kernel=LogisticKernel(β * ωmax),
-                    sve_result=SVEResult(kernel; ε))
-
-Construct a finite temperature basis suitable for the given `statistics` and
-cutoffs `β` and `ωmax`.
-"""
 function FiniteTempBasis(statistics::Statistics, β::Real, ωmax::Real, ε=nothing;
                          max_size=nothing, kernel=LogisticKernel(β * ωmax),
                          sve_result=SVEResult(kernel; ε))

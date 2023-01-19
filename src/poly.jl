@@ -170,16 +170,13 @@ function Base.show(io::IO, polys::PiecewiseLegendrePolyVector)
     print(io, "on [$(polys.xmin), $(polys.xmax)]")
 end
 
-function Vector{PiecewiseLegendrePoly}(data::AbstractArray{T,3}, knots::Vector{T};
-                                       symm=zeros(Int, size(data, 3))) where {T<:Real}
-    return [PiecewiseLegendrePoly(data[:, :, i], knots, i - 1; symm=symm[i])
-            for i in axes(data, 3)]
-end
+Vector{PiecewiseLegendrePoly}(data::AbstractArray{T,3}, knots::Vector{T};
+                              symm=zeros(Int, size(data, 3))) where {T<:Real} =
+    [PiecewiseLegendrePoly(data[:, :, i], knots, i - 1; symm=symm[i]) for i in axes(data, 3)]
 
 function Vector{PiecewiseLegendrePoly}(polys::PiecewiseLegendrePolyVector,
                                        knots::AbstractVector; Δx=diff(knots), symm=0)
-    length(polys) == length(symm) ||
-        throw(DimensionMismatch("Sizes of polys and symm don't match"))
+    length(polys) == length(symm) || throw(DimensionMismatch("Sizes of polys and symm don't match"))
 
     return map(zip(polys, symm)) do (poly, sym)
         PiecewiseLegendrePoly(poly.data, knots, poly.l; Δx, symm=sym)
@@ -188,8 +185,7 @@ end
 
 function Vector{PiecewiseLegendrePoly}(data::AbstractArray{T,3},
                                        polys::PiecewiseLegendrePolyVector) where {T}
-    size(data, 3) == length(polys) ||
-        throw(DimensionMismatch("Sizes of data and polys don't match"))
+    size(data, 3) == length(polys) || throw(DimensionMismatch("Sizes of data and polys don't match"))
 
     polys_new = deepcopy(polys)
     @inbounds for i in eachindex(polys)
@@ -220,10 +216,8 @@ function Base.getproperty(polys::PiecewiseLegendrePolyVector, sym::Symbol)
 end
 
 # Backward compatibility
-function overlap(polys::PiecewiseLegendrePolyVector, f::F;
-                 rtol=eps(), return_error=false) where {F}
-    return overlap.(polys, f; rtol, return_error)
-end
+overlap(polys::PiecewiseLegendrePolyVector, f::F; rtol=eps(), return_error=false) where {F} =
+    overlap.(polys, f; rtol, return_error)
 
 #########################
 ## PiecewiseLegendreFT ##

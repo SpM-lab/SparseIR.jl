@@ -13,16 +13,15 @@ struct TauSampling{T,TMAT,F<:SVD} <: AbstractSampling{T,TMAT,F}
 end
 
 """
-    TauSampling(basis[, sampling_points])
+    TauSampling(basis[; sampling_points])
 
 Construct a `TauSampling` object. If not given, the `sampling_points` are chosen
 as the extrema of the highest-order basis function in imaginary time. This turns
 out to be close to optimal with respect to conditioning for this size (within a
 few percent).
 """
-function TauSampling(basis::AbstractBasis,
-                     sampling_points=default_tau_sampling_points(basis))
-    matrix   = eval_matrix(TauSampling, basis, sampling_points)
+function TauSampling(basis::AbstractBasis; sampling_points=default_tau_sampling_points(basis))
+    matrix = eval_matrix(TauSampling, basis, sampling_points)
     sampling = TauSampling(sampling_points, matrix, svd(matrix))
     if iswellconditioned(basis) && cond(sampling) > 1e8
         @warn "Sampling matrix is poorly conditioned (cond = $(cond(sampling)))."
@@ -96,11 +95,9 @@ eval_matrix(::Type{MatsubaraSampling}, basis, x) = permutedims(basis.uhat(x))
 
 Evaluate the basis coefficients `al` at the sparse sampling points.
 """
-function evaluate(smpl::AbstractSampling{S,Tmat}, al::AbstractArray{T,N};
-                  dim=1) where {S,Tmat,T,N}
+function evaluate(smpl::AbstractSampling{S,Tmat}, al::AbstractArray{T,N}; dim=1) where {S,Tmat,T,N}
     if size(smpl.matrix, 2) ≠ size(al, dim)
-        msg = "Number of columns (got $(size(smpl.matrix, 2))) has to match " *
-              "al's size in dim (got $(size(al, dim)))."
+        msg = "Number of columns (got $(size(smpl.matrix, 2))) has to match al's size in dim (got $(size(al, dim)))."
         throw(DimensionMismatch(msg))
     end
     bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 1), size(al)[(dim + 1):end]...)
@@ -114,8 +111,7 @@ end
 Like [`evaluate`](@ref), but write the result to `buffer`.
 Please use dim = 1 or N to avoid allocating large temporary arrays internally.
 """
-function evaluate!(buffer::AbstractArray{T, N}, smpl::AbstractSampling,
-                   al::AbstractArray{S, N}; dim=1) where {S,T,N}
+function evaluate!(buffer::AbstractArray{T, N}, smpl::AbstractSampling, al::AbstractArray{S, N}; dim=1) where {S,T,N}
     resultsize = ntuple(j -> j == dim ? size(smpl.matrix, 1) : size(al, j), N)
     if size(buffer) ≠ resultsize
         msg = "Buffer has the wrong size (got $(size(buffer)), expected $resultsize)."
@@ -130,8 +126,7 @@ end
 Fit basis coefficients from the sparse sampling points
 Please use dim = 1 or N to avoid allocating large temporary arrays internally.
 """
-function fit(smpl::AbstractSampling{S,Tmat}, al::AbstractArray{T,N};
-             dim=1) where {S,Tmat,T,N}
+function fit(smpl::AbstractSampling{S,Tmat}, al::AbstractArray{T,N}; dim=1) where {S,Tmat,T,N}
     if size(smpl.matrix, 1) ≠ size(al, dim)
         msg = "Number of rows (got $(size(smpl.matrix, 1))) "
               "has to match al's size in dim (got $(size(al, dim)))."
@@ -221,8 +216,7 @@ end
 Apply the operator `op` to the matrix `mat` and to the array `arr` along the first
 dimension (dim=1) or the last dimension (dim=N).
 """
-function matop!(buffer::AbstractArray{S,N}, mat, arr::AbstractArray{T,N}, op,
-                dim) where {S,T,N}
+function matop!(buffer::AbstractArray{S,N}, mat, arr::AbstractArray{T,N}, op, dim) where {S,T,N}
     if dim == 1
         flatarr    = reshape(arr, (size(arr, 1), :))
         flatbuffer = reshape(buffer, (size(buffer, 1), :))
@@ -237,8 +231,7 @@ function matop!(buffer::AbstractArray{S,N}, mat, arr::AbstractArray{T,N}, op,
     return buffer
 end
 
-function div_noalloc!(buffer::AbstractArray{S,N}, mat, arr::AbstractArray{T,N},
-                      workarr, dim) where {S,T,N}
+function div_noalloc!(buffer::AbstractArray{S,N}, mat, arr::AbstractArray{T,N}, workarr, dim) where {S,T,N}
     1 ≤ dim ≤ N || throw(DomainError(dim, "Dimension must be in [1, $N]"))
 
     if dim == 1
