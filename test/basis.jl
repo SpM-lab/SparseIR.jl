@@ -101,7 +101,7 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         Gω_rec = evaluate(basis, Gl, ω_range)
         @test Gω_rec ≈ Ĝ.(ω_range)
 
-        τs = range(0, β, 10^6)
+        τs = range(0, β; length=10^6)
         iω = FermionicFreq(123)
         f(τ) = cis(SparseIR.value(iω, β) * τ) * evaluate(basis, Gl, τ)
         intf = (f(first(τs))/2 + sum(f, τs[2:end-1]) + f(last(τs))/2) * step(τs) # naive trapezoidal rule
