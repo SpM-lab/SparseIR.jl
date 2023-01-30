@@ -258,28 +258,28 @@ function range_to_length(range::UnitRange)
 end
 
 """
-	evaluate(basis::FiniteTempBasis, a::Vector, τ::Real)
+    evaluate(basis::FiniteTempBasis, a::Vector, τ::Real)
 
 Compute ``\\sum_l a_l U_l(τ)``.
 """
 function evaluate(basis::FiniteTempBasis, a::Vector, τ::Real)
-	length(basis.u) == length(a) || error("wrong number of coefficients")
-	0 <= τ <= basis.β || error("τ is out of bounds")
-	sum(zip(a, basis.u)) do (aₗ, uₗ)
-		aₗ * uₗ(τ)
-	end
+    length(basis.u) == length(a) || error("wrong number of coefficients")
+    0 <= τ <= basis.β || error("τ is out of bounds")
+    sum(zip(a, basis.u); init=zero(eltype(a))) do (aₗ, uₗ)
+        aₗ * uₗ(τ)
+    end
 end
 
 """
-	evaluate(basis::FiniteTempBasis{S}, a::Vector, iω::MatsubaraFreq{S}) where {S}
+    evaluate(basis::FiniteTempBasis{S}, a::Vector, iω::MatsubaraFreq{S}) where {S}
 
 Compute ``\\sum_l a_l \\hat{U}_l(iω)``.
 """
 function evaluate(basis::FiniteTempBasis{S}, a::Vector, iω::MatsubaraFreq{S}) where {S}
-	length(basis.uhat) == length(a) || error("wrong number of coefficients")
-	sum(zip(a, basis.uhat)) do (aₗ, ûₗ)
-		aₗ * ûₗ(iω)
-	end
+    length(basis.uhat) == length(a) || error("wrong number of coefficients")
+    û_iω = basis.uhat(iω)
+    û_iω .*= a
+    sum(û_iω)
 end
 
 evaluate(basis::FiniteTempBasis, a::Vector, x::AbstractArray) = evaluate.(basis, Ref(a), x)
