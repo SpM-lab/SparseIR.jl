@@ -189,57 +189,60 @@ function compute(kernel::RegularizedBoseKernel, u₊, u₋, v::T) where {T}
 end
 
 """
-    segments_x(sve_hints::AbstractSVEHints)
+    segments_x(sve_hints::AbstractSVEHints[, T])
 
 Segments for piecewise polynomials on the ``x`` axis.
 
 List of segments on the ``x`` axis for the associated piecewise polynomial. Should reflect
 the approximate position of roots of a high-order singular function in ``x``.
 """
-function segments_x(hints::SVEHintsLogistic)
+function segments_x(hints::SVEHintsLogistic, ::Type{T}=Float64) where {T}
     nzeros = max(round(Int, 15 * log10(hints.kernel.Λ)), 1)
-    diffs = 1 ./ cosh.(0.143 * range(0; length=nzeros))
+    temp = T(0.143) * range(0; length=nzeros)
+    diffs = @. inv(cosh(temp))
     zeros = cumsum(diffs)
     zeros ./= last(zeros)
     return [-reverse(zeros); 0; zeros]
 end
 
 """
-    segments_y(sve_hints::AbstractSVEHints)
+    segments_y(sve_hints::AbstractSVEHints[, T])
 
 Segments for piecewise polynomials on the ``y`` axis.
 
 List of segments on the ``y`` axis for the associated piecewise polynomial. Should reflect
 the approximate position of roots of a high-order singular function in ``y``.
 """
-function segments_y(hints::SVEHintsLogistic)
+function segments_y(hints::SVEHintsLogistic, ::Type{T}=Float64) where {T}
     nzeros = max(round(Int, 20 * log10(hints.kernel.Λ)), 2)
 
     # Zeros around -1 and 1 are distributed asymptotically identically
-    leading_diffs = [0.01523, 0.03314, 0.04848, 0.05987, 0.06703, 0.07028, 0.07030, 0.06791,
+    leading_diffs = T[0.01523, 0.03314, 0.04848, 0.05987, 0.06703, 0.07028, 0.07030, 0.06791,
         0.06391, 0.05896, 0.05358, 0.04814, 0.04288, 0.03795, 0.03342, 0.02932, 0.02565,
         0.02239, 0.01951, 0.01699][1:min(nzeros, 20)]
 
-    diffs = [leading_diffs; 0.25 ./ exp.(0.141 * (20:(nzeros - 1)))]
+    temp = T(0.141) * (20:(nzeros - 1))
+    diffs = [leading_diffs; @. T(0.25) * exp(-temp)]
     zeros = cumsum(diffs)
     zeros ./= pop!(zeros)
     zeros .-= 1
     return [-1; zeros; 0; -reverse(zeros); 1]
 end
 
-function segments_x(hints::SVEHintsRegularizedBose)
+function segments_x(hints::SVEHintsRegularizedBose, ::Type{T}=Float64) where {T}
     # Somewhat less accurate...
     nzeros = max(round(Int, 15 * log10(hints.kernel.Λ)), 15)
-    diffs = 1 ./ cosh.(0.18 * range(0; length=nzeros))
+    temp = T(0.18) * range(0; length=nzeros)
+    diffs = @. inv(cosh(temp))
     zeros = cumsum(diffs)
     zeros ./= last(zeros)
     return [-reverse(zeros); 0; zeros]
 end
 
-function segments_y(hints::SVEHintsRegularizedBose)
+function segments_y(hints::SVEHintsRegularizedBose, ::Type{T}=Float64) where {T}
     nzeros = max(round(Int, 20 * log10(hints.kernel.Λ)), 20)
     i = range(0; length=nzeros)
-    diffs = @. 0.12 / exp(0.0337 * i * log(i + 1))
+    diffs = @. T(0.12 / exp(0.0337 * i * log(i + 1)))
     zeros = cumsum(diffs)
     zeros ./= pop!(zeros)
     zeros .-= 1
@@ -384,8 +387,8 @@ function (kernel::RegularizedBoseKernelOdd)(x, y,
     end
 end
 
-segments_x(hints::SVEHintsReduced) = symm_segments(segments_x(hints.inner_hints))
-segments_y(hints::SVEHintsReduced) = symm_segments(segments_y(hints.inner_hints))
+segments_x(hints::SVEHintsReduced, ::Type{T}=Float64) where {T} = symm_segments(segments_x(hints.inner_hints, T))
+segments_y(hints::SVEHintsReduced, ::Type{T}=Float64) where {T} = symm_segments(segments_y(hints.inner_hints, T))
 
 function symm_segments(x::AbstractVector{T}) where {T}
     for (xi, revxi) in zip(x, Iterators.reverse(x))

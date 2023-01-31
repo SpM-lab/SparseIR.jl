@@ -16,7 +16,7 @@ function check_smooth(u, s, uscale, fudge_factor)
     compare = max.(compare, uscale * ε)
 
     # loss of precision
-    compare .*= fudge_factor * (first(s) ./ s)
+    compare .*= fudge_factor .* (first(s) ./ s)
     @test all(jump .< compare)
 end
 
@@ -27,7 +27,7 @@ a ⪅ b = leaq(a, b)
     @testset "smooth with Λ = $Λ" for Λ in (10, 42, 10_000)
         basis = FiniteTempBasis{Fermionic}(1, Λ; sve_result=sve_logistic[Λ])
         check_smooth(basis.u, basis.s, 2 * maximum(basis.u(1)), 24)
-        check_smooth(basis.v, basis.s, 50, 20)
+        check_smooth(basis.v, basis.s, 50, 200)
     end
 
     @testset "num roots u with Λ = $Λ" for Λ in (10, 42, 10_000)

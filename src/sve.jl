@@ -1,3 +1,5 @@
+using LinearAlgebra
+
 """
     SamplingSVE <: AbstractSVE
 
@@ -37,7 +39,7 @@ function SamplingSVE(kernel, ε, ::Type{T}=Float64; n_gauss=nothing) where {T}
     sve_hints_ = sve_hints(kernel, ε)
     n_gauss = something(n_gauss, ngauss(sve_hints_))
     rule = legendre(n_gauss, T)
-    segs_x, segs_y = T.(segments_x(sve_hints_)), T.(segments_y(sve_hints_))
+    segs_x, segs_y = segments_x(sve_hints_, T), segments_y(sve_hints_, T)
     gauss_x, gauss_y = piecewise(rule, segs_x), piecewise(rule, segs_y)
 
     return SamplingSVE(kernel, ε, n_gauss, nsvals(sve_hints_),
