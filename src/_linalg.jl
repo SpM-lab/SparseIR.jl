@@ -77,9 +77,9 @@ rrqr(A::AbstractMatrix{T}; rtol=eps(T)) where {T<:AbstractFloat} = rrqr!(copy(A)
 
 function swapcols!(A::Matrix, i::Integer, j::Integer)
     i == j && return A
-	@inbounds @simd ivdep for k in axes(A, 1)
-		A[k, i], A[k, j] = A[k, j], A[k, i]
-	end
+    @inbounds @simd ivdep for k in axes(A, 1)
+        A[k, i], A[k, j] = A[k, j], A[k, i]
+    end
     return A
 end
 

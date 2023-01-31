@@ -316,16 +316,16 @@ end
 
 function split_complex(mat::Matrix{<:Complex}; has_zero=false, svd_algo=svd)
     # split real and imaginary part into separate matrices
-	offset_imag = has_zero ? 2 : 1
-	rmat = [real(mat)
+    offset_imag = has_zero ? 2 : 1
+    rmat = [real(mat)
             imag(mat)[offset_imag:end, :]]
     
     # perform real-valued SVD
     ur, s, v = svd_algo(rmat)
     
-	# undo the split of the resulting ur matrix
-	n = size(mat, 1)
-	u = complex(ur[1:n, :])
+    # undo the split of the resulting ur matrix
+    n = size(mat, 1)
+    u = complex(ur[1:n, :])
     u[offset_imag:end, :] .+= im .* ur[n+1:end, :]
     return u, s, v
 end
