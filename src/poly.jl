@@ -274,12 +274,12 @@ PiecewiseLegendreFTVector(polys::PiecewiseLegendrePolyVector,
     [PiecewiseLegendreFT(poly, stat; n_asymp) for poly in polys]
 
 function Base.getproperty(polyFTs::PiecewiseLegendreFTVector, sym::Symbol)
-    if sym === :stat || sym === :n_asymp
-        return getproperty(first(polyFTs), sym)
+    return if sym === :stat || sym === :n_asymp
+        getproperty(first(polyFTs), sym)
     elseif sym === :poly
-        return map(poly -> poly.poly, polyFTs)
+        map(p -> p.poly, polyFTs)
     else
-        return getfield(polyFTs, sym)
+        getfield(polyFTs, sym)
     end
 end
 
@@ -296,10 +296,10 @@ Obtain Fourier transform of polynomial for given `MatsubaraFreq` `ω`.
 function (polyFT::Union{PiecewiseLegendreFT{S},
                         PiecewiseLegendreFTVector{S}})(ω::MatsubaraFreq{S}) where {S}
     n = Int(ω)
-    if abs(n) < polyFT.n_asymp
-        return compute_unl_inner(polyFT.poly, n)
+    return if abs(n) < polyFT.n_asymp
+        compute_unl_inner(polyFT.poly, n)
     else
-        return giw(polyFT, n)
+        giw(polyFT, n)
     end
 end
 
@@ -316,7 +316,7 @@ Return model Green's function for reduced frequencies
 """
 function giw(polyFT, wn::Integer)
     iw = im * π / 2 * wn
-    iszero(wn) && return zero(inv_iw)
+    iszero(wn) && return zero(iw)
     inv_iw = 1 / iw
     return inv_iw * evalpoly(inv_iw, moments(polyFT))
 end
@@ -405,19 +405,20 @@ end
 Compute piecewise Legendre to Matsubara transform.
 """
 function compute_unl_inner(poly::PiecewiseLegendrePoly, wn)
-    t_pin = pqn(poly, wn)
-    return dot(poly.data, t_pin)
+    wred = π / 4 * wn
+    phase_wi = phase_stable(poly, wn)
+    res = zero(ComplexF64)
+    @inbounds for order in axes(poly.data, 1), j in axes(poly.data, 2)
+        res += poly.data[order, j] * get_tnl(order - 1, wred * poly.Δx[j]) * phase_wi[j] / poly.norm[j]
+    end
+    return res / sqrt(2)
 end
 function compute_unl_inner(polys::PiecewiseLegendrePolyVector, wn)
-    t_pin = pqn(polys, wn)
+    p = reshape(range(0; length=polys.polyorder), (1, :))
+    wred = π / 4 * wn
+    phase_wi = phase_stable(polys, wn)
+    t_pin = permutedims(@. get_tnl(p, wred * polys.Δx) * phase_wi / (sqrt(2) * polys.norm))
     return [dot(poly.data, t_pin) for poly in polys]
-end
-
-function pqn(poly, wn)
-    p = reshape(range(0; length=poly.polyorder), (1, :))
-    wred = π / 2 * wn
-    phase_wi = phase_stable(poly, wn)
-    transpose(@. get_tnl(p, wred * poly.Δx / 2) * phase_wi / (sqrt(2) * poly.norm))
 end
 
 """
@@ -432,9 +433,6 @@ function get_tnl(l, w)
     return w < 0 ? conj(result) : result
 end
 
-# Works like numpy.choose
-choose(a, choices) = [choices[a[i]][i] for i in eachindex(a)]
-
 """
     shift_xmid(knots, Δx)
 
@@ -446,12 +444,19 @@ where shift is in `(0, 1, -1)` and `diff` is a float such that
 """
 function shift_xmid(knots, Δx)
     Δx_half = Δx ./ 2
-    xmid_m1 = cumsum(Δx) - Δx_half
-    xmid_p1 = -reverse(cumsum(reverse(Δx))) + Δx_half
-    xmid_0  = knots[2:end] - Δx_half
+
+    xmid_m1 = cumsum(Δx)
+    xmid_m1 .-= Δx_half
+
+    xmid_p1 = reverse!(cumsum(reverse(Δx)))
+    xmid_p1 .*= -1
+    xmid_p1 .+= Δx_half
+
+    xmid_0 = @inbounds knots[2:end]
+    xmid_0 .-= Δx_half
 
     shift = round.(Int, xmid_0)
-    diff  = choose(shift .+ 2, (xmid_m1, xmid_0, xmid_p1))
+    diff = @inbounds [(xmid_m1, xmid_0, xmid_p1)[shift[i] + 2][i] for i in eachindex(shift)]
     return diff, shift
 end
 
@@ -464,19 +469,18 @@ Compute the following phase factor in a stable way:
 
     exp.(iπ/2 * wn * cumsum(poly.Δx))
 """
+function phase_stable(poly, wn::Integer)
+    xmid_diff, extra_shift = shift_xmid(poly.knots, poly.Δx)
+    @. im^mod(wn * (extra_shift + 1), 4) * cispi(wn * xmid_diff / 2)
+end
+
 function phase_stable(poly, wn)
     xmid_diff, extra_shift = shift_xmid(poly.knots, poly.Δx)
 
-    if wn isa Integer
-        shift_arg = wn * xmid_diff
-    else
-        delta_wn, wn = modf(wn)
-        wn = trunc(Int, wn)
-        shift_arg = wn * xmid_diff
-        @. shift_arg += delta_wn * (extra_shift + xmid_diff)
-    end
+    delta_wn, wn = modf(wn)
+    wn = trunc(Int, wn)
+    shift_arg = wn * xmid_diff
+    @. shift_arg += delta_wn * (extra_shift + xmid_diff)
 
-    phase_shifted = @. cispi(shift_arg / 2)
-    corr = @. im^mod(wn * (extra_shift + 1), 4)
-    return corr .* phase_shifted
+    return @. im^mod(wn * (extra_shift + 1), 4) * cispi(shift_arg / 2)
 end

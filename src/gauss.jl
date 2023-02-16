@@ -26,7 +26,7 @@ struct Rule{T<:AbstractFloat}
         issorted(x) || error("x must be strictly increasing")
         length(x) == length(w) ||
             throw(DimensionMismatch("x and w must have the same length"))
-        return new{eltype(x)}(x, w, a, b, x_forward, x_backward)
+        return new{T}(x, w, a, b, x_forward, x_backward)
     end
 end
 
