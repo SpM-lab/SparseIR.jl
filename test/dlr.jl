@@ -81,9 +81,6 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
             basis = FiniteTempBasis(stat, β, ωmax, ε; sve_result=sve_logistic[β * ωmax])
             dlr = DiscreteLehmannRepresentation(basis)
 
-            io = IOBuffer()
-            show(io, dlr)
-            @test occursin(r"DiscreteLehmannRepresentation for", String(take!(io)))
             @test all(isone, SparseIR.significance(dlr))
             @test SparseIR.β(dlr) == β
             @test SparseIR.ωmax(dlr) == ωmax

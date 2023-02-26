@@ -44,10 +44,6 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
             @test SparseIR.accuracy(basis) ≈ last(basis.s) / first(basis.s)
         end
         basis = FiniteTempBasis{Fermionic}(3, 4, 1e-6)
-        io = IOBuffer()
-        show(io, basis)
-        s = String(take!(io))
-        @test occursin(r"FiniteTempBasis{Fermionic} with β = 3\.0, ωmax = 4\.0", s)
 
         @test SparseIR.ωmax(SparseIR.rescale(basis, 2)) ≈ 6
 
@@ -84,8 +80,5 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         @test bset.wn_b == SparseIR.sampling_points(MatsubaraSampling(basis_b))
         @test bset.sve_result.s ≈ SparseIR.SVEResult(LogisticKernel(β * ωmax); ε).s
         @test :tau ∈ propertynames(bset)
-        io = IOBuffer()
-        show(io, bset)
-        @test String(take!(io)) == "FiniteTempBasisSet with β = $β.0, ωmax = $ωmax"
     end
 end

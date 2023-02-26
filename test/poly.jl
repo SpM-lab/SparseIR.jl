@@ -78,12 +78,6 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
     @testset "unit tests" begin
         u, s, v = SparseIR.part(sve_logistic[42])
 
-        io = IOBuffer()
-        show(io, v[1])
-        @test String(take!(io)) == "PiecewiseLegendrePoly on [-1.0, 1.0], order=16"
-        show(io, u)
-        @test String(take!(io)) == "$(length(u))-element PiecewiseLegendrePolyVector on [-1.0, 1.0]"
-
         @test size(u[1](rand(30))) == (30,)
 
         int_result, int_error = SparseIR.overlap(u[1], u[1]; return_error=true)

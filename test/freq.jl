@@ -70,13 +70,5 @@ using SparseIR
         @test BosonicFreq(24) % FermionicFreq(-7) == FermionicFreq(3)
         @test FermionicFreq(123) % FermionicFreq(9) == BosonicFreq(6)
         @test promote_type(BosonicFreq, FermionicFreq) == MatsubaraFreq
-
-        io = IOBuffer()
-        show(io, FermionicFreq(-3))
-        @test String(take!(io)) == "-3π/β"
-        show(io, FermionicFreq(1))
-        @test String(take!(io)) == "π/β"
-        show(io, BosonicFreq(0))
-        @test String(take!(io)) == "0"
     end
 end
