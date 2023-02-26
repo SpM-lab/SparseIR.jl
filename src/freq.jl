@@ -135,7 +135,7 @@ function Base.promote_rule(::Type{T1}, ::Type{T2}) where {T1<:MatsubaraFreq,T2<:
         We disallow this. Please use `MatsubaraFreq(x)` explicitly."""))
 end
 
-function Base.show(io::IO, a::MatsubaraFreq)
+function Base.show(io::IO, ::MIME"text/plain", a::MatsubaraFreq)
     if a.n == 0
         print(io, "0")
     elseif a.n == 1

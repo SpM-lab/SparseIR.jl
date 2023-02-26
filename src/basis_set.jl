@@ -72,5 +72,5 @@ end
 Base.propertynames(::FiniteTempBasisSet) =
     (:tau, :wn_f, :wn_b, :sve_result, fieldnames(FiniteTempBasisSet)...)
 
-Base.show(io::IO, b::FiniteTempBasisSet) =
+Base.show(io::IO, ::MIME"text/plain", b::FiniteTempBasisSet) =
     print(io, "FiniteTempBasisSet with β = $(beta(b)), ωmax = $(wmax(b))")

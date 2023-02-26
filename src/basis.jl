@@ -100,7 +100,7 @@ function FiniteTempBasis(statistics::Statistics, β::Real, ωmax::Real, ε=nothi
     return FiniteTempBasis(kernel, sve_result, accuracy, float(β), u, v, s, û, û_full)
 end
 
-function Base.show(io::IO, b::FiniteTempBasis)
+function Base.show(io::IO, ::MIME"text/plain", b::FiniteTempBasis)
     print(io, "$(length(b))-element FiniteTempBasis{$(typeof(statistics(b)))} with ")
     println(io, "β = $(β(b)), ωmax = $(ωmax(b)) and singular values:")
     for s in b.s[begin:(end - 1)]

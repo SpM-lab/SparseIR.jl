@@ -55,7 +55,7 @@ end
 
 Base.size(::PiecewiseLegendrePoly) = ()
 
-Base.show(io::IO, p::PiecewiseLegendrePoly) =
+Base.show(io::IO, ::MIME"text/plain", p::PiecewiseLegendrePoly) =
     print(io, "PiecewiseLegendrePoly on [$(p.xmin), $(p.xmax)], order=$(p.polyorder)")
 
 function (poly::PiecewiseLegendrePoly)(x::Real)
@@ -165,7 +165,7 @@ Alias for `Vector{PiecewiseLegendrePoly}`.
 """
 const PiecewiseLegendrePolyVector = Vector{PiecewiseLegendrePoly}
 
-function Base.show(io::IO, polys::PiecewiseLegendrePolyVector)
+function Base.show(io::IO, ::MIME"text/plain", polys::PiecewiseLegendrePolyVector)
     print(io, "$(length(polys))-element PiecewiseLegendrePolyVector ")
     print(io, "on [$(polys.xmin), $(polys.xmax)]")
 end

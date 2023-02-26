@@ -169,7 +169,7 @@ LinearAlgebra.cond(sampling::AbstractSampling) =
 
 sampling_points(sampling::AbstractSampling) = sampling.sampling_points
 
-function Base.show(io::IO, smpl::S) where {S<:AbstractSampling}
+function Base.show(io::IO, ::MIME"text/plain", smpl::S) where {S<:AbstractSampling}
     println(io, "$S with sampling points:")
     for p in sampling_points(smpl)[begin:end-1]
         println(io, " $p")

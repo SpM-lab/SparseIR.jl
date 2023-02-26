@@ -81,7 +81,7 @@ function DiscreteLehmannRepresentation(b::AbstractBasis, poles=default_omega_sam
     DiscreteLehmannRepresentation(b, poles, u, uhat, fitmat, svd(fitmat; alg=QRIteration()))
 end
 
-Base.show(io::IO, dlr::DiscreteLehmannRepresentation) =
+Base.show(io::IO, ::MIME"text/plain", dlr::DiscreteLehmannRepresentation) =
     print(io, "DiscreteLehmannRepresentation for $(dlr.basis) with poles at $(dlr.poles)")
 
 Base.length(dlr::DiscreteLehmannRepresentation) = length(dlr.poles)
