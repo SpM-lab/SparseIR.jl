@@ -58,7 +58,7 @@ Base.size(::PiecewiseLegendrePoly) = ()
 Base.show(io::IO, ::MIME"text/plain", p::PiecewiseLegendrePoly) =
     print(io, "PiecewiseLegendrePoly on [$(p.xmin), $(p.xmax)], order=$(p.polyorder)")
 
-function (poly::PiecewiseLegendrePoly)(x::Real)
+@inline function (poly::PiecewiseLegendrePoly)(x::Real)
     i, x̃ = split(poly, x)
     return legval(x̃, view(poly.data, :, i)) * poly.norm[i]
 end
@@ -120,7 +120,7 @@ Base.checkbounds(::Type{Bool}, poly::PiecewiseLegendrePoly, x::Real) =
     poly.xmin ≤ x ≤ poly.xmax
 
 Base.checkbounds(poly::PiecewiseLegendrePoly, x::Real) =
-    checkbounds(Bool, poly, x) || throw(BoundsError(poly, x))
+    checkbounds(Bool, poly, x) || throw(DomainError(x, "The domain is [$(poly.xmin), $(poly.xmax)]"))
 
 """
     split(poly, x)
@@ -129,7 +129,7 @@ Split segment.
 
 Find segment of poly's domain that covers `x`.
 """
-function split(poly, x::Real)
+@inline function split(poly, x::Real)
     @boundscheck checkbounds(poly, x)
 
     i = max(searchsortedlast(poly.knots, x; lt=≤), 1)

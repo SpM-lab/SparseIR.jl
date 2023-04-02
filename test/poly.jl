@@ -80,6 +80,9 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
 
         @test size(u[1](rand(30))) == (30,)
 
+        @test_throws DomainError u(u.xmax + 123)
+        @test_throws DomainError u(u.xmin - 123)
+
         int_result, int_error = SparseIR.overlap(u[1], u[1]; return_error=true)
 
         @test int_error < eps()
