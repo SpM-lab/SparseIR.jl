@@ -19,7 +19,7 @@ using LinearAlgebra.BLAS: gemm!
 using Logging: with_logger, NullLogger
 using QuadGK: gauss, quadgk
 using Bessels: sphericalbesselj
-using SnoopPrecompile
+using PrecompileTools
 
 # FIXME: These are piracy, but needed to make MultiFloats work for us.
 Base.sinh(x::Float64x2) = 0.5 * (exp(x) - exp(-x))
@@ -47,7 +47,7 @@ include("basis_set.jl")
 @static if VERSION ≥ v"1.9-" # 1.9 adds support for object caching
     # Precompile
     with_logger(Base.NullLogger()) do
-        @precompile_all_calls begin
+        @compile_workload begin
             basis = FiniteTempBasis(Fermionic(), 1e-1, 1e-1, 1e-5)
             τ_smpl = TauSampling(basis)
             iω_smpl = MatsubaraSampling(basis)
