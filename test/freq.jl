@@ -34,22 +34,21 @@ using SparseIR
     end
 
     @testset "freqrange" begin
-        @test length(FermionicFreq(1):FermionicFreq(-3)) == 0
-        @test length(FermionicFreq(3):FermionicFreq(200_000_000_001)) ==
-              100_000_000_000
+        @test length(FermionicFreq(1):FermionicFreq(-3)) == length(1:2:-3)
+        @test length(FermionicFreq(3):FermionicFreq(200_000_000_001)) == length(3:2:200_000_000_001)
 
         @test collect(BosonicFreq(2):BosonicFreq(-2)) == []
         @test collect(BosonicFreq(0):BosonicFreq(4)) == (0:2:4) .* pioverbeta
         @test collect(FermionicFreq(-3):FermionicFreq(1)) == (-3:2:1) .* pioverbeta
         
-        @test length(FermionicFreq(37):BosonicFreq(10):FermionicFreq(87)) == 6
+        @test length(FermionicFreq(37):BosonicFreq(10):FermionicFreq(87)) == length(37:10:87)
         @test collect(BosonicFreq(-10):BosonicFreq(4):BosonicFreq(58)) == (-10:4:58) .* pioverbeta
         @test collect(BosonicFreq(-10):BosonicFreq(4):BosonicFreq(60)) == (-10:4:58) .* pioverbeta
-        @test length(BosonicFreq(-10):BosonicFreq(4):BosonicFreq(60)) == 18
-        @test length(FermionicFreq(1):BosonicFreq(100):FermionicFreq(3)) == 1
-        @test length(FermionicFreq(1):BosonicFreq(100):FermionicFreq(-1001)) == 0
+        @test length(BosonicFreq(-10):BosonicFreq(4):BosonicFreq(60)) == length(-10:4:60)
+        @test length(FermionicFreq(1):BosonicFreq(100):FermionicFreq(3)) == length(1:100:3)
+        @test length(FermionicFreq(1):BosonicFreq(100):FermionicFreq(-1001)) == length(1:100:-1001)
 
-        @test_throws MethodError FermionicFreq(5):BosonicFreq(100)
+        @test_throws ErrorException FermionicFreq(5):BosonicFreq(100)
         @test_throws ErrorException BosonicFreq(6):FermionicFreq(3):BosonicFreq(100)
         @test_throws ErrorException FermionicFreq(7):FermionicFreq(3):FermionicFreq(101)
     end
@@ -70,5 +69,14 @@ using SparseIR
         @test BosonicFreq(24) % FermionicFreq(-7) == FermionicFreq(3)
         @test FermionicFreq(123) % FermionicFreq(9) == BosonicFreq(6)
         @test promote_type(BosonicFreq, FermionicFreq) == MatsubaraFreq
+    end
+
+    @testset "broadcasting over frequency range" begin
+        freqrange = FermionicFreq(-11):FermionicFreq(13)
+        @test freqrange .+ BosonicFreq(10) == FermionicFreq(-1):FermionicFreq(23)
+        @test freqrange .+ BosonicFreq(20) isa StepRange
+
+        freqrange = FermionicFreq(-123):BosonicFreq(10):FermionicFreq(1237)
+        @test freqrange .- FermionicFreq(11) == BosonicFreq(-134):BosonicFreq(10):BosonicFreq(1226)
     end
 end

@@ -303,10 +303,10 @@ function (polyFT::Union{PiecewiseLegendreFT{S},
     end
 end
 
-(polyFT::PiecewiseLegendreFT)(n::Integer)       = polyFT(MatsubaraFreq(n))
-(polyFT::PiecewiseLegendreFTVector)(n::Integer) = polyFT(MatsubaraFreq(n))
-(polyFT::PiecewiseLegendreFT)(n::AbstractArray) = polyFT.(n)
-(polyFTs::PiecewiseLegendreFTVector)(n::AbstractArray) =
+(polyFT::PiecewiseLegendreFT)(n::Base.BitInteger)       = polyFT(MatsubaraFreq(n))
+(polyFT::PiecewiseLegendreFTVector)(n::Base.BitInteger) = polyFT(MatsubaraFreq(n))
+(polyFT::PiecewiseLegendreFT)(n::AbstractArray)         = polyFT.(n)
+(polyFTs::PiecewiseLegendreFTVector)(n::AbstractArray)  =
     reshape(mapreduce(polyFTs, vcat, n), (length(polyFTs), size(n)...))
 
 """

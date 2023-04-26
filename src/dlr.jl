@@ -15,7 +15,7 @@ MatsubaraPoles(stats::Statistics, β::Real, poles::Vector{<:Real}) =
 
 (mp::MatsubaraPoles{S})(n::AbstractVector{MatsubaraFreq{S}}) where {S} =
     mapreduce(mp, hcat, n)
-(mp::MatsubaraPoles)(n::AbstractVector{<:Integer}) =
+(mp::MatsubaraPoles)(n::AbstractVector{<:Base.BitInteger}) =
     mp(MatsubaraFreq.(n))
 
 struct TauPoles{S<:Statistics}

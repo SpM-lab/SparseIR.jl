@@ -34,9 +34,9 @@ allowed(::Type{Fermionic}, a::Integer) = isodd(a)
 allowed(::Type{Bosonic}, a::Integer)   = iseven(a)
 
 Base.:+(::Fermionic, ::Bosonic)   = Fermionic()
-Base.:+(::Bosonic, ::Fermionic)   = Fermionic()
+Base.:+(::Bosonic,   ::Fermionic) = Fermionic()
 Base.:+(::Fermionic, ::Fermionic) = Bosonic()
-Base.:+(::Bosonic, ::Bosonic)     = Bosonic()
+Base.:+(::Bosonic,   ::Bosonic)   = Bosonic()
 
 """
     MatsubaraFreq(n)
@@ -63,13 +63,13 @@ accordingly.
   - Bosonic frequency (`S == Fermionic`): `n` even (periodic in β)
   - Fermionic frequency (`S == Bosonic`): `n` odd (anti-periodic in β)
 """
-struct MatsubaraFreq{S<:Statistics} <: Number
-    n :: Int
+struct MatsubaraFreq{S<:Statistics} <: Signed
+    n::Int
 
     MatsubaraFreq(stat::Statistics, n::Integer) = new{typeof(stat)}(n)
 
     function MatsubaraFreq{S}(n::Integer) where {S<:Statistics}
-        allowed(S, n) || error("Frequency $(n)π/β is not $stat")
+        allowed(S, n) || error("Frequency $(n)π/β is not $S")
         return new{S}(n)
     end
 end
@@ -114,11 +114,11 @@ Base.:*(a::BosonicFreq, c::Integer)         = BosonicFreq(a.n * c)
 Base.:*(a::FermionicFreq, c::Integer)       = MatsubaraFreq(a.n * c)
 Base.:*(c::Integer, a::MatsubaraFreq)       = a * c
 
-Base.sign(a::MatsubaraFreq)                     = sign(a.n)
-Base.zero(::MatsubaraFreq)                      = BosonicFreq(0)
-Base.iszero(::FermionicFreq)                    = false
-Base.iszero(a::BosonicFreq)                     = iszero(a.n)
-Base.isless(a::MatsubaraFreq, b::MatsubaraFreq) = isless(a.n, b.n)
+Base.sign(a::MatsubaraFreq)                 = sign(a.n)
+Base.zero(::MatsubaraFreq)                  = BosonicFreq(0)
+Base.iszero(::FermionicFreq)                = false
+Base.iszero(a::BosonicFreq)                 = iszero(a.n)
+Base.:<(a::MatsubaraFreq, b::MatsubaraFreq) = a.n < b.n
 
 # This is to get rid of the weird "promotion failed to change any of the types"
 # errors you get when mixing frequencies and numbers. These originate from the
@@ -147,8 +147,21 @@ function Base.show(io::IO, ::MIME"text/plain", a::MatsubaraFreq)
     end
 end
 
+# Override default show(::IO, ::Signed)
+Base.show(io::IO, a::FermionicFreq) = print(io, "FermionicFreq($(a.n))")
+Base.show(io::IO, a::BosonicFreq)   = print(io, "BosonicFreq($(a.n))")
+
 const pioverbeta = MatsubaraFreq(1)
 Base.oneunit(::MatsubaraFreq) = pioverbeta
+
+function Base.steprange_last_empty(start::MatsubaraFreq, step::MatsubaraFreq, stop::MatsubaraFreq)::typeof(stop)
+    if step > zero(step)
+        last = start - BosonicFreq(2)
+    else
+        last = start + BosonicFreq(2)
+    end
+    return last
+end
 
 Base.rem(a::MatsubaraFreq, b::FermionicFreq) = MatsubaraFreq(rem(a.n, b.n))
 Base.rem(a::MatsubaraFreq{S}, b::BosonicFreq) where {S} = MatsubaraFreq{S}(rem(a.n, b.n))
