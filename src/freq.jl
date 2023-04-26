@@ -114,11 +114,26 @@ Base.:*(a::BosonicFreq, c::Integer)         = BosonicFreq(a.n * c)
 Base.:*(a::FermionicFreq, c::Integer)       = MatsubaraFreq(a.n * c)
 Base.:*(c::Integer, a::MatsubaraFreq)       = a * c
 
-Base.sign(a::MatsubaraFreq)                 = sign(a.n)
-Base.zero(::MatsubaraFreq)                  = BosonicFreq(0)
-Base.iszero(::FermionicFreq)                = false
-Base.iszero(a::BosonicFreq)                 = iszero(a.n)
-Base.:<(a::MatsubaraFreq, b::MatsubaraFreq) = a.n < b.n
+Base.sign(a::MatsubaraFreq)                     = sign(a.n)
+Base.zero(::MatsubaraFreq)                      = BosonicFreq(0)
+Base.iszero(::FermionicFreq)                    = false
+Base.iszero(a::BosonicFreq)                     = iszero(a.n)
+Base.:<(a::MatsubaraFreq, b::MatsubaraFreq)     = a.n < b.n
+Base.isless(a::MatsubaraFreq, b::MatsubaraFreq) = isless(a.n, b.n)
+Base.:<=(a::MatsubaraFreq, b::MatsubaraFreq)    = a.n <= b.n
+
+# This is to support the specialized <:Integer sorting before Julia 1.9
+@static if VERSION < v"1.9-"
+    function Base.sub_with_overflow(a::MatsubaraFreq, b::MatsubaraFreq)
+        r, f = Base.sub_with_overflow(a.n, b.n)
+        MatsubaraFreq(r), f
+    end
+    function Base.add_with_overflow(a::MatsubaraFreq, b::MatsubaraFreq)
+        r, f = Base.add_with_overflow(a.n, b.n)
+        MatsubaraFreq(r), f
+    end
+    Base.:<(a::MatsubaraFreq, b::Integer)           = a.n < b
+end
 
 # This is to get rid of the weird "promotion failed to change any of the types"
 # errors you get when mixing frequencies and numbers. These originate from the
