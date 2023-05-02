@@ -55,7 +55,6 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         left in the polynomial\.
         """) SparseIR.default_sampling_points(sve.u, 100)
 
-
         basis = FiniteTempBasis{Bosonic}(3, 4, 1e-6)
 
         @test_logs (:warn, r"""

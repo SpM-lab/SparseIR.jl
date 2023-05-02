@@ -49,8 +49,9 @@ end
 
 Scale weights by `factor`.
 """
-scale(rule, factor) =
+function scale(rule, factor)
     Rule(rule.x, rule.w * factor, rule.a, rule.b, rule.x_forward, rule.x_backward)
+end
 
 """
     piecewise(rule, edges)
@@ -104,6 +105,7 @@ function legendre_collocation(rule, n=length(rule.x))
     return res
 end
 
-Base.convert(::Type{Rule{T}}, rule::Rule) where {T} =
+function Base.convert(::Type{Rule{T}}, rule::Rule) where {T}
     Rule(T.(rule.x), T.(rule.w), T(rule.a), T(rule.b),
          T.(rule.x_forward), T.(rule.x_backward))
+end

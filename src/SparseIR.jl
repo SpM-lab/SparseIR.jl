@@ -62,7 +62,7 @@ include("basis_set.jl")
 
             Giω = evaluate(iω_smpl, basis.s)
             Gτ = evaluate(τ_smpl, basis.s)
-            
+
             fit(τ_smpl, Gτ)
             fit(iω_smpl, Giω)
         end

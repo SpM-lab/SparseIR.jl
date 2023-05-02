@@ -61,7 +61,9 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         end
     end
 
-    @testset "τ noise with stat = $stat, Λ = $Λ" for stat in (Bosonic(), Fermionic()), Λ in (10, 42)
+    @testset "τ noise with stat = $stat, Λ = $Λ" for stat in (Bosonic(), Fermionic()),
+                                                     Λ in (10, 42)
+
         basis = FiniteTempBasis(stat, 1, Λ; sve_result=sve_logistic[Λ])
         smpl = TauSampling(basis)
         @test issorted(smpl.sampling_points)
@@ -98,7 +100,8 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         basis = FiniteTempBasis(stat, 1, Λ; sve_result=sve_logistic[Λ])
         smpl = MatsubaraSampling(basis; positive_only)
         if !positive_only
-            @test smpl isa (stat == Fermionic() ? MatsubaraSampling64F : MatsubaraSampling64B)
+            @test smpl isa
+                  (stat == Fermionic() ? MatsubaraSampling64F : MatsubaraSampling64B)
         end
         @test issorted(smpl.sampling_points)
         Random.seed!(1312 + 161)
@@ -119,7 +122,8 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         @inferred fit(smpl, Giwn_n)
         @inferred fit(smpl, Giwn_n, dim=1)
         Gℓ_n = fit(smpl, Giwn_n)
-        @test isapprox(Gℓ, Gℓ_n, atol=40 * sqrt(1 + positive_only) * noise * Gℓ_magn, rtol=0)
+        @test isapprox(Gℓ, Gℓ_n, atol=40 * sqrt(1 + positive_only) * noise * Gℓ_magn,
+                       rtol=0)
 
         Gℓ_n_inplace = similar(Gℓ_n)
         fit!(Gℓ_n_inplace, smpl, Giwn_n)
@@ -130,8 +134,18 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         basis = FiniteTempBasis{Fermionic}(3, 3, 1e-6)
         @test cond(TauSampling(basis)) < 3
         @test cond(MatsubaraSampling(basis)) < 5
-        @test_logs (:warn, r"Sampling matrix is poorly conditioned \(cond = \d\.\d+e\d+\)\.") TauSampling(basis; sampling_points=[1.0, 1.0])
-        @test_logs (:warn, r"Sampling matrix is poorly conditioned \(cond = \d\.\d+e\d+\)\.") MatsubaraSampling(basis; sampling_points=[FermionicFreq(1), FermionicFreq(1)])
+        @test_logs (:warn,
+                    r"Sampling matrix is poorly conditioned \(cond = \d\.\d+e\d+\)\.") TauSampling(basis;
+                                                                                                   sampling_points=[
+                                                                                                       1.0,
+                                                                                                       1.0
+                                                                                                   ])
+        @test_logs (:warn,
+                    r"Sampling matrix is poorly conditioned \(cond = \d\.\d+e\d+\)\.") MatsubaraSampling(basis;
+                                                                                                         sampling_points=[
+                                                                                                             FermionicFreq(1),
+                                                                                                             FermionicFreq(1)
+                                                                                                         ])
 
         basis = FiniteTempBasis{Fermionic}(3, 3, 1e-2)
         @test cond(TauSampling(basis)) < 2
@@ -140,13 +154,16 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
     end
 
     @testset "errors with stat = $stat, $sampling" for stat in (Bosonic(), Fermionic()),
-                                            sampling in (TauSampling, MatsubaraSampling)
+                                                       sampling in (TauSampling,
+                                                                    MatsubaraSampling)
+
         basis = FiniteTempBasis(stat, 3, 3, 1e-6)
         smpl = sampling(basis)
         @test_throws DimensionMismatch evaluate(smpl, rand(100))
         @test_throws DimensionMismatch evaluate!(rand(100), smpl, rand(100))
         @test_throws DimensionMismatch fit(smpl, rand(100))
         @test_throws DimensionMismatch fit!(rand(100), smpl, rand(100))
-        @test_throws DomainError SparseIR.matop!(rand(2, 3, 4), rand(5, 6), rand(7, 8, 9), *, 2)
+        @test_throws DomainError SparseIR.matop!(rand(2, 3, 4), rand(5, 6), rand(7, 8, 9),
+                                                 *, 2)
     end
 end

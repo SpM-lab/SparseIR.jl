@@ -20,6 +20,7 @@ and associated sparse-sampling objects.
   - sve_result::Tuple{PiecewiseLegendrePoly,Vector{Float64},PiecewiseLegendrePoly}: Results of SVE
 
 # Getters
+
   - beta::Float64: Inverse temperature
   - ωmax::Float64: Cut-off frequency
 """
@@ -47,7 +48,7 @@ struct FiniteTempBasisSet
         matsubara_sampling_f = MatsubaraSampling(basis_f)
         matsubara_sampling_b = MatsubaraSampling(basis_b)
 
-        new(basis_f, basis_b, tau_sampling_f, tau_sampling_b, 
+        new(basis_f, basis_b, tau_sampling_f, tau_sampling_b,
             matsubara_sampling_f, matsubara_sampling_b)
     end
 end
@@ -69,8 +70,10 @@ function Base.getproperty(bset::FiniteTempBasisSet, d::Symbol)
     end
 end
 
-Base.propertynames(::FiniteTempBasisSet) =
+function Base.propertynames(::FiniteTempBasisSet)
     (:tau, :wn_f, :wn_b, :sve_result, fieldnames(FiniteTempBasisSet)...)
+end
 
-Base.show(io::IO, ::MIME"text/plain", b::FiniteTempBasisSet) =
+function Base.show(io::IO, ::MIME"text/plain", b::FiniteTempBasisSet)
     print(io, "FiniteTempBasisSet with β = $(beta(b)), ωmax = $(wmax(b))")
+end

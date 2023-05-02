@@ -23,7 +23,7 @@ using SparseIR.LinearAlgebra
         # is not well-conditioned.
         gl_fit_bad = pinv(τ_smpl.matrix) * gτ
         gτ_reconst_bad = evaluate(τ_smpl, gl_fit_bad)
-        @test !isapprox(gτ_reconst_bad, gτ, atol=1e-13 * magn)
+        @test !isapprox(gτ_reconst_bad, gτ; atol=1e-13 * magn)
         @test isapprox(gτ_reconst_bad, gτ, atol=5e-16 * cond(τ_smpl) * magn)
         @test cond(τ_smpl) > 1e7
         @test size(τ_smpl.matrix) == (length(basis_aug), length(τ_smpl.τ))
@@ -86,7 +86,8 @@ using SparseIR.LinearAlgebra
         @test SparseIR.xmin(basis_aug.u) == 0.0
         @test SparseIR.xmax(basis_aug.u) == β
 
-        @test SparseIR.deriv(basis_aug.u)(0.8)[3:end] == SparseIR.deriv.(SparseIR.fbasis(basis_aug.u))(0.8)
+        @test SparseIR.deriv(basis_aug.u)(0.8)[3:end] ==
+              SparseIR.deriv.(SparseIR.fbasis(basis_aug.u))(0.8)
 
         @test SparseIR.zeta(basis_aug.uhat) == 0
 
@@ -101,7 +102,7 @@ using SparseIR.LinearAlgebra
             @test SparseIR.β(tc) == 123.0
             @test_throws DomainError tc(-3)
             @test_throws DomainError tc(321)
-            @test tc(100) == 1/sqrt(123)
+            @test tc(100) == 1 / sqrt(123)
             @test tc(MatsubaraFreq(0)) == sqrt(123)
             @test tc(MatsubaraFreq(92)) == 0.0
             @test_throws ErrorException tc(MatsubaraFreq(93))

@@ -19,7 +19,8 @@ using SparseIR
         @test SparseIR.midpoint(floatmax(Float64), floatmax(Float64)) === floatmax(Float64)
         @test SparseIR.midpoint(Float16(0), floatmax(Float32)) === floatmax(Float32) / 2
         @test SparseIR.midpoint(Float16(0), floatmax(BigFloat)) == floatmax(BigFloat) / 2
-        @test SparseIR.midpoint(Int16(0), big"99999999999999999999") == big"99999999999999999999" ÷ 2
-        @test SparseIR.midpoint(-10., 1) === -4.5
+        @test SparseIR.midpoint(Int16(0), big"99999999999999999999") ==
+              big"99999999999999999999" ÷ 2
+        @test SparseIR.midpoint(-10.0, 1) === -4.5
     end
 end

@@ -18,7 +18,7 @@ as follows:
 
 where `basis.uhat[l]` is now the Fourier transform of the basis function.
 """
-abstract type AbstractBasis{S <: Statistics} end
+abstract type AbstractBasis{S<:Statistics} end
 
 Base.broadcastable(b::AbstractBasis) = Ref(b)
 Base.firstindex(::AbstractBasis) = 1
@@ -58,7 +58,8 @@ function default_tau_sampling_points end
 Default sampling points on the imaginary frequency axis.
 
 # Arguments
-- `positive_only::Bool`: Only return non-negative frequencies. This is useful if the
+
+  - `positive_only::Bool`: Only return non-negative frequencies. This is useful if the
     object to be fitted is symmetric in Matsubura frequency, `ĝ(ω) == conj(ĝ(-ω))`,
     or, equivalently, real in imaginary time.
 """
@@ -164,14 +165,15 @@ abstract type AbstractSampling{T,Tmat,F} end
 
 Base.broadcastable(sampling::AbstractSampling) = Ref(sampling)
 
-LinearAlgebra.cond(sampling::AbstractSampling) =
+function LinearAlgebra.cond(sampling::AbstractSampling)
     first(sampling.matrix_svd.S) / last(sampling.matrix_svd.S)
+end
 
 sampling_points(sampling::AbstractSampling) = sampling.sampling_points
 
 function Base.show(io::IO, ::MIME"text/plain", smpl::S) where {S<:AbstractSampling}
     println(io, "$S with sampling points:")
-    for p in sampling_points(smpl)[begin:end-1]
+    for p in sampling_points(smpl)[begin:(end - 1)]
         println(io, " $p")
     end
     print(io, " $(last(sampling_points(smpl)))")

@@ -80,7 +80,8 @@ struct CentrosymmSVE{K<:AbstractKernel,SVEEVEN<:AbstractSVE,SVEODD<:AbstractSVE}
     nsvals_hint :: Int
 end
 
-function CentrosymmSVE(kernel, ε, ::Type{T}; InnerSVE=SamplingSVE, n_gauss=nothing) where {T}
+function CentrosymmSVE(kernel, ε, ::Type{T}; InnerSVE=SamplingSVE,
+                       n_gauss=nothing) where {T}
     even = InnerSVE(get_symmetrized(kernel, +1), ε, T; n_gauss)
     odd = InnerSVE(get_symmetrized(kernel, -1), ε, T; n_gauss)
     return CentrosymmSVE(kernel, ε, even, odd, max(even.nsvals_hint, odd.nsvals_hint))
@@ -131,7 +132,7 @@ using a collocation).
   - `cutoff::Real`: Relative cutoff for the singular values. A `Twork` with
     machine epsilon of `cutoff` is required to satisfy this.
     Defaults to a small multiple of the machine epsilon.
-    
+
     Note that `cutoff` and `ε` serve distinct purposes. `cutoff`
     reprsents the accuracy to which the kernel is reproduced, whereas
     `ε` is the accuracy to which the singular values and vectors
@@ -139,8 +140,7 @@ using a collocation).
   - `lmax::Integer`: Maximum basis size. If given, only at most the `lmax` most
     significant singular values and associated singular functions are returned.
   - `n_gauss (int): Order of Legendre polynomials. Defaults to kernel hinted value.
-  - `Twork``: Working data type. Defaults to a data type with machine epsilon of at 
-    most `ε^2`and at most `cutoff`, or otherwise most accurate data type available.
+  - `Twork``: Working data type. Defaults to a data type with machine epsilon of at  most `ε^2`and at most `cutoff`, or otherwise most accurate data type available.
   - `sve_strat::AbstractSVE`: SVE to SVD translation strategy. Defaults to `SamplingSVE`,
     optionally wrapped inside of a `CentrosymmSVE` if the kernel is centrosymmetric.
   - `svd_strat` ('fast' or 'default' or 'accurate'): SVD solver. Defaults to fast
@@ -202,9 +202,10 @@ function postprocess(sve::SamplingSVE, u, s, v)
     v_y = reshape(v_y, (sve.n_gauss, length(sve.segs_y) - 1, length(s)))
 
     cmat = legendre_collocation(sve.rule)
-    u_data = reshape(cmat * reshape(u_x, (size(u_x, 1), :)), (:, size(u_x, 2), size(u_x, 3)))
-    v_data = reshape(cmat * reshape(v_y, (size(v_y, 1), :)), (:, size(v_y, 2), size(v_y, 3)))
-
+    u_data = reshape(cmat * reshape(u_x, (size(u_x, 1), :)),
+                     (:, size(u_x, 2), size(u_x, 3)))
+    v_data = reshape(cmat * reshape(v_y, (size(v_y, 1), :)),
+                     (:, size(v_y, 2), size(v_y, 3)))
 
     dsegs_x = diff(sve.segs_x)
     dsegs_y = diff(sve.segs_y)

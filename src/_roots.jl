@@ -1,4 +1,4 @@
-function find_all(f::F, xgrid::AbstractVector{T}) where {F, T}
+function find_all(f::F, xgrid::AbstractVector{T}) where {F,T}
     fx = map(Float64 ∘ f, xgrid)#::Vector{Float64}
     hit = iszero.(fx)
     x_hit = xgrid[hit]
@@ -99,8 +99,8 @@ function bisect_discr_extremum(absf, a, b, absf_a, absf_b)
     absf_m = absf(m)
     absf_n = absf(n)
 
-    a, b, absf_a, absf_b = ifelse(absf_m > absf_n, 
-                                  (a, n, absf_a, absf_n), 
+    a, b, absf_a, absf_b = ifelse(absf_m > absf_n,
+                                  (a, n, absf_a, absf_n),
                                   (m, b, absf_m, absf_b))
 
     return bisect_discr_extremum(absf, a, b, absf_a, absf_b)

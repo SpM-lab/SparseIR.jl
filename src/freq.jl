@@ -64,7 +64,7 @@ accordingly.
   - Fermionic frequency (`S == Bosonic`): `n` odd (anti-periodic in β)
 """
 struct MatsubaraFreq{S<:Statistics} <: Number
-    n :: Int
+    n::Int
 
     MatsubaraFreq(stat::Statistics, n::Integer) = new{typeof(stat)}(n)
 
@@ -154,4 +154,6 @@ Base.rem(a::MatsubaraFreq, b::FermionicFreq) = MatsubaraFreq(rem(a.n, b.n))
 Base.rem(a::MatsubaraFreq{S}, b::BosonicFreq) where {S} = MatsubaraFreq{S}(rem(a.n, b.n))
 Base.div(a::MatsubaraFreq, b::MatsubaraFreq) = MatsubaraFreq(div(a.n, b.n))
 
-Base.:(:)(start::MatsubaraFreq{S}, stop::MatsubaraFreq{S}) where {S} = start:BosonicFreq(2):stop
+function Base.:(:)(start::MatsubaraFreq{S}, stop::MatsubaraFreq{S}) where {S}
+    start:BosonicFreq(2):stop
+end

@@ -27,7 +27,7 @@ using SparseIR
 
         @test result≈result_x atol=2magn * ϵ rtol=0
         reldiff = @. ifelse(abs(result) < tiny, 1.0, result / result_x)
-        @test reldiff ≈ ones(size(reldiff)) atol=100ϵ rtol=0
+        @test reldiff≈ones(size(reldiff)) atol=100ϵ rtol=0
     end
 
     @testset "singularity with Λ = $Λ" for Λ in (10, 42, 10_000), x in 2rand(10) .- 1

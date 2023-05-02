@@ -17,7 +17,7 @@ the variables.
   - `u::PiecewiseLegendrePolyVector`:
     Set of IR basis functions on the imaginary time (`tau`) axis.
     These functions are stored as piecewise Legendre polynomials.
-    
+
     To obtain the value of all basis functions at a point or a array of
     points `x`, you can call the function `u(x)`. To obtain a single
     basis function, a slice or a subset `l`, you can use `u[l]`.
@@ -25,7 +25,7 @@ the variables.
   - `uhat::PiecewiseLegendreFT`:
     Set of IR basis functions on the Matsubara frequency (`wn`) axis.
     These objects are stored as a set of Bessel functions.
-    
+
     To obtain the value of all basis functions at a Matsubara frequency
     or a array of points `wn`, you can call the function `uhat(wn)`.
     Note that we expect reduced frequencies, which are simply even/odd
@@ -35,7 +35,7 @@ the variables.
   - `v::PiecewiseLegendrePoly`:
     Set of IR basis functions on the real frequency (`w`) axis.
     These functions are stored as piecewise Legendre polynomials.
-    
+
     To obtain the value of all basis functions at a point or a array of
     points `w`, you can call the function `v(w)`. To obtain a single
     basis function, a slice or a subset `l`, you can use `v[l]`.
@@ -58,10 +58,11 @@ end
 Construct a finite temperature basis suitable for the given `S` (`Fermionic`
 or `Bosonic`) and cutoffs `β` and `ωmax`.
 """
-FiniteTempBasis{S}(β::Real, ωmax::Real, ε=nothing; max_size=nothing,
-                   kernel=LogisticKernel(β * ωmax),
-                   sve_result=SVEResult(kernel; ε)) where {S} = 
-    FiniteTempBasis(S(), β, ωmax, ε; max_size, kernel,sve_result)
+function FiniteTempBasis{S}(β::Real, ωmax::Real, ε=nothing; max_size=nothing,
+                            kernel=LogisticKernel(β * ωmax),
+                            sve_result=SVEResult(kernel; ε)) where {S}
+    FiniteTempBasis(S(), β, ωmax, ε; max_size, kernel, sve_result)
+end
 
 function FiniteTempBasis(statistics::Statistics, β::Real, ωmax::Real, ε=nothing;
                          max_size=nothing, kernel=LogisticKernel(β * ωmax),
@@ -94,7 +95,8 @@ function FiniteTempBasis(statistics::Statistics, β::Real, ωmax::Real, ε=nothi
     # HACK: as we don't yet support Fourier transforms on anything but the
     # unit interval, we need to scale the underlying data.
     û_base_full = PiecewiseLegendrePolyVector(sqrt(β) .* sve_result.u.data, sve_result.u)
-    û_full = PiecewiseLegendreFTVector(û_base_full, statistics; n_asymp=conv_radius(kernel))
+    û_full = PiecewiseLegendreFTVector(û_base_full, statistics;
+                                        n_asymp=conv_radius(kernel))
     û = û_full[1:length(s)]
 
     return FiniteTempBasis(kernel, sve_result, accuracy, float(β), u, v, s, û, û_full)

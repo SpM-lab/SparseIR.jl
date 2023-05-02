@@ -217,9 +217,10 @@ function segments_y(hints::SVEHintsLogistic, ::Type{T}=Float64) where {T}
     nzeros = max(round(Int, 20 * log10(hints.kernel.Λ)), 2)
 
     # Zeros around -1 and 1 are distributed asymptotically identically
-    leading_diffs = T[0.01523, 0.03314, 0.04848, 0.05987, 0.06703, 0.07028, 0.07030, 0.06791,
-        0.06391, 0.05896, 0.05358, 0.04814, 0.04288, 0.03795, 0.03342, 0.02932, 0.02565,
-        0.02239, 0.01951, 0.01699][1:min(nzeros, 20)]
+    leading_diffs = T[0.01523, 0.03314, 0.04848, 0.05987, 0.06703, 0.07028, 0.07030,
+                      0.06791, 0.06391, 0.05896, 0.05358, 0.04814, 0.04288, 0.03795,
+                      0.03342, 0.02932, 0.02565, 0.02239, 0.01951, 0.01699][1:min(nzeros,
+                                                                                  20)]
 
     temp = T(0.141) * (20:(nzeros - 1))
     diffs = [leading_diffs; @. T(0.25) * exp(-temp)]
@@ -276,8 +277,9 @@ function Base.checkbounds(::Type{Bool}, kernel::AbstractKernel, x::Real, y::Real
     (xmin ≤ x ≤ xmax) && (ymin ≤ y ≤ ymax)
 end
 
-Base.checkbounds(kernel::AbstractKernel, x::Real, y::Real) =
+function Base.checkbounds(kernel::AbstractKernel, x::Real, y::Real)
     checkbounds(Bool, kernel, x, y) || throw(BoundsError(kernel, (x, y)))
+end
 
 function compute_uv(Λ, x, y, x₊=1 + x, x₋=1 - x)
     u₊ = x₊ / 2
@@ -292,7 +294,7 @@ end
 Construct a symmetrized version of `kernel`, i.e. `kernel(x, y) + sign * kernel(x, -y)`.
 
 !!! warning "Beware!"
-    
+
     By default, this returns a simple wrapper over the current instance which naively
     performs the sum. You may want to override this to avoid cancellation.
 """
@@ -387,8 +389,12 @@ function (kernel::RegularizedBoseKernelOdd)(x, y,
     end
 end
 
-segments_x(hints::SVEHintsReduced, ::Type{T}=Float64) where {T} = symm_segments(segments_x(hints.inner_hints, T))
-segments_y(hints::SVEHintsReduced, ::Type{T}=Float64) where {T} = symm_segments(segments_y(hints.inner_hints, T))
+function segments_x(hints::SVEHintsReduced, ::Type{T}=Float64) where {T}
+    symm_segments(segments_x(hints.inner_hints, T))
+end
+function segments_y(hints::SVEHintsReduced, ::Type{T}=Float64) where {T}
+    symm_segments(segments_y(hints.inner_hints, T))
+end
 
 function symm_segments(x::AbstractVector{T}) where {T}
     for (xi, revxi) in zip(x, Iterators.reverse(x))
@@ -474,8 +480,8 @@ conv_radius(kernel::AbstractReducedKernel) = conv_radius(kernel.inner)
 
 Return the weight function for the given statistics.
 
- - Fermion: `w(x) == 1`
- - Boson: `w(y) == 1/tanh(Λ*y/2)`
+  - Fermion: `w(x) == 1`
+  - Boson: `w(y) == 1/tanh(Λ*y/2)`
 """
 function weight_func end
 weight_func(::AbstractKernel, ::Statistics)       = one

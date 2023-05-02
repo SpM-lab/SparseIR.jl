@@ -51,7 +51,8 @@ See also: [`MatsubaraConst`](@ref) for vertex basis [^wallerberger2021],
 [^wallerberger2021]: https://doi.org/10.1103/PhysRevResearch.3.033168
 [^shinaoka2018]: https://doi.org/10.1103/PhysRevB.97.205111
 """
-struct AugmentedBasis{S<:Statistics,B<:FiniteTempBasis{S},A<:AugmentationTuple,F,FHAT} <: AbstractBasis{S}
+struct AugmentedBasis{S<:Statistics,B<:FiniteTempBasis{S},A<:AugmentationTuple,F,FHAT} <:
+       AbstractBasis{S}
     basis         :: B
     augmentations :: A
     u             :: F
@@ -80,8 +81,7 @@ accuracy(basis::AugmentedBasis) = accuracy(basis.basis)
 β(basis::AugmentedBasis) = β(basis.basis)
 ωmax(basis::AugmentedBasis) = ωmax(basis.basis)
 
-significance(basis::AugmentedBasis) =
-    vcat(ones(naug(basis)), significance(basis.basis))
+significance(basis::AugmentedBasis) = vcat(ones(naug(basis)), significance(basis.basis))
 
 function default_tau_sampling_points(basis::AugmentedBasis)
     x = default_sampling_points(basis.basis.sve_result.u, length(basis))

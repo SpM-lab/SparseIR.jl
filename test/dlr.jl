@@ -24,7 +24,8 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
 
         # Comparison on Matsubara frequencies
         smpl = MatsubaraSampling(basis)
-        smpl_for_dlr = MatsubaraSampling(dlr; sampling_points=SparseIR.sampling_points(smpl))
+        smpl_for_dlr = MatsubaraSampling(dlr;
+                                         sampling_points=SparseIR.sampling_points(smpl))
 
         giv_ref = evaluate(smpl, Gl; dim=1)
         giv = evaluate(smpl_for_dlr, g_dlr)
@@ -68,7 +69,7 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
             n = rand(-12345:2:987, 100)
             mpb = SparseIR.MatsubaraPoles{Fermionic}(β, poles)
             @test mpb(n) ≈ @. 1 / (im * n' - poles)
-            
+
             n = rand(-234:2:13898, 100)
             mbp = SparseIR.MatsubaraPoles{Bosonic}(β, poles)
             @test mbp(n) ≈ @. tanh(π / 2 * poles) / (im * n' - poles)
@@ -85,9 +86,11 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
             @test SparseIR.β(dlr) == β
             @test SparseIR.ωmax(dlr) == ωmax
             @test SparseIR.Λ(dlr) == β * ωmax
-            @test SparseIR.sampling_points(dlr) == SparseIR.default_omega_sampling_points(basis)
+            @test SparseIR.sampling_points(dlr) ==
+                  SparseIR.default_omega_sampling_points(basis)
             @test SparseIR.accuracy(dlr) < ε
-            @test SparseIR.default_matsubara_sampling_points(dlr) == SparseIR.default_matsubara_sampling_points(basis)
+            @test SparseIR.default_matsubara_sampling_points(dlr) ==
+                  SparseIR.default_matsubara_sampling_points(basis)
         end
     end
 end
