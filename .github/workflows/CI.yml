@@ -31,7 +31,7 @@ jobs:
         arch:
           - x64
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: julia-actions/setup-julia@v1
         with:
           version: ${{ matrix.version }}
@@ -55,10 +55,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
-      #- run: |
-          #julia --project=docs -e '
-            #using Documenter: DocMeta, doctest
-            #using SparseIR
-            #DocMeta.setdocmeta!(SparseIR, :DocTestSetup, :(using SparseIR); recursive=true)
-            #doctest(SparseIR)'
-      #- run: julia --project=docs docs/make.jl
