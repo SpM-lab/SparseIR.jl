@@ -1,5 +1,6 @@
 SparseIR.jl - intermediate representation of propagators
 ==============================================================
+[![DOI][doi-img]][doi-url]
 [![Docs - stable version][docs-stable-img]][docs-stable-url]
 [![Docs - dev version][docs-dev-img]][docs-dev-url] 
 [![][GHA-img]][GHA-url]
@@ -142,7 +143,8 @@ MINIMAX isometry method (Merzuk Kaltak and Georg Kresse,
 [SoftwareX 21, 101266]: https://doi.org/10.1016/j.softx.2022.101266
 [Phys. Rev. B 101, 205145]: https://doi.org/10.1103/PhysRevB.101.205145
 
-
+[doi-img]: https://img.shields.io/badge/DOI-10.1016%2Fj.softx.2022.101266-brightgreen
+[doi-url]: https://doi.org/10.1016/j.softx.2022.101266
 [docs-dev-img]: https://img.shields.io/badge/docs-dev-blue.svg
 [docs-dev-url]: https://spm-lab.github.io/SparseIR.jl/dev/
 [docs-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
