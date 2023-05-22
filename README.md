@@ -1,9 +1,10 @@
 SparseIR.jl - intermediate representation of propagators
 ==============================================================
-[![][docs-stable-img]][docs-stable-url]
-[![][docs-dev-img]][docs-dev-url] 
+[![Docs - stable version][docs-stable-img]][docs-stable-url]
+[![Docs - dev version][docs-dev-img]][docs-dev-url] 
 [![][GHA-img]][GHA-url]
 [![][codecov-img]][codecov-url]
+[![Aqua QA](aqua-img)](aqua-url)
 
 This library provides routines for constructing and working with the
 intermediate representation of correlation functions. It provides:
@@ -150,5 +151,7 @@ MINIMAX isometry method (Merzuk Kaltak and Georg Kresse,
 [GHA-url]: https://github.com/SpM-lab/SparseIR.jl/actions?query=workflows/CI
 [codecov-img]: https://codecov.io/gh/SpM-lab/SparseIR.jl/branch/main/graph/badge.svg?token=tdMvTruYa4
 [codecov-url]: https://codecov.io/gh/SpM-lab/SparseIR.jl
+[aqua-img]: https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg
+[aqua-url]: https://github.com/JuliaTesting/Aqua.jl
 
 [issues-url]: https://github.com/SpM-lab/SparseIR.jl/issues
