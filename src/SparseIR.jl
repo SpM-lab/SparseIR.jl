@@ -21,10 +21,7 @@ using QuadGK: gauss, quadgk
 using Bessels: sphericalbesselj
 using PrecompileTools
 
-# FIXME: These are piracy, but needed to make MultiFloats work for us.
-Base.sinh(x::Float64x2) = 0.5 * (exp(x) - exp(-x))
-Base.cosh(x::Float64x2) = 0.5 * (exp(x) + exp(-x))
-Base.Math.hypot(x::Float64x2, y::Float64x2) = Base.Math._hypot(x, y)
+include("_multifloat_funcs.jl")
 
 include("_linalg.jl")
 include("_roots.jl")

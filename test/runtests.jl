@@ -19,6 +19,7 @@ Aqua.test_all(SparseIR; ambiguities=false)
     include("_linalg.jl")
     include("_roots.jl")
     include("_specfuncs.jl")
+    include("_multifloat_funcs.jl")
 end
 
 nothing # without this we get messy output from the testset printed in the REPL
