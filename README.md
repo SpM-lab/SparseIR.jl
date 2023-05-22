@@ -4,7 +4,7 @@ SparseIR.jl - intermediate representation of propagators
 [![Docs - dev version][docs-dev-img]][docs-dev-url] 
 [![][GHA-img]][GHA-url]
 [![][codecov-img]][codecov-url]
-[![Aqua QA](aqua-img)](aqua-url)
+[![Aqua QA][aqua-img]][aqua-url]
 
 This library provides routines for constructing and working with the
 intermediate representation of correlation functions. It provides:
