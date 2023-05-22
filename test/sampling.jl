@@ -166,4 +166,16 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         @test_throws DomainError SparseIR.matop!(rand(2, 3, 4), rand(5, 6), rand(7, 8, 9),
                                                  *, 2)
     end
+
+    @testset "noalloc divs" begin
+        A = rand(ComplexF64, 3, 4)
+        B = rand(ComplexF64, 4, 5)
+        B_SVD = svd(B)
+        Y = Matrix{ComplexF64}(undef, 3, 5)
+        workarr = Vector{ComplexF64}(undef, 4 * 5)
+
+        SparseIR.rdiv_noalloc!(Y, A, B_SVD, workarr)
+
+        @test Y * transpose(B) ≈ A
+    end
 end

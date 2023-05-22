@@ -34,7 +34,9 @@ function TauPoles(stats::Statistics, β::Real, poles::Vector{<:Real})
 end
 
 function (tp::TauPoles)(τ::Vector{<:Real})
-    all(τ -> 0 ≤ τ ≤ tp.β, τ) || throw(DomainError(τ, "τ must be in [0, β]."))
+    for τ in τ
+        0 ≤ τ ≤ tp.β || throw(DomainError(τ, "τ must be in [0, β], found $τ outside of [0, $(tp.β)]]"))
+    end
 
     x = reshape(2τ ./ tp.β .- 1, (1, :))
     y = tp.poles ./ tp.ωmax

@@ -233,11 +233,11 @@ function default_matsubara_sampling_points(û::PiecewiseLegendreFTVector, L::In
         L = $L, but $(length(ωn)) were returned. This may indicate a problem with precision.
         """
 
-    fence && fence_matsubara_sampling!(ωn; positive_only)
+    fence && fence_matsubara_sampling!(ωn, positive_only)
     return ωn
 end
 
-function fence_matsubara_sampling!(ωn::Vector{<:MatsubaraFreq}; positive_only)
+function fence_matsubara_sampling!(ωn::Vector{<:MatsubaraFreq}, positive_only)
     # While the condition number for sparse sampling in tau saturates at a
     # modest level, the conditioning in Matsubara steadily deteriorates due
     # to the fact that we are not free to set sampling points continuously.

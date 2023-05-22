@@ -164,8 +164,7 @@ Use `dim = 1` or `dim = N` to avoid allocating large temporary arrays internally
 The length of `workarr` cannot be smaller than [`SparseIR.workarrlength`](@ref)`(smpl, al)`.
 """
 function fit!(buffer::Array{S,N}, smpl::AbstractSampling, al::Array{T,N}; dim=1,
-              workarr::Vector{S}=Vector{S}(undef, workarrlength(smpl, al; dim))) where {S,T,
-                                                                                        N}
+              workarr::Vector{S}=Vector{S}(undef, workarrlength(smpl, al; dim))) where {S,T,N}
     resultsize = ntuple(j -> j == dim ? size(smpl.matrix, 2) : size(al, j), N)
     if size(buffer) ≠ resultsize
         msg = "Buffer has the wrong size (got $(size(buffer)), expected $resultsize)."
@@ -329,6 +328,10 @@ function ldiv_noalloc!(Y::AbstractMatrix, A::SplitSVD, B::AbstractMatrix, workar
     mul!(workarr_view, A.UimagT, imag(B), true, true)
     workarr_view ./= A.S
     return mul!(Y, A.V, workarr_view)
+end
+
+function rdiv_noalloc!(Y::AbstractMatrix, A::AbstractMatrix, B::SplitSVD, workarr)
+    error("not yet implemented")
 end
 
 function split_complex(mat::Matrix{<:Complex}; has_zero=false, svd_algo=svd)

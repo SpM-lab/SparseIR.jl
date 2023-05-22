@@ -21,8 +21,9 @@ struct Rule{T<:AbstractFloat}
     function Rule(x::Vector{T}, w::Vector{T}, a=-one(T), b=one(T),
                   x_forward=x .- a, x_backward=b .- x) where {T}
         a ≤ b || error("a must be ≤ b")
-        all(≤(b), x) || error("x must be ≤ b")
-        all(≥(a), x) || error("x must be ≥ a")
+        for xx in x
+            a ≤ xx ≤ b || error("all x must be in [a, b], found $xx outside of [$a, $b]")
+        end
         issorted(x) || error("x must be strictly increasing")
         length(x) == length(w) ||
             throw(DimensionMismatch("x and w must have the same length"))
@@ -75,8 +76,8 @@ function joinrules(rules::AbstractVector{Rule{T}}) where {T}
         rules[i - 1].b == rules[i].a || error("rules must be contiguous")
     end
 
-    x = reduce(vcat, rule.x for rule in rules)
-    w = reduce(vcat, rule.w for rule in rules)
+    x = reduce(vcat, rule.x for rule in rules; init=T[])
+    w = reduce(vcat, rule.w for rule in rules; init=T[])
     a = first(rules).a
     b = last(rules).b
 
@@ -99,7 +100,7 @@ legendre(n, ::Type{T}=Float64) where {T} = Rule(gauss(T, n)...)
 Generate collocation matrix from Gauss-Legendre rule.
 """
 function legendre_collocation(rule, n=length(rule.x))
-    res = transpose(legvander(rule.x, n - 1) .* rule.w)
+    res = permutedims(legvander(rule.x, n - 1) .* rule.w)
     invnorm = range(0.5; length=n)
     res .*= invnorm
     return res

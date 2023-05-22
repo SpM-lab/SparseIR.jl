@@ -217,13 +217,13 @@ function segments_y(hints::SVEHintsLogistic, ::Type{T}=Float64) where {T}
     nzeros = max(round(Int, 20 * log10(hints.kernel.Λ)), 2)
 
     # Zeros around -1 and 1 are distributed asymptotically identically
-    leading_diffs = T[0.01523, 0.03314, 0.04848, 0.05987, 0.06703, 0.07028, 0.07030,
-                      0.06791, 0.06391, 0.05896, 0.05358, 0.04814, 0.04288, 0.03795,
-                      0.03342, 0.02932, 0.02565, 0.02239, 0.01951, 0.01699][1:min(nzeros,
-                                                                                  20)]
+    diffs = T[0.01523, 0.03314, 0.04848, 0.05987, 0.06703, 0.07028, 0.07030,
+              0.06791, 0.06391, 0.05896, 0.05358, 0.04814, 0.04288, 0.03795,
+              0.03342, 0.02932, 0.02565, 0.02239, 0.01951, 0.01699][1:min(nzeros, 20)]
 
     temp = T(0.141) * (20:(nzeros - 1))
-    diffs = [leading_diffs; @. T(0.25) * exp(-temp)]
+    trailing_diffs = [0.25 * exp(-x) for x in temp]
+    append!(diffs, trailing_diffs)
     zeros = cumsum(diffs)
     zeros ./= pop!(zeros)
     zeros .-= 1

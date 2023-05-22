@@ -29,7 +29,6 @@ struct PiecewiseLegendrePoly <: Function
                                    norm::AbstractVector)
         !any(isnan, data) || error("data contains NaN")
         issorted(knots) || error("knots must be monotonically increasing")
-        # Δx ≈ diff(knots) || error("Δx must work with knots")
         @inbounds for i in eachindex(Δx)
             Δx[i] ≈ knots[i + 1] - knots[i] || error("Δx must work with knots")
         end
@@ -37,9 +36,9 @@ struct PiecewiseLegendrePoly <: Function
     end
 end
 
-function PiecewiseLegendrePoly(data, p::PiecewiseLegendrePoly; symm=0)
-    return PiecewiseLegendrePoly(p.polyorder, p.xmin, p.xmax, p.knots, p.Δx, data, symm,
-                                 p.l, p.xm, p.inv_xs, p.norm)
+function PiecewiseLegendrePoly(data, p::PiecewiseLegendrePoly; symm=p.symm)
+    return PiecewiseLegendrePoly(p.polyorder, p.xmin, p.xmax, copy(p.knots), copy(p.Δx),
+                                 data, symm, p.l, copy(p.xm), copy(p.inv_xs), copy(p.norm))
 end
 
 function PiecewiseLegendrePoly(data::Matrix, knots::Vector, l::Integer;
@@ -61,7 +60,7 @@ end
 
 @inline function (poly::PiecewiseLegendrePoly)(x::Real)
     i, x̃ = split(poly, x)
-    return legval(x̃, view(poly.data, :, i)) * poly.norm[i]
+    return @inbounds legval(x̃, @view poly.data[:, i]) * poly.norm[i]
 end
 (poly::PiecewiseLegendrePoly)(xs::AbstractVector) = poly.(xs)
 
@@ -195,16 +194,12 @@ function Vector{PiecewiseLegendrePoly}(data::AbstractArray{T,3},
     size(data, 3) == length(polys) ||
         throw(DimensionMismatch("Sizes of data and polys don't match"))
 
-    polys_new = deepcopy(polys)
-    @inbounds for i in eachindex(polys)
-        polys_new[i].data .= data[:, :, i]
-    end
-    return polys_new
+    [PiecewiseLegendrePoly(data[:, :, i], polys[i]) for i in eachindex(polys)]
 end
 
 (polys::PiecewiseLegendrePolyVector)(x) = [poly(x) for poly in polys]
 function (polys::PiecewiseLegendrePolyVector)(x::AbstractArray)
-    reshape(mapreduce(polys, vcat, x), (length(polys), size(x)...))
+    reshape(mapreduce(polys, vcat, x; init=Float64[]), (length(polys), size(x)...))
 end
 
 function Base.getproperty(polys::PiecewiseLegendrePolyVector, sym::Symbol)
@@ -219,8 +214,6 @@ function Base.getproperty(polys::PiecewiseLegendrePolyVector, sym::Symbol)
     elseif (sym === :xmin || sym === :xmax || sym === :knots || sym === :Δx ||
             sym === :polyorder || sym === :xm || sym === :inv_xs || sym === :norm)
         return getproperty(first(polys), sym)
-    else
-        return getfield(polys, sym)
     end
 end
 
@@ -290,8 +283,6 @@ function Base.getproperty(polyFTs::PiecewiseLegendreFTVector, sym::Symbol)
         getproperty(first(polyFTs), sym)
     elseif sym === :poly
         map(p -> p.poly, polyFTs)
-    else
-        getfield(polyFTs, sym)
     end
 end
 
@@ -319,7 +310,7 @@ end
 (polyFT::PiecewiseLegendreFTVector)(n::Integer) = polyFT(MatsubaraFreq(n))
 (polyFT::PiecewiseLegendreFT)(n::AbstractArray) = polyFT.(n)
 function (polyFTs::PiecewiseLegendreFTVector)(n::AbstractArray)
-    reshape(mapreduce(polyFTs, vcat, n), (length(polyFTs), size(n)...))
+    reshape(mapreduce(polyFTs, vcat, n)::Vector{ComplexF64}, (length(polyFTs), size(n)...))
 end
 
 """

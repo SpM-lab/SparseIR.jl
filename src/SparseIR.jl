@@ -49,19 +49,13 @@ include("basis_set.jl")
     with_logger(Base.NullLogger()) do
         @compile_workload begin
             basis = FiniteTempBasis(Fermionic(), 1e-1, 1e-1, 1e-5)
-            τ_smpl = TauSampling(basis)
-            iω_smpl = MatsubaraSampling(basis)
-
-            basis = FiniteTempBasis(Bosonic(), 1e-1, 1e-1, 1e-5)
-            τ_smpl = TauSampling(basis)
-            iω_smpl = MatsubaraSampling(basis)
-
             basis = FiniteTempBasis(Fermionic(), 1e-1, 1e-1)
+
             τ_smpl = TauSampling(basis)
             iω_smpl = MatsubaraSampling(basis)
 
-            Giω = evaluate(iω_smpl, basis.s)
             Gτ = evaluate(τ_smpl, basis.s)
+            Giω = evaluate(iω_smpl, basis.s)
 
             fit(τ_smpl, Gτ)
             fit(iω_smpl, Giω)

@@ -96,13 +96,11 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         @test u.knots == u[end].knots
         @test u.Δx == u[1].Δx
         @test u.symm[2] == u[2].symm
-        @test_throws ErrorException u.abc
         @test all(<(eps()), SparseIR.overlap(u, sin)[1:2:end])
         @test all(<(eps()), SparseIR.overlap(u, cos)[2:2:end])
 
         û = SparseIR.PiecewiseLegendreFTVector(u, Fermionic())
 
-        @test_throws ErrorException û.abc
         @test length(SparseIR.moments(û)[1]) == length(û)
         û_weird = SparseIR.PiecewiseLegendreFT(-9u[2] + u[3], Fermionic())
         @test_throws ErrorException SparseIR.func_for_part(û_weird)
