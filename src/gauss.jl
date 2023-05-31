@@ -60,9 +60,9 @@ end
 Piecewise quadrature with the same quadrature rule, but scaled.
 """
 function piecewise(rule, edges::Vector)
+    issorted(edges) || error("edges must be monotonically increasing")
     start = edges[begin:(end - 1)]
     stop  = edges[(begin + 1):end]
-    issorted(edges) || error("edges must be monotonically increasing")
     return joinrules([reseat(rule, a, b) for (a, b) in zip(start, stop)])
 end
 

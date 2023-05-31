@@ -128,7 +128,7 @@ struct RegularizedBoseKernelOdd <: AbstractReducedKernel
 
     function RegularizedBoseKernelOdd(inner::RegularizedBoseKernel, sign)
         iscentrosymmetric(inner) || error("inner kernel must be centrosymmetric")
-        abs(sign) == 1 || throw(DomainError(sign, "sign must be -1 or 1"))
+        isone(abs(sign)) || throw(DomainError(sign, "sign must be -1 or 1"))
         return new(inner, sign)
     end
 end
@@ -202,7 +202,7 @@ function segments_x(hints::SVEHintsLogistic, ::Type{T}=Float64) where {T}
     diffs = @. inv(cosh(temp))
     zeros = cumsum(diffs)
     zeros ./= last(zeros)
-    return [-reverse(zeros); 0; zeros]
+    return T[-reverse(zeros); zero(T); zeros]
 end
 
 """
@@ -226,8 +226,8 @@ function segments_y(hints::SVEHintsLogistic, ::Type{T}=Float64) where {T}
     append!(diffs, trailing_diffs)
     zeros = cumsum(diffs)
     zeros ./= pop!(zeros)
-    zeros .-= 1
-    return [-1; zeros; 0; -reverse(zeros); 1]
+    zeros .-= one(T)
+    return T[-one(T); zeros; zero(T); -reverse(zeros); one(T)]
 end
 
 function segments_x(hints::SVEHintsRegularizedBose, ::Type{T}=Float64) where {T}
@@ -237,7 +237,7 @@ function segments_x(hints::SVEHintsRegularizedBose, ::Type{T}=Float64) where {T}
     diffs = @. inv(cosh(temp))
     zeros = cumsum(diffs)
     zeros ./= last(zeros)
-    return [-reverse(zeros); 0; zeros]
+    return T[-reverse(zeros); zero(T); zeros]
 end
 
 function segments_y(hints::SVEHintsRegularizedBose, ::Type{T}=Float64) where {T}
@@ -246,8 +246,8 @@ function segments_y(hints::SVEHintsRegularizedBose, ::Type{T}=Float64) where {T}
     diffs = @. T(0.12 / exp(0.0337 * i * log(i + 1)))
     zeros = cumsum(diffs)
     zeros ./= pop!(zeros)
-    zeros .-= 1
-    return [-1; zeros; 0; -reverse(zeros); 1]
+    zeros .-= one(T)
+    return T[-one(T); zeros; zero(T); -reverse(zeros); one(T)]
 end
 
 """
@@ -446,8 +446,8 @@ end
 Gauss-Legendre order to use to guarantee accuracy.
 """
 function ngauss end
-ngauss(hints::SVEHintsLogistic)        = hints.ε ≥ 1e-8 ? 10 : 16
-ngauss(hints::SVEHintsRegularizedBose) = hints.ε ≥ 1e-8 ? 10 : 16
+ngauss(hints::SVEHintsLogistic)        = hints.ε ≥ sqrt(eps()) ? 10 : 16
+ngauss(hints::SVEHintsRegularizedBose) = hints.ε ≥ sqrt(eps()) ? 10 : 16
 ngauss(hints::SVEHintsReduced)         = ngauss(hints.inner_hints)
 
 """
