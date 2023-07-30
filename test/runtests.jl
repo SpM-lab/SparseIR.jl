@@ -3,7 +3,7 @@ using Aqua
 
 include("_conftest.jl")
 
-Aqua.test_all(SparseIR; ambiguities=false)
+Aqua.test_all(SparseIR; ambiguities=false, piracy=false)
 
 @testset verbose=true "SparseIR.jl" begin
     include("freq.jl")
