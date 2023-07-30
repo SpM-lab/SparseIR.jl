@@ -4,17 +4,13 @@ authors = ["Samuel Badr <samuel.badr@gmail.com>", "Hiroshi Shinaoka <h.shinaoka@
 version = "1.0.11"
 
 [deps]
-AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
 Bessels = "0e736298-9ec6-45e8-9647-e4fc86a2fe38"
 GenericLinearAlgebra = "14197337-ba66-59df-a3e3-ca00e7dcff7a"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 MultiFloats = "bdf0d083-296b-4888-a5b6-7498122e68a5"
 PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
-ProfileView = "c46f51b8-102a-5cf2-8d2c-8597cb0e0da7"
-PyPlot = "d330b81b-6aea-500a-939a-2ce795aea3ee"
 QuadGK = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
-SnoopCompileCore = "e2b509da-e806-4183-be48-004708413034"
 
 [compat]
 Bessels = "0.2"
