@@ -193,7 +193,7 @@ matrices(sve::CentrosymmSVE) = (only(matrices(sve.even)), only(matrices(sve.odd)
 
 Construct the SVE result from the SVD.
 """
-function postprocess(sve::SamplingSVE, u, s, v)
+function postprocess(sve::SamplingSVE, (u,), (s,), (v,))
     s = Float64.(s)
     u_x = u ./ sqrt.(sve.gauss_x.w)
     v_y = v ./ sqrt.(sve.gauss_y.w)
@@ -220,8 +220,8 @@ function postprocess(sve::SamplingSVE, u, s, v)
 end
 
 function postprocess(sve::CentrosymmSVE, u, s, v)
-    u_even, s_even, v_even = postprocess(sve.even, u[1], s[1], v[1])
-    u_odd, s_odd, v_odd = postprocess(sve.odd, u[2], s[2], v[2])
+    u_even, s_even, v_even = postprocess(sve.even, u[1:1], s[1:1], v[1:1])
+    u_odd, s_odd, v_odd = postprocess(sve.odd, u[2:2], s[2:2], v[2:2])
 
     # Merge two sets
     u = [u_even; u_odd]
