@@ -154,13 +154,13 @@ function SVEResult(kernel::AbstractKernel;
                    Twork=nothing, cutoff=nothing, ε=nothing, lmax=typemax(Int),
                    n_gauss=nothing, svd_strat=:auto,
                    SVEstrat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE)
-    safe_ε, Twork, svd_strat = choose_accuracy(ε, Twork, svd_strat)
-    sve = SVEstrat(kernel, safe_ε, Twork; n_gauss)
+    safe_ε, Twork_actual, svd_strat = choose_accuracy(ε, Twork, svd_strat)
+    sve = SVEstrat(kernel, safe_ε, Twork_actual; n_gauss)
 
     svds = compute_svd.(matrices(sve); strategy=svd_strat)
     u_, s_, v_ = zip(svds...)
-    cutoff = something(cutoff, 2eps(Twork))
-    u, s, v = truncate(u_, s_, v_; rtol=cutoff, lmax)
+    cutoff_actual = something(cutoff, 2eps(Twork_actual))
+    u, s, v = truncate(u_, s_, v_; rtol=cutoff_actual, lmax)
     return postprocess(sve, u, s, v)
 end
 
