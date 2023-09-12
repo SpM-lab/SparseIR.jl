@@ -69,7 +69,7 @@ struct MatsubaraFreq{S<:Statistics} <: Number
     MatsubaraFreq(stat::Statistics, n::Integer) = new{typeof(stat)}(n)
 
     function MatsubaraFreq{S}(n::Integer) where {S<:Statistics}
-        allowed(S, n) || error("Frequency $(n)π/β is not $stat")
+        allowed(S, n) || throw(DomainError(n, "Frequency $(n)π/β is not $S"))
         return new{S}(n)
     end
 end
