@@ -53,6 +53,8 @@ struct RegularizedBoseKernel <: AbstractKernel
     end
 end
 
+Λ(kernel::RegularizedBoseKernel) = kernel.Λ
+
 struct SVEHintsLogistic{T} <: AbstractSVEHints
     kernel :: LogisticKernel
     ε      :: T

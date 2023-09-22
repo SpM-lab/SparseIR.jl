@@ -79,5 +79,6 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         @test bset.wn_b == SparseIR.sampling_points(MatsubaraSampling(basis_b))
         @test bset.sve_result.s ≈ SparseIR.SVEResult(LogisticKernel(β * ωmax); ε).s
         @test :tau ∈ propertynames(bset)
+        SparseIR.finite_temp_bases(0.1, 0.2, 1e-3; kernel=RegularizedBoseKernel(0.1*0.2))
     end
 end
