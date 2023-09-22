@@ -153,13 +153,15 @@ function rescale(basis::FiniteTempBasis, new_β)
 end
 
 """
-    finite_temp_bases(β, ωmax, ε, sve_result=SVEResult(LogisticKernel(β * ωmax); ε))
+    finite_temp_bases(β::Real, ωmax::Real, ε=nothing;
+                      kernel=LogisticKernel(β * ωmax), sve_result=SVEResult(kernel; ε))
 
 Construct `FiniteTempBasis` objects for fermion and bosons using the same
 `LogisticKernel` instance.
 """
-function finite_temp_bases(β::Real, ωmax::Real, ε=nothing,
-                           sve_result=SVEResult(LogisticKernel(β * ωmax); ε))
+function finite_temp_bases(β::Real, ωmax::Real, ε=nothing;
+                           kernel=LogisticKernel(β * ωmax),
+                           sve_result=SVEResult(kernel; ε))
     basis_f = FiniteTempBasis{Fermionic}(β, ωmax, ε; sve_result)
     basis_b = FiniteTempBasis{Bosonic}(β, ωmax, ε; sve_result)
     return basis_f, basis_b

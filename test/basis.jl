@@ -22,7 +22,7 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         ε = 1e-5
 
         sve_result = sve_logistic[β * ωmax]
-        basis_f, basis_b = SparseIR.finite_temp_bases(β, ωmax, ε, sve_result)
+        basis_f, basis_b = SparseIR.finite_temp_bases(β, ωmax, ε; sve_result)
         smpl_τ_f = TauSampling(basis_f)
         smpl_τ_b = TauSampling(basis_b)
         smpl_wn_f = MatsubaraSampling(basis_f)
