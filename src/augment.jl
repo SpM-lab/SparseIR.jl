@@ -174,8 +174,9 @@ zeta(amat::AugmentedMatsubaraFunction) = zeta(fbasis(amat))
 #                                      Augmentations                                       #
 ############################################################################################
 
-### TauConst
-
+"""
+    # TauConst
+"""
 struct TauConst <: AbstractAugmentation
     β::Float64
     function TauConst(β)
@@ -201,8 +202,9 @@ function deriv(aug::TauConst, ::Val{n}=Val(1)) where {n}
     return τ -> zero(β(aug))
 end
 
-### TauLinear
-
+"""
+    TauLinear
+"""
 struct TauLinear <: AbstractAugmentation
     β    :: Float64
     norm :: Float64
@@ -233,8 +235,9 @@ function deriv(aug::TauLinear, ::Val{n}=Val(1)) where {n}
     return τ -> zero(β(aug))
 end
 
-### MatsubaraConst
-
+"""
+    MatsubaraConst
+"""
 struct MatsubaraConst <: AbstractAugmentation
     β::Float64
     function MatsubaraConst(β)
