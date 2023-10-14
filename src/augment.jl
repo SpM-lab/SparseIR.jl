@@ -175,7 +175,9 @@ zeta(amat::AugmentedMatsubaraFunction) = zeta(fbasis(amat))
 ############################################################################################
 
 """
-    # TauConst
+    TauConst <: AbstractAugmentation
+
+Constant in imaginary time/discrete delta in frequency.
 """
 struct TauConst <: AbstractAugmentation
     β::Float64
@@ -203,7 +205,9 @@ function deriv(aug::TauConst, ::Val{n}=Val(1)) where {n}
 end
 
 """
-    TauLinear
+    TauLinear <: AbstractAugmentation
+
+Linear function in imaginary time, antisymmetric around β/2.
 """
 struct TauLinear <: AbstractAugmentation
     β    :: Float64
@@ -236,7 +240,9 @@ function deriv(aug::TauLinear, ::Val{n}=Val(1)) where {n}
 end
 
 """
-    MatsubaraConst
+    MatsubaraConst <: AbstractAugmentation
+
+Constant in Matsubara, undefined in imaginary time.
 """
 struct MatsubaraConst <: AbstractAugmentation
     β::Float64
