@@ -11,11 +11,10 @@ export overlap
 export LogisticKernel, RegularizedBoseKernel
 export AugmentedBasis, TauConst, TauLinear, MatsubaraConst
 export TauSampling, MatsubaraSampling, evaluate, fit, evaluate!, fit!,
-       MatsubaraSampling64F, MatsubaraSampling64B, TauSampling64, sampling_points
+    MatsubaraSampling64F, MatsubaraSampling64B, TauSampling64, sampling_points
 
 using MultiFloats: Float64x2
 using LinearAlgebra: LinearAlgebra, cond, dot, svd, SVD, QRIteration, mul!
-using Logging: with_logger, NullLogger
 using QuadGK: gauss, quadgk
 using Bessels: sphericalbesselj
 using PrecompileTools
@@ -42,20 +41,18 @@ include("basis_set.jl")
 
 @static if VERSION ≥ v"1.9-" # 1.9 adds support for object caching
     # Precompile
-    with_logger(Base.NullLogger()) do
-        @compile_workload begin
-            basis = FiniteTempBasis(Fermionic(), 1e-1, 1e-1, 1e-5)
-            basis = FiniteTempBasis(Fermionic(), 1e-1, 1e-1)
+    @compile_workload begin
+        basis = FiniteTempBasis(Fermionic(), 1e-1, 1e-1)
+        basis = FiniteTempBasis(Fermionic(), 1e-1, 1e-1, 1e-5)
 
-            τ_smpl = TauSampling(basis)
-            iω_smpl = MatsubaraSampling(basis)
+        τ_smpl = TauSampling(basis)
+        iω_smpl = MatsubaraSampling(basis)
 
-            Gτ = evaluate(τ_smpl, basis.s)
-            Giω = evaluate(iω_smpl, basis.s)
+        Gτ = evaluate(τ_smpl, basis.s)
+        Giω = evaluate(iω_smpl, basis.s)
 
-            fit(τ_smpl, Gτ)
-            fit(iω_smpl, Giω)
-        end
+        fit(τ_smpl, Gτ)
+        fit(iω_smpl, Giω)
     end
 end
 
