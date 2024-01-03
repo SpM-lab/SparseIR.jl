@@ -3,7 +3,7 @@ using Aqua
 
 include("_conftest.jl")
 
-Aqua.test_all(SparseIR; ambiguities=false, piracy=false)
+Aqua.test_all(SparseIR; ambiguities=false, piracies=false)
 
 include("freq.jl")
 include("gauss.jl")
