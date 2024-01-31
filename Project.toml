@@ -1,7 +1,7 @@
 name = "SparseIR"
 uuid = "4fe2279e-80f0-4adb-8463-ee114ff56b7d"
 authors = ["Samuel Badr <samuel.badr@gmail.com>", "Hiroshi Shinaoka <h.shinaoka@gmail.com>", "Markus Wallerberger <markus.wallerberger@tuwien.ac.at>"]
-version = "1.0.15"
+version = "1.0.16"
 
 [deps]
 Bessels = "0e736298-9ec6-45e8-9647-e4fc86a2fe38"
@@ -15,7 +15,7 @@ QuadGK = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
 Bessels = "0.2"
 GenericLinearAlgebra = "0.3.1"
 LinearAlgebra = "1.6"
-MultiFloats = "1.0.4, 2"
+MultiFloats = "2"
 PrecompileTools = "1"
 QuadGK = "2"
 julia = "1.6"
