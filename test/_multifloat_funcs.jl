@@ -18,12 +18,6 @@ logrange(x1, x2, length) = (exp10(y) for y in range(log10(x1), log10(x2); length
         @test cosh(x) isa Float64x2
     end
 
-    @testset "allocations" begin
-        x = rand(xx)
-        @test iszero(@allocated sinh(x))
-        @test iszero(@allocated cosh(x))
-    end
-
     @testset "sinh(x) where x = $x" for x in xx
         @test sinh(x)≈sinh(big(x)) rtol=eps(Float64x2)
     end

@@ -13,13 +13,18 @@ export AugmentedBasis, TauConst, TauLinear, MatsubaraConst
 export TauSampling, MatsubaraSampling, evaluate, fit, evaluate!, fit!,
     MatsubaraSampling64F, MatsubaraSampling64B, TauSampling64, sampling_points
 
-using MultiFloats: Float64x2
+using MultiFloats: MultiFloats, Float64x2, _call_big
+# If we call MultiFloats.use_bigfloat_transcendentals() like MultiFloats
+# recommends, we get an error during precompilation:
+for name in (:exp, :sinh, :cosh)
+    eval(:(function Base.$name(x::Float64x2)
+        Float64x2(_call_big($name, x, precision(Float64x2) + 20))
+    end))
+end
 using LinearAlgebra: LinearAlgebra, cond, dot, svd, SVD, QRIteration, mul!
 using QuadGK: gauss, quadgk
 using Bessels: sphericalbesselj
 using PrecompileTools
-
-include("_multifloat_funcs.jl")
 
 include("_linalg.jl")
 include("_roots.jl")
