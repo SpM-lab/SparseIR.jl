@@ -6,7 +6,7 @@ Sparse sampling in imaginary time.
 Allows the transformation between the IR basis and a set of sampling points
 in (scaled/unscaled) imaginary time.
 """
-struct TauSampling{T,TMAT,F<:SVD} <: AbstractSampling{T,TMAT,F}
+struct TauSampling{T,TMAT,F} <: AbstractSampling{T,TMAT,F}
     sampling_points :: Vector{T}
     matrix          :: Matrix{TMAT}
     matrix_svd      :: F
@@ -21,10 +21,11 @@ out to be close to optimal with respect to conditioning for this size (within a
 few percent).
 """
 function TauSampling(basis::AbstractBasis;
-                     sampling_points=default_tau_sampling_points(basis))
+        sampling_points=default_tau_sampling_points(basis), factorize=true)
     matrix = eval_matrix(TauSampling, basis, sampling_points)
-    sampling = TauSampling(sampling_points, matrix, svd(matrix))
-    if iswellconditioned(basis) && cond(sampling) > 1e8
+    matrix_svd = factorize ? svd(matrix) : nothing
+    sampling = TauSampling(sampling_points, matrix, matrix_svd)
+    if factorize && iswellconditioned(basis) && cond(sampling) > 1e8
         @warn "Sampling matrix is poorly conditioned (cond = $(cond(sampling)))."
     end
     return sampling
@@ -67,17 +68,21 @@ is performed over non-negative frequencies only, cutting away half of the necess
 space.
 """
 function MatsubaraSampling(basis::AbstractBasis; positive_only=false,
-                           sampling_points=default_matsubara_sampling_points(basis;
-                                                                             positive_only))
+        sampling_points=default_matsubara_sampling_points(basis;
+            positive_only), factorize=true)
     issorted(sampling_points) || sort!(sampling_points)
     if positive_only
         Int(first(sampling_points)) ≥ 0 || error("invalid negative sampling frequencies")
     end
     matrix = eval_matrix(MatsubaraSampling, basis, sampling_points)
     has_zero = iszero(first(sampling_points))
-    svd_matrix = positive_only ? SplitSVD(matrix; has_zero) : svd(matrix)
+    if factorize
+        svd_matrix = positive_only ? SplitSVD(matrix; has_zero) : svd(matrix)
+    else
+        svd_matrix = nothing
+    end
     sampling = MatsubaraSampling(sampling_points, matrix, svd_matrix, positive_only)
-    if iswellconditioned(basis) && cond(sampling) > 1e8
+    if factorize && iswellconditioned(basis) && cond(sampling) > 1e8
         @warn "Sampling matrix is poorly conditioned (cond = $(cond(sampling)))."
     end
     return sampling
@@ -102,7 +107,7 @@ eval_matrix(::Type{MatsubaraSampling}, basis, x) = permutedims(basis.uhat(x))
 Evaluate the basis coefficients `al` at the sparse sampling points.
 """
 function evaluate(smpl::AbstractSampling{S,Tmat}, al::AbstractArray{T,N};
-                  dim=1) where {S,Tmat,T,N}
+        dim=1) where {S,Tmat,T,N}
     if size(smpl.matrix, 2) ≠ size(al, dim)
         msg = "Number of columns (got $(size(smpl.matrix, 2))) has to match al's size in dim (got $(size(al, dim)))."
         throw(DimensionMismatch(msg))
@@ -119,7 +124,7 @@ Like [`evaluate`](@ref), but write the result to `buffer`.
 Please use dim = 1 or N to avoid allocating large temporary arrays internally.
 """
 function evaluate!(buffer::AbstractArray{T,N}, smpl::AbstractSampling,
-                   al::AbstractArray{S,N}; dim=1) where {S,T,N}
+        al::AbstractArray{S,N}; dim=1) where {S,T,N}
     resultsize = ntuple(j -> j == dim ? size(smpl.matrix, 1) : size(al, j), N)
     if size(buffer) ≠ resultsize
         msg = "Buffer has the wrong size (got $(size(buffer)), expected $resultsize)."
@@ -135,7 +140,7 @@ Fit basis coefficients from the sparse sampling points
 Please use dim = 1 or N to avoid allocating large temporary arrays internally.
 """
 function fit(smpl::AbstractSampling{S,Tmat}, al::AbstractArray{T,N};
-             dim=1) where {S,Tmat,T,N}
+        dim=1) where {S,Tmat,T,N}
     if size(smpl.matrix, 1) ≠ size(al, dim)
         msg = "Number of rows (got $(size(smpl.matrix, 1))) "
         "has to match al's size in dim (got $(size(al, dim)))."
@@ -164,7 +169,7 @@ Use `dim = 1` or `dim = N` to avoid allocating large temporary arrays internally
 The length of `workarr` cannot be smaller than [`SparseIR.workarrlength`](@ref)`(smpl, al)`.
 """
 function fit!(buffer::Array{S,N}, smpl::AbstractSampling, al::Array{T,N}; dim=1,
-              workarr::Vector{S}=Vector{S}(undef, workarrlength(smpl, al; dim))) where {S,T,N}
+        workarr::Vector{S}=Vector{S}(undef, workarrlength(smpl, al; dim))) where {S,T,N}
     resultsize = ntuple(j -> j == dim ? size(smpl.matrix, 2) : size(al, j), N)
     if size(buffer) ≠ resultsize
         msg = "Buffer has the wrong size (got $(size(buffer)), expected $resultsize)."
@@ -227,7 +232,7 @@ Apply the operator `op` to the matrix `mat` and to the array `arr` along the fir
 dimension (dim=1) or the last dimension (dim=N).
 """
 function matop!(buffer::AbstractArray{S,N}, mat, arr::AbstractArray{T,N}, op,
-                dim) where {S,T,N}
+        dim) where {S,T,N}
     if dim == 1
         flatarr    = reshape(arr, (size(arr, 1), :))
         flatbuffer = reshape(buffer, (size(buffer, 1), :))
@@ -243,7 +248,7 @@ function matop!(buffer::AbstractArray{S,N}, mat, arr::AbstractArray{T,N}, op,
 end
 
 function div_noalloc!(buffer::AbstractArray{S,N}, mat, arr::AbstractArray{T,N}, workarr,
-                      dim) where {S,T,N}
+        dim) where {S,T,N}
     1 ≤ dim ≤ N || throw(DomainError(dim, "Dimension must be in [1, $N]"))
 
     if dim == 1
@@ -302,10 +307,10 @@ struct SplitSVD{T}
 end
 
 function SplitSVD(a::Matrix{<:Complex},
-                  (u, s,
-                   v)::Tuple{AbstractMatrix{<:Complex},
-                             AbstractVector{<:Real},
-                             AbstractMatrix{<:Real}})
+        (u, s,
+            v)::Tuple{AbstractMatrix{<:Complex},
+            AbstractVector{<:Real},
+            AbstractMatrix{<:Real}})
     if any(iszero, s)
         nonzero = findall(!iszero, s)
         u, s, v = u[:, nonzero], s[nonzero], v[nonzero, :]
@@ -352,14 +357,14 @@ end
 
 const MatsubaraSampling64F = @static if VERSION ≥ v"1.8-"
     MatsubaraSampling{FermionicFreq,ComplexF64,
-                      SVD{ComplexF64,Float64,Matrix{ComplexF64},Vector{Float64}}}
+        SVD{ComplexF64,Float64,Matrix{ComplexF64},Vector{Float64}}}
 else
     MatsubaraSampling{FermionicFreq,ComplexF64,SVD{ComplexF64,Float64,Matrix{ComplexF64}}}
 end
 
 const MatsubaraSampling64B = @static if VERSION ≥ v"1.8-"
     MatsubaraSampling{BosonicFreq,ComplexF64,
-                      SVD{ComplexF64,Float64,Matrix{ComplexF64},Vector{Float64}}}
+        SVD{ComplexF64,Float64,Matrix{ComplexF64},Vector{Float64}}}
 else
     MatsubaraSampling{BosonicFreq,ComplexF64,SVD{ComplexF64,Float64,Matrix{ComplexF64}}}
 end

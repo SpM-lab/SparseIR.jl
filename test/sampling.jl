@@ -34,8 +34,18 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         @test A \ y≈Ad \ y atol=1e-14 * norm_A rtol=0
     end
 
+    @testset "don't factorize" begin
+        stat = Bosonic()
+        Λ = 10
+        basis = FiniteTempBasis(stat, 1, Λ; sve_result=sve_logistic[Λ])
+        τ_smpl = TauSampling(basis; factorize=false)
+        ω_smpl = MatsubaraSampling(basis; factorize=false)
+        @test isnothing(τ_smpl.matrix_svd)
+        @test isnothing(ω_smpl.matrix_svd)
+    end
+
     @testset "fit from tau with stat = $stat, Λ = $Λ" for stat in (Bosonic(), Fermionic()),
-                                                          Λ in (10, 42)
+        Λ in (10, 42)
 
         basis = FiniteTempBasis(stat, 1, Λ; sve_result=sve_logistic[Λ])
         smpl = TauSampling(basis)
@@ -49,8 +59,8 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
             gl = SparseIR.movedim(originalgl, 1 => dim)
             gtau = evaluate(smpl, gl; dim)
             @test size(gtau) == (size(gl)[1:(dim - 1)]...,
-                   length(smpl.sampling_points),
-                   size(gl)[(dim + 1):end]...)
+                length(smpl.sampling_points),
+                size(gl)[(dim + 1):end]...)
 
             gl_from_tau = fit(smpl, gtau; dim)
             @test gl_from_tau ≈ gl
@@ -62,7 +72,7 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
     end
 
     @testset "τ noise with stat = $stat, Λ = $Λ" for stat in (Bosonic(), Fermionic()),
-                                                     Λ in (10, 42)
+        Λ in (10, 42)
 
         basis = FiniteTempBasis(stat, 1, Λ; sve_result=sve_logistic[Λ])
         smpl = TauSampling(basis)
@@ -94,8 +104,8 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
     end
 
     @testset "iω noise with stat = $stat, Λ = $Λ" for stat in (Bosonic(), Fermionic()),
-                                                      Λ in (10, 42),
-                                                      positive_only in (false, true)
+        Λ in (10, 42),
+        positive_only in (false, true)
 
         basis = FiniteTempBasis(stat, 1, Λ; sve_result=sve_logistic[Λ])
         smpl = MatsubaraSampling(basis; positive_only)
@@ -123,7 +133,7 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         @inferred fit(smpl, Giwn_n, dim=1)
         Gℓ_n = fit(smpl, Giwn_n)
         @test isapprox(Gℓ, Gℓ_n, atol=40 * sqrt(1 + positive_only) * noise * Gℓ_magn,
-                       rtol=0)
+            rtol=0)
 
         Gℓ_n_inplace = similar(Gℓ_n)
         fit!(Gℓ_n_inplace, smpl, Giwn_n)
@@ -135,17 +145,19 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         @test cond(TauSampling(basis)) < 3
         @test cond(MatsubaraSampling(basis)) < 5
         @test_logs (:warn,
-                    r"Sampling matrix is poorly conditioned \(cond = \d\.\d+e\d+\)\.") TauSampling(basis;
-                                                                                                   sampling_points=[
-                                                                                                       1.0,
-                                                                                                       1.0
-                                                                                                   ])
+            r"Sampling matrix is poorly conditioned \(cond = \d\.\d+e\d+\)\.") TauSampling(
+            basis;
+            sampling_points=[
+                1.0,
+                1.0
+            ])
         @test_logs (:warn,
-                    r"Sampling matrix is poorly conditioned \(cond = \d\.\d+e\d+\)\.") MatsubaraSampling(basis;
-                                                                                                         sampling_points=[
-                                                                                                             FermionicFreq(1),
-                                                                                                             FermionicFreq(1)
-                                                                                                         ])
+            r"Sampling matrix is poorly conditioned \(cond = \d\.\d+e\d+\)\.") MatsubaraSampling(
+            basis;
+            sampling_points=[
+                FermionicFreq(1),
+                FermionicFreq(1)
+            ])
 
         basis = FiniteTempBasis{Fermionic}(3, 3, 1e-2)
         @test cond(TauSampling(basis)) < 2
@@ -154,8 +166,8 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
     end
 
     @testset "errors with stat = $stat, $sampling" for stat in (Bosonic(), Fermionic()),
-                                                       sampling in (TauSampling,
-                                                                    MatsubaraSampling)
+        sampling in (TauSampling,
+            MatsubaraSampling)
 
         basis = FiniteTempBasis(stat, 3, 3, 1e-6)
         smpl = sampling(basis)
@@ -164,7 +176,7 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         @test_throws DimensionMismatch fit(smpl, rand(100))
         @test_throws DimensionMismatch fit!(rand(100), smpl, rand(100))
         @test_throws DomainError SparseIR.matop!(rand(2, 3, 4), rand(5, 6), rand(7, 8, 9),
-                                                 *, 2)
+            *, 2)
     end
 
     @testset "noalloc divs" begin
