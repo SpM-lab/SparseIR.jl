@@ -43,7 +43,7 @@ function SamplingSVE(kernel, ε, ::Type{T}=Float64; n_gauss=nothing) where {T}
     gauss_x, gauss_y = piecewise(rule, segs_x), piecewise(rule, segs_y)
 
     return SamplingSVE(kernel, ε, n_gauss, nsvals(sve_hints_),
-                       rule, segs_x, segs_y, gauss_x, gauss_y)
+        rule, segs_x, segs_y, gauss_x, gauss_y)
 end
 
 """
@@ -81,7 +81,7 @@ struct CentrosymmSVE{K<:AbstractKernel,SVEEVEN<:AbstractSVE,SVEODD<:AbstractSVE}
 end
 
 function CentrosymmSVE(kernel, ε, ::Type{T}; InnerSVE=SamplingSVE,
-                       n_gauss=nothing) where {T}
+        n_gauss=nothing) where {T}
     even = InnerSVE(get_symmetrized(kernel, +1), ε, T; n_gauss)
     odd = InnerSVE(get_symmetrized(kernel, -1), ε, T; n_gauss)
     return CentrosymmSVE(kernel, ε, even, odd, max(even.nsvals_hint, odd.nsvals_hint))
@@ -151,9 +151,9 @@ Returns:
 An `SVEResult` containing the truncated singular value expansion.
 """
 function SVEResult(kernel::AbstractKernel;
-                   Twork=nothing, cutoff=nothing, ε=nothing, lmax=typemax(Int),
-                   n_gauss=nothing, svd_strat=:auto,
-                   SVEstrat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE)
+        Twork=nothing, cutoff=nothing, ε=nothing, lmax=typemax(Int),
+        n_gauss=nothing, svd_strat=:auto,
+        SVEstrat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE)
     safe_ε, Twork_actual, svd_strat = choose_accuracy(ε, Twork, svd_strat)
     sve = SVEstrat(kernel, safe_ε, Twork_actual; n_gauss)
 
@@ -203,9 +203,9 @@ function postprocess(sve::SamplingSVE, (u,), (s,), (v,))
 
     cmat = legendre_collocation(sve.rule)
     u_data = reshape(cmat * reshape(u_x, (size(u_x, 1), :)),
-                     (:, size(u_x, 2), size(u_x, 3)))
+        (:, size(u_x, 2), size(u_x, 3)))
     v_data = reshape(cmat * reshape(v_y, (size(v_y, 1), :)),
-                     (:, size(v_y, 2), size(v_y, 3)))
+        (:, size(v_y, 2), size(v_y, 3)))
 
     dsegs_x = diff(sve.segs_x)
     dsegs_y = diff(sve.segs_y)
@@ -224,8 +224,8 @@ function postprocess(sve::CentrosymmSVE, u, s, v)
     u_odd, s_odd, v_odd = postprocess(sve.odd, u[2:2], s[2:2], v[2:2])
 
     # Merge two sets
-    u = [u_even; u_odd]
-    v = [v_even; v_odd]
+    u = PiecewiseLegendrePolyVector([u_even; u_odd])
+    v = PiecewiseLegendrePolyVector([v_even; v_odd])
     s = [s_even; s_odd]
     signs = [fill(1, length(s_even)); fill(-1, length(s_odd))]
 

@@ -7,7 +7,7 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
 
 function check_smooth(u, s, uscale, fudge_factor)
     ε = eps(eltype(s))
-    x = u.knots[(begin + 1):(end - 1)]
+    x = SparseIR.knots(u)[(begin + 1):(end - 1)]
 
     jump = abs.(u(x .+ ε) - u(x .- ε))
     compare_below = abs.(u(x .- ε) - u(x .- 3ε))
@@ -39,7 +39,7 @@ a ⪅ b = leaq(a, b)
     end
 
     @testset "num roots û with stat = $stat, Λ = $Λ" for stat in (Fermionic(), Bosonic()),
-                                                          Λ in (10, 42, 10_000)
+        Λ in (10, 42, 10_000)
 
         basis = FiniteTempBasis(stat, 1, Λ; sve_result=sve_logistic[Λ])
         for i in [1, 2, 8, 11]
@@ -49,7 +49,7 @@ a ⪅ b = leaq(a, b)
     end
 
     @testset "accuracy with stat = $stat, Λ = $Λ" for stat in (Fermionic(), Bosonic()),
-                                                      Λ in (10, 42, 10_000)
+        Λ in (10, 42, 10_000)
 
         basis = FiniteTempBasis(stat, 4, Λ; sve_result=sve_logistic[Λ])
         @test 0 < SparseIR.accuracy(basis) ⪅ last(SparseIR.significance(basis))
@@ -57,34 +57,37 @@ a ⪅ b = leaq(a, b)
         @test SparseIR.accuracy(basis) ⪅ last(basis.s) / first(basis.s)
     end
 
-    @testset "choose_accuracy" begin with_logger(NullLogger()) do # suppress output of warnings
-        @test SparseIR.choose_accuracy(nothing, nothing) ==
-              (2.2204460492503131e-16, Float64x2, :default)
-        @test SparseIR.choose_accuracy(nothing, Float64) ==
-              (1.4901161193847656e-8, Float64, :default)
-        @test SparseIR.choose_accuracy(nothing, Float64x2) ==
-              (2.2204460492503131e-16, Float64x2, :default)
-        @test SparseIR.choose_accuracy(1e-6, nothing) == (1.0e-6, Float64, :default)
-        @test SparseIR.choose_accuracy(1e-8, nothing) == (1.0e-8, Float64x2, :default)
+    @testset "choose_accuracy" begin
+        with_logger(NullLogger()) do # suppress output of warnings
+            @test SparseIR.choose_accuracy(nothing, nothing) ==
+                  (2.2204460492503131e-16, Float64x2, :default)
+            @test SparseIR.choose_accuracy(nothing, Float64) ==
+                  (1.4901161193847656e-8, Float64, :default)
+            @test SparseIR.choose_accuracy(nothing, Float64x2) ==
+                  (2.2204460492503131e-16, Float64x2, :default)
+            @test SparseIR.choose_accuracy(1e-6, nothing) == (1.0e-6, Float64, :default)
+            @test SparseIR.choose_accuracy(1e-8, nothing) == (1.0e-8, Float64x2, :default)
 
-        @test SparseIR.choose_accuracy(1e-20, nothing) == (1.0e-20, Float64x2, :default)
-        @test_logs (:warn,
-                    """Basis cutoff is 1.0e-20, which is below √ε with ε = 4.9303806576313238e-32.
- Expect singular values and basis functions for large l to have lower precision
- than the cutoff.""") SparseIR.choose_accuracy(1e-20, nothing)
+            @test SparseIR.choose_accuracy(1e-20, nothing) == (1.0e-20, Float64x2, :default)
+            @test_logs (:warn,
+                """Basis cutoff is 1.0e-20, which is below √ε with ε = 4.9303806576313238e-32.
+Expect singular values and basis functions for large l to have lower precision
+than the cutoff.""") SparseIR.choose_accuracy(1e-20, nothing)
 
-        @test SparseIR.choose_accuracy(1e-10, Float64) == (1.0e-10, Float64, :accurate)
-        @test_logs (:warn,
-                    """Basis cutoff is 1.0e-10, which is below √ε with ε = 2.220446049250313e-16.
- Expect singular values and basis functions for large l to have lower precision
- than the cutoff.""") SparseIR.choose_accuracy(1e-10, Float64)
+            @test SparseIR.choose_accuracy(1e-10, Float64) == (1.0e-10, Float64, :accurate)
+            @test_logs (:warn,
+                """Basis cutoff is 1.0e-10, which is below √ε with ε = 2.220446049250313e-16.
+Expect singular values and basis functions for large l to have lower precision
+than the cutoff.""") SparseIR.choose_accuracy(1e-10, Float64)
 
-        @test SparseIR.choose_accuracy(1e-6, Float64) == (1.0e-6, Float64, :default)
+            @test SparseIR.choose_accuracy(1e-6, Float64) == (1.0e-6, Float64, :default)
 
-        @test SparseIR.choose_accuracy(1e-6, Float64, :auto) == (1.0e-6, Float64, :default)
-        @test SparseIR.choose_accuracy(1e-6, Float64, :accurate) ==
-              (1.0e-6, Float64, :accurate)
-    end end
+            @test SparseIR.choose_accuracy(1e-6, Float64, :auto) ==
+                  (1.0e-6, Float64, :default)
+            @test SparseIR.choose_accuracy(1e-6, Float64, :accurate) ==
+                  (1.0e-6, Float64, :accurate)
+        end
+    end
 
     @testset "truncate" begin
         sve = SparseIR.CentrosymmSVE(LogisticKernel(5), 1e-6, Float64)

@@ -59,14 +59,14 @@ Construct a finite temperature basis suitable for the given `S` (`Fermionic`
 or `Bosonic`) and cutoffs `β` and `ωmax`.
 """
 function FiniteTempBasis{S}(β::Real, ωmax::Real, ε=nothing; max_size=nothing,
-                            kernel=LogisticKernel(β * ωmax),
-                            sve_result=SVEResult(kernel; ε)) where {S}
+        kernel=LogisticKernel(β * ωmax),
+        sve_result=SVEResult(kernel; ε)) where {S}
     FiniteTempBasis(S(), β, ωmax, ε; max_size, kernel, sve_result)
 end
 
 function FiniteTempBasis(statistics::Statistics, β::Real, ωmax::Real, ε=nothing;
-                         max_size=nothing, kernel=LogisticKernel(β * ωmax),
-                         sve_result=SVEResult(kernel; ε))
+        max_size=nothing, kernel=LogisticKernel(β * ωmax),
+        sve_result=SVEResult(kernel; ε))
     β > 0 || throw(DomainError(β, "Inverse temperature β must be positive"))
     ωmax ≥ 0 || throw(DomainError(ωmax, "Frequency cutoff ωmax must be non-negative"))
 
@@ -82,10 +82,10 @@ function FiniteTempBasis(statistics::Statistics, β::Real, ωmax::Real, ε=nothi
     # knots according to: tau = β/2 * (x + 1), w = ωmax * y. Scaling
     # the data is not necessary as the normalization is inferred.
     ωmax = Λ(kernel) / β
-    u_knots = (β / 2) .* (u_.knots .+ 1)
-    v_knots = ωmax .* v_.knots
-    u = PiecewiseLegendrePolyVector(u_, u_knots; Δx=(β / 2) .* u_.Δx, symm=u_.symm)
-    v = PiecewiseLegendrePolyVector(v_, v_knots; Δx=ωmax .* v_.Δx, symm=v_.symm)
+    u_knots = (β / 2) .* (knots(u_) .+ 1)
+    v_knots = ωmax .* knots(v_)
+    u = PiecewiseLegendrePolyVector(u_, u_knots; Δx=(β / 2) .* Δx(u_), symm=symm(u_))
+    v = PiecewiseLegendrePolyVector(v_, v_knots; Δx=ωmax .* Δx(v_), symm=symm(v_))
 
     # The singular values are scaled to match the change of variables, with
     # the additional complexity that the kernel may have an additional
@@ -94,9 +94,9 @@ function FiniteTempBasis(statistics::Statistics, β::Real, ωmax::Real, ε=nothi
 
     # HACK: as we don't yet support Fourier transforms on anything but the
     # unit interval, we need to scale the underlying data.
-    û_base_full = PiecewiseLegendrePolyVector(sqrt(β) .* sve_result.u.data, sve_result.u)
+    û_base_full = PiecewiseLegendrePolyVector(sqrt(β) .* data(sve_result.u), sve_result.u)
     û_full = PiecewiseLegendreFTVector(û_base_full, statistics;
-                                        n_asymp=conv_radius(kernel))
+        n_asymp=conv_radius(kernel))
     û = û_full[1:length(s)]
 
     return FiniteTempBasis(kernel, sve_result, accuracy, float(β), u, v, s, û, û_full)
@@ -113,8 +113,8 @@ end
 
 function Base.getindex(basis::FiniteTempBasis, i::AbstractRange)
     FiniteTempBasis(statistics(basis), β(basis), ωmax(basis), nothing;
-                    max_size=range_to_length(i), kernel=basis.kernel,
-                    sve_result=basis.sve_result)
+        max_size=range_to_length(i), kernel=basis.kernel,
+        sve_result=basis.sve_result)
 end
 
 significance(basis::FiniteTempBasis) = basis.s ./ first(basis.s)
@@ -148,8 +148,8 @@ since ``Λ == β * ωmax`` stays constant.
 function rescale(basis::FiniteTempBasis, new_β)
     new_ωmax = Λ(kernel(basis)) / new_β
     return FiniteTempBasis(statistics(basis), new_β, new_ωmax, nothing;
-                           max_size=length(basis), kernel=kernel(basis),
-                           sve_result=sve_result(basis))
+        max_size=length(basis), kernel=kernel(basis),
+        sve_result=sve_result(basis))
 end
 
 """
@@ -160,15 +160,15 @@ Construct `FiniteTempBasis` objects for fermion and bosons using the same
 `LogisticKernel` instance.
 """
 function finite_temp_bases(β::Real, ωmax::Real, ε=nothing;
-                           kernel=LogisticKernel(β * ωmax),
-                           sve_result=SVEResult(kernel; ε))
+        kernel=LogisticKernel(β * ωmax),
+        sve_result=SVEResult(kernel; ε))
     basis_f = FiniteTempBasis{Fermionic}(β, ωmax, ε; sve_result, kernel)
     basis_b = FiniteTempBasis{Bosonic}(β, ωmax, ε; sve_result, kernel)
     return basis_f, basis_b
 end
 
 function default_sampling_points(u::PiecewiseLegendrePolyVector, L::Integer)
-    (u.xmin, u.xmax) == (-1, 1) || error("Expecting unscaled functions here.")
+    (xmin(u), xmax(u)) == (-1, 1) || error("Expecting unscaled functions here.")
 
     # For orthogonal polynomials (the high-T limit of IR), we know that the
     # ideal sampling points for a basis of size L are the roots of the L-th
@@ -188,8 +188,8 @@ function default_sampling_points(u::PiecewiseLegendrePolyVector, L::Integer)
         # local extrema, is slightly worse conditioned than putting it in the
         # middel. This can be understood by the fact that the roots never
         # occur right at the border.
-        left  = (first(maxima) + poly.xmin) / 2
-        right = (last(maxima) + poly.xmax) / 2
+        left  = (first(maxima) + xmin(poly)) / 2
+        right = (last(maxima) + xmax(poly)) / 2
         x₀    = [left; maxima; right]
     end
 
@@ -202,7 +202,7 @@ function default_sampling_points(u::PiecewiseLegendrePolyVector, L::Integer)
 end
 
 function default_matsubara_sampling_points(û::PiecewiseLegendreFTVector, L::Integer;
-                                           fence=false, positive_only=false)
+        fence=false, positive_only=false)
     l_requested = L
 
     # The number of sign changes is always odd for bosonic basis and even for fermionic 

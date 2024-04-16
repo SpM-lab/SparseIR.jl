@@ -11,20 +11,20 @@ export overlap
 export LogisticKernel, RegularizedBoseKernel
 export AugmentedBasis, TauConst, TauLinear, MatsubaraConst
 export TauSampling, MatsubaraSampling, evaluate, fit, evaluate!, fit!,
-    MatsubaraSampling64F, MatsubaraSampling64B, TauSampling64, sampling_points
+       MatsubaraSampling64F, MatsubaraSampling64B, TauSampling64, sampling_points
 
 using MultiFloats: MultiFloats, Float64x2, _call_big
 # If we call MultiFloats.use_bigfloat_transcendentals() like MultiFloats
 # recommends, we get an error during precompilation:
 for name in (:exp, :sinh, :cosh)
     eval(:(function Base.$name(x::Float64x2)
-        Float64x2(_call_big($name, x, precision(Float64x2) + 20))
+        Float64x2(_call_big($name, x, 107 + 20)) # 107 == precision(Float64x2)
     end))
 end
-using LinearAlgebra: LinearAlgebra, cond, dot, svd, SVD, QRIteration, mul!
+using LinearAlgebra: LinearAlgebra, cond, dot, svd, SVD, QRIteration, mul!, norm
 using QuadGK: gauss, quadgk
 using Bessels: sphericalbesselj
-using PrecompileTools
+using PrecompileTools: PrecompileTools, @compile_workload
 
 include("_linalg.jl")
 include("_roots.jl")

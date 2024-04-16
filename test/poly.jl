@@ -80,8 +80,8 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
 
         @test size(u[1](rand(30))) == (30,)
 
-        @test_throws DomainError u(u.xmax + 123)
-        @test_throws DomainError u(u.xmin - 123)
+        @test_throws DomainError u(SparseIR.xmax(u) + 123)
+        @test_throws DomainError u(SparseIR.xmin(u) - 123)
 
         int_result, int_error = SparseIR.overlap(u[1], u[1]; return_error=true)
 
@@ -92,10 +92,10 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
 
         @test size(u(rand(2, 3, 4))) == (length(u), 2, 3, 4)
 
-        @test (u.xmin, u.xmax) === (-1.0, 1.0)
-        @test u.knots == u[end].knots
-        @test u.Δx == u[1].Δx
-        @test u.symm[2] == u[2].symm
+        @test (SparseIR.xmin(u), SparseIR.xmax(u)) === (-1.0, 1.0)
+        @test SparseIR.knots(u) == u[end].knots
+        @test SparseIR.Δx(u) == u[1].Δx
+        @test SparseIR.symm(u)[2] == SparseIR.symm(u[2])
         @test all(<(eps()), SparseIR.overlap(u, sin)[1:2:end])
         @test all(<(eps()), SparseIR.overlap(u, cos)[2:2:end])
 

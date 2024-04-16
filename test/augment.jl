@@ -87,7 +87,7 @@ using SparseIR.LinearAlgebra
         @test SparseIR.xmax(basis_aug.u) == β
 
         @test SparseIR.deriv(basis_aug.u)(0.8)[3:end] ==
-              SparseIR.deriv.(SparseIR.fbasis(basis_aug.u))(0.8)
+              SparseIR.PiecewiseLegendrePolyVector(SparseIR.deriv.(SparseIR.fbasis(basis_aug.u)))(0.8)
 
         @test SparseIR.zeta(basis_aug.uhat) == 0
 
