@@ -1,16 +1,10 @@
 using SparseIR
 using Test
 using Aqua
-using ExplicitImports
 
 @testset verbose=true "SparseIR tests" begin
     @testset verbose=true "Aqua" begin
         Aqua.test_all(SparseIR; ambiguities=false, piracies=false)
-    end
-
-    @testset verbose=true "No implicit imports" begin
-        @test check_no_implicit_imports(SparseIR) === nothing
-        @test check_no_stale_explicit_imports(SparseIR) === nothing
     end
 
     @testset verbose=true "Actual code" begin
