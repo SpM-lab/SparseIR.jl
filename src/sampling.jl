@@ -6,10 +6,17 @@ Sparse sampling in imaginary time.
 Allows the transformation between the IR basis and a set of sampling points
 in (scaled/unscaled) imaginary time.
 """
-struct TauSampling{T,TMAT,F} <: AbstractSampling{T,TMAT,F}
+mutable struct TauSampling{T,TMAT,F} <: AbstractSampling{T,TMAT,F}
     sampling_points :: Vector{T}
     matrix          :: Matrix{TMAT}
-    matrix_svd      :: F
+    matrix_svd      :: Union{Nothing,F}
+    function TauSampling(sampling_points::Vector{T}, matrix::Matrix{TMAT}) where {T,TMAT}
+        # Determine the exact type of the SVD, as it changes across julia versions
+        matrix_small = ones(eltype(matrix), (1, 1))
+        svd_matrix_small = svd(matrix_small)
+        F = typeof(svd_matrix_small)
+        new{T,TMAT,F}(sampling_points, matrix, nothing)
+    end
 end
 
 """
@@ -21,17 +28,21 @@ out to be close to optimal with respect to conditioning for this size (within a
 few percent).
 """
 function TauSampling(basis::AbstractBasis;
-        sampling_points=default_tau_sampling_points(basis), factorize=true)
+        sampling_points=default_tau_sampling_points(basis))
     matrix = eval_matrix(TauSampling, basis, sampling_points)
-    matrix_svd = factorize ? svd(matrix) : nothing
-    sampling = TauSampling(sampling_points, matrix, matrix_svd)
-    if factorize && iswellconditioned(basis) && cond(sampling) > 1e8
-        @warn "Sampling matrix is poorly conditioned (cond = $(cond(sampling)))."
-    end
-    return sampling
+    TauSampling(sampling_points, matrix)
 end
 
 Base.getproperty(s::TauSampling, p::Symbol) = p === :τ ? sampling_points(s) : getfield(s, p)
+
+function compute_svd!(smpl::TauSampling)
+    if isnothing(smpl.matrix_svd)
+        smpl.matrix_svd = svd(smpl.matrix)
+        if cond(smpl) > 1e8
+            @warn "Sampling matrix is poorly conditioned (cond = $(cond(smpl)))."
+        end
+    end
+end
 
 """
     MatsubaraSampling <: AbstractSampling
@@ -41,11 +52,20 @@ Sparse sampling in Matsubara frequencies.
 Allows the transformation between the IR basis and a set of sampling points
 in (scaled/unscaled) imaginary frequencies.
 """
-struct MatsubaraSampling{T<:MatsubaraFreq,TMAT,F} <: AbstractSampling{T,TMAT,F}
+mutable struct MatsubaraSampling{T<:MatsubaraFreq,TMAT,F} <: AbstractSampling{T,TMAT,F}
     sampling_points :: Vector{T}
     matrix          :: Matrix{TMAT}
-    matrix_svd      :: F
     positive_only   :: Bool
+    matrix_svd      :: Union{Nothing,F}
+    function MatsubaraSampling(sampling_points::Vector{T}, matrix::Matrix{TMAT},
+            positive_only::Bool) where {T,TMAT}
+        matrix_small = ones(eltype(matrix), (1, 1))
+        has_zero = iszero(first(sampling_points))
+        svd_matrix_small = positive_only ? SplitSVD(matrix_small; has_zero) :
+                           svd(matrix_small)
+        F = typeof(svd_matrix_small)
+        new{T,TMAT,F}(sampling_points, matrix, positive_only, nothing)
+    end
 end
 
 """
@@ -75,21 +95,22 @@ function MatsubaraSampling(basis::AbstractBasis; positive_only=false,
         Int(first(sampling_points)) ≥ 0 || error("invalid negative sampling frequencies")
     end
     matrix = eval_matrix(MatsubaraSampling, basis, sampling_points)
-    has_zero = iszero(first(sampling_points))
-    if factorize
-        svd_matrix = positive_only ? SplitSVD(matrix; has_zero) : svd(matrix)
-    else
-        svd_matrix = nothing
-    end
-    sampling = MatsubaraSampling(sampling_points, matrix, svd_matrix, positive_only)
-    if factorize && iswellconditioned(basis) && cond(sampling) > 1e8
-        @warn "Sampling matrix is poorly conditioned (cond = $(cond(sampling)))."
-    end
-    return sampling
+    MatsubaraSampling(sampling_points, matrix, positive_only)
 end
 
 function Base.getproperty(s::MatsubaraSampling, p::Symbol)
     p === :ωn ? sampling_points(s) : getfield(s, p)
+end
+
+function compute_svd!(smpl::MatsubaraSampling)
+    if isnothing(smpl.matrix_svd)
+        has_zero = iszero(first(smpl.sampling_points))
+        smpl.matrix_svd = smpl.positive_only ? SplitSVD(smpl.matrix; has_zero) :
+                          svd(smpl.matrix)
+        if cond(smpl) > 1e8
+            @warn "Sampling matrix is poorly conditioned (cond = $(cond(smpl)))."
+        end
+    end
 end
 
 """
@@ -169,12 +190,14 @@ Use `dim = 1` or `dim = N` to avoid allocating large temporary arrays internally
 The length of `workarr` cannot be smaller than [`SparseIR.workarrlength`](@ref)`(smpl, al)`.
 """
 function fit!(buffer::Array{S,N}, smpl::AbstractSampling, al::Array{T,N}; dim=1,
-        workarr::Vector{S}=Vector{S}(undef, workarrlength(smpl, al; dim))) where {S,T,N}
+        workarr::Vector{S}=Vector{S}(
+            undef, (compute_svd!(smpl); workarrlength(smpl, al; dim)))) where {S,T,N}
     resultsize = ntuple(j -> j == dim ? size(smpl.matrix, 2) : size(al, j), N)
     if size(buffer) ≠ resultsize
         msg = "Buffer has the wrong size (got $(size(buffer)), expected $resultsize)."
         throw(DimensionMismatch(msg))
     end
+    compute_svd!(smpl)
     length(workarr) ≥ workarrlength(smpl, al; dim) ||
         throw(ArgumentError("workarr too small"))
     return div_noalloc!(buffer, smpl.matrix_svd, al, workarr, dim)

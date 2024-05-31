@@ -166,6 +166,7 @@ abstract type AbstractSampling{T,Tmat,F} end
 Base.broadcastable(sampling::AbstractSampling) = Ref(sampling)
 
 function LinearAlgebra.cond(sampling::AbstractSampling)
+    compute_svd!(sampling)
     first(sampling.matrix_svd.S) / last(sampling.matrix_svd.S)
 end
 

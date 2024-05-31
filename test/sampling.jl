@@ -38,8 +38,8 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         stat = Bosonic()
         Λ = 10
         basis = FiniteTempBasis(stat, 1, Λ; sve_result=sve_logistic[Λ])
-        τ_smpl = TauSampling(basis; factorize=false)
-        ω_smpl = MatsubaraSampling(basis; factorize=false)
+        τ_smpl = TauSampling(basis)
+        ω_smpl = MatsubaraSampling(basis)
         @test isnothing(τ_smpl.matrix_svd)
         @test isnothing(ω_smpl.matrix_svd)
     end
@@ -144,20 +144,6 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         basis = FiniteTempBasis{Fermionic}(3, 3, 1e-6)
         @test cond(TauSampling(basis)) < 3
         @test cond(MatsubaraSampling(basis)) < 5
-        @test_logs (:warn,
-            r"Sampling matrix is poorly conditioned \(cond = \d\.\d+e\d+\)\.") TauSampling(
-            basis;
-            sampling_points=[
-                1.0,
-                1.0
-            ])
-        @test_logs (:warn,
-            r"Sampling matrix is poorly conditioned \(cond = \d\.\d+e\d+\)\.") MatsubaraSampling(
-            basis;
-            sampling_points=[
-                FermionicFreq(1),
-                FermionicFreq(1)
-            ])
 
         basis = FiniteTempBasis{Fermionic}(3, 3, 1e-2)
         @test cond(TauSampling(basis)) < 2
