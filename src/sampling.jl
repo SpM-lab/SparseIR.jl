@@ -13,12 +13,12 @@ struct TauSampling{T,TMAT,F} <: AbstractSampling{T,TMAT,F}
 end
 
 """
-    TauSampling(basis[; sampling_points])
+    TauSampling(basis; sampling_points=default_tau_sampling_points(basis), factorize=true)
 
 Construct a `TauSampling` object. If not given, the `sampling_points` are chosen
 as the extrema of the highest-order basis function in imaginary time. This turns
 out to be close to optimal with respect to conditioning for this size (within a
-few percent).
+few percent). `factorize` controls whether the SVD decomposition is computed.
 """
 function TauSampling(basis::AbstractBasis;
         sampling_points=default_tau_sampling_points(basis), factorize=true)
@@ -50,7 +50,8 @@ end
 
 """
     MatsubaraSampling(basis; positive_only=false,
-                      sampling_points=default_matsubara_sampling_points(basis; positive_only))
+                      sampling_points=default_matsubara_sampling_points(basis; positive_only),
+                      factorize=true)
 
 Construct a `MatsubaraSampling` object. If not given, the `sampling_points` are chosen as
 the (discrete) extrema of the highest-order basis function in Matsubara. This turns out
@@ -65,7 +66,7 @@ Matsubara frequency, i.e.:
 
 or equivalently, that they are purely real in imaginary time. In this case, sparse sampling
 is performed over non-negative frequencies only, cutting away half of the necessary sampling
-space.
+space. `factorize` controls whether the SVD decomposition is computed.
 """
 function MatsubaraSampling(basis::AbstractBasis; positive_only=false,
         sampling_points=default_matsubara_sampling_points(basis;
