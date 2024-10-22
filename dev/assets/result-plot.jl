@@ -7,6 +7,9 @@ using InteractiveUtils
 # ╔═╡ 5d462555-664b-4de5-b076-5ee2078d6ff7
 using SparseIR, CairoMakie
 
+# ╔═╡ 45e50347-0b4d-41a2-8b3e-3ad293674e86
+using LinearAlgebra
+
 # ╔═╡ 2d5d27c2-e77e-4bfc-88f4-6e7d85f6fd13
 function compute(; β=10, ωmax=8, ε=1e-6)
     # Construct the IR basis and sparse sampling for fermionic propagators
@@ -39,6 +42,15 @@ function compute(; β=10, ωmax=8, ε=1e-6)
         Gl = fit(siω, Giω)
     end
     basis, siω, Gl, Σl, β
+end
+
+# ╔═╡ c386d225-825a-4906-acc6-042b6809aba8
+function dos(basis, Gl)
+	w = range(-8, 8; length=100)
+	E = transpose(basis.v(w))
+	display(E)
+	Gw = E * Gl
+	-1/pi * imag(Gw)
 end
 
 # ╔═╡ bc15f8ab-ded8-4a62-b7de-9f0a2230e7d6
@@ -108,6 +120,12 @@ end
 
 # ╔═╡ 2e8e225d-8e72-4b36-9975-a0c44e271f8a
 basis, siω, Gl, Σl, β = compute()
+
+# ╔═╡ d1c9ba8b-ce30-4f4e-a2d8-3ca61f881803
+imag(Gl)
+
+# ╔═╡ 2e25484a-de38-4d90-b0df-f676a76d119b
+lines(dos(basis, Gl))
 
 # ╔═╡ 61e1df2f-54f2-4f39-8f3a-ee70a471b125
 let
@@ -181,10 +199,41 @@ end
 # ╔═╡ c39a2c55-af9b-43ed-b11f-c89bcc3a1d00
 make_plot(basis, siω, Gl, Σl, β, "img/result.pdf")
 
+# ╔═╡ 94984eca-ae0c-40d3-b938-b2f6ecc72198
+begin
+	tauconds = []
+	iwconds  = []
+	betas = exp.(range(log(1), log(100); length=1000))
+	for β in betas
+		basis = FiniteTempBasis{Fermionic}(β, 1.0, 1e-6)
+		stau = TauSampling(basis)
+		siw = MatsubaraSampling(basis)
+		push!(tauconds, cond(stau))
+		push!(iwconds, cond(siw))
+	end
+end
+
+# ╔═╡ 6f0b1e60-2acb-4e6a-9b15-bdb6be3ea76e
+begin
+	fig = Figure()
+	ax = Axis(fig[1,1]; yscale=log10, xscale=log10,
+		xlabel=L"Cutoff $\Lambda$", ylabel=L"Sampling condition number$$",
+		xticks=LogTicks(WilkinsonTicks(3)),
+		xminorticks=IntervalsBetween(9),
+		xminorticksvisible=true,
+		yminorticksvisible=true)
+	lines!(ax, betas, tauconds, label=L"TauSampling$$")
+	lines!(ax, betas, iwconds, label=L"MatsubaraSampling$$")
+	axislegend(ax; position=:lt)
+	save("img/condscaling.pdf", fig)
+	fig
+end
+
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 SparseIR = "4fe2279e-80f0-4adb-8463-ee114ff56b7d"
 
 [compat]
@@ -198,7 +247,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.11.1"
 manifest_format = "2.0"
-project_hash = "8388f4e7586e27cdd3147342d380ad4cb027d31d"
+project_hash = "4624ca61f28be70faeb7ed9ce9d06783e1b7788b"
 
 [[deps.AbstractFFTs]]
 deps = ["LinearAlgebra"]
@@ -1662,11 +1711,17 @@ version = "3.6.0+0"
 # ╔═╡ Cell order:
 # ╠═5d462555-664b-4de5-b076-5ee2078d6ff7
 # ╠═2d5d27c2-e77e-4bfc-88f4-6e7d85f6fd13
+# ╠═d1c9ba8b-ce30-4f4e-a2d8-3ca61f881803
+# ╠═c386d225-825a-4906-acc6-042b6809aba8
+# ╠═2e25484a-de38-4d90-b0df-f676a76d119b
 # ╠═61e1df2f-54f2-4f39-8f3a-ee70a471b125
 # ╠═b5bb004e-3ceb-41d9-8a30-3822d18a8c3b
 # ╠═9e5840ab-a480-4527-b938-1eac8cbe0330
 # ╠═bc15f8ab-ded8-4a62-b7de-9f0a2230e7d6
 # ╠═2e8e225d-8e72-4b36-9975-a0c44e271f8a
 # ╠═c39a2c55-af9b-43ed-b11f-c89bcc3a1d00
+# ╠═45e50347-0b4d-41a2-8b3e-3ad293674e86
+# ╠═94984eca-ae0c-40d3-b938-b2f6ecc72198
+# ╠═6f0b1e60-2acb-4e6a-9b15-bdb6be3ea76e
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
