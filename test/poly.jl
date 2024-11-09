@@ -5,6 +5,49 @@ using SparseIR.LinearAlgebra
 isdefined(Main, :sve_logistic) || include("_conftest.jl")
 
 @testset "poly.jl" begin
+    @testset "single segment" begin
+        polyorder = 3
+        xmin = -1.0
+        xmax = 1.0
+        knots = [-1.0, 1.0]
+        nsegments = length(knots) - 1
+        data = rand(Float64, polyorder, nsegments)
+        l = 0
+        symm = 0 # disable symmetry
+
+        poly = SparseIR.PiecewiseLegendrePoly(data, knots, l; symm)
+
+        for x in [-1.0, -0.5, 0.5, 1.0]
+            @test poly(x) ≈ SparseIR.legval(x, data[:, 1]) rtol=1e-14
+        end
+    end
+
+    @testset "three segments" begin
+        polyorder = 3
+        xmin = -1.0
+        xmax = 1.0
+        knots = [-1.0, 0.0, 1.0]
+        nsegments = length(knots) - 1
+        data = rand(Float64, polyorder, nsegments)
+        l = 0
+        symm = 0 # disable symmetry
+
+        poly = SparseIR.PiecewiseLegendrePoly(data, knots, l; symm)
+
+        function _ref(poly, x)
+            isegment = max(2, findfirst(xn -> x <= xn, knots)) - 1
+            @assert knots[isegment] ≤ x ≤ knots[isegment + 1]
+
+            xmin, xmax = knots[isegment], knots[isegment + 1]
+            scaledx = 2 * (x - xmin) / (xmax - xmin) - 1
+            SparseIR.legval(scaledx, poly.data[:, isegment]) * poly.norms[isegment]
+        end
+
+        for x in [-1.0, -0.5, 0.5, 1.0]
+            @test poly(x) ≈ _ref(poly, x) rtol=1e-14
+        end
+    end
+
     @testset "shape" begin
         u, s, v = SparseIR.part(sve_logistic[42])
         l = length(s)
