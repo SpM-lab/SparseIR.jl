@@ -1,14 +1,15 @@
 # [Introduction](@id guide)
 
 We present `SparseIR.jl`, a Julia library for constructing and working with the intermediate representation of correlation functions [Shinaoka2017,Li2020,Shinaoka2022,Wallerberger2023](@cite).
-The intermediate representation (IR) takes the matrix kernel occurring in transforming propagators between the real-frequency axis and the imaginary-time axis and performs a singular value expansion (SVE) on it, decomposing it into a set of singular values as well as two sets of functions.
+The intermediate representation (IR) takes the matrix kernel transforming propagators between the real-frequency axis and the imaginary-time axis and performs a singular value expansion (SVE) on it.
+This decomposes the matrix kernel into a set of singular values as well as two sets of functions.
 One of those lives on the real-frequency axis and one on the imaginary-time axis.
 Expressing a propagator in terms of either basis--by an ordinary least squares fit--then allows us to easily transition between them.
 In combination with a prescription for constructing sparse sets of sampling points on each axis, we have a method for optimally compressing propagators.
 
 `SparseIR.jl` implements the intermediate representation, providing on-the-fly computation of basis functions and singular values accurate to full precision along with routines for sparse sampling.
 It is further fully unit tested, featuring near-complete code coverage.
-Here, we will explain its inner workings by means of an example use case.
+Here, we will explain its inner structure by means of an example use case.
 In preparing this document, `SparseIR.jl` version `1.0.18` and Julia version `1.11.1` were used.
 
 ## Problem statement
@@ -18,8 +19,8 @@ We take a problem to be solved from the `sparse-ir` paper [Wallerberger2023](@ci
 > ```math
 >     H = U c^\dagger_\uparrow c^\dagger_\downarrow c_\downarrow c_\uparrow + \sum_{p\sigma} \big(V_{p\sigma}  f_{p\sigma}^\dagger c_\sigma + V_{p\sigma}^* c_\sigma^\dagger f_{p\sigma}\big) + \sum_{p\sigma} \epsilon_{p} f_{p\sigma}^\dagger f_{p\sigma}
 > ```
-> where ``U`` is the electron interaction strength, ``c_\sigma`` annihilates an electron on the impurity, ``f_{p\sigma}`` annihilates an electron in the bath, ``\dagger`` denotes the Hermitian conjugate, ``p\in\mathbb R`` is bath momentum, and ``\sigma\in\{\uparrow, \downarrow\}`` is spin.
-> The hybridization strength ``V_{p\sigma}`` and bath energies ``\epsilon_p`` are chosen such that the non-interacting density of states is semi-elliptic with a half-bandwidth of one, ``\rho_0(\omega) = \frac2\pi\sqrt{1-\omega^2}``, ``U=1.2``, ``\beta=10``, and the system is assumed to be half-filled.
+> where ``U`` is the electron interaction strength, ``c_\sigma`` annihilates an electron on the impurity, ``f_{p\sigma}`` annihilates an electron in the bath, ``\dagger`` denotes the Hermitian conjugate, ``p\in\mathbb R`` is bath momentum, and ``\sigma\in\{\uparrow, \downarrow\}`` the spin.
+> The hybridization strength ``V_{p\sigma}`` and bath energies ``\epsilon_p`` are chosen such that the non-interacting density of states is semi-elliptic with a half-bandwidth of one, ``\rho_0(\omega) = \frac2\pi\sqrt{1-\omega^2}``, ``U=1.2``, ``\beta=10``, [...]
 
 ## [Outline](@id outline)
 
@@ -140,13 +141,14 @@ with expansion coefficients given by
 ```math
     G_\ell = -\int_{-\omega_\mathrm{max}}^{+\omega_\mathrm{max}} \dd{\omega}  S_\ell V_\ell(\omega) \rho(\omega).
 ```
-The singular values decay at least exponentially quickly ``\log S_\ell = \order{-\ell / \log(\beta\omega_\mathrm{max})}``, so the error ``\epsilon_{L+1}(\tau)`` we incur by representing the Green's function in this way and cutting off the sum after ``L`` terms does too.
+The singular values decay at least exponentially with ``\log S_\ell = \order{-\ell / \log(\beta\omega_\mathrm{max})}``.
+Hence, the error ``\epsilon_{L+1}(\tau)`` we incur by representing the Green's function in this way and cutting off the sum after ``L`` terms does, too.
 If we know its expansion coefficients, we can easily compute the propagator's Fourier transform by 
 ```math
     \hat G(\mathrm{i}\omega) = \int_0^\beta \dd{\tau} e^{\mathrm{i}\omega\tau} G(\tau) \approx \sum_{\ell=1}^L \hat U_\ell(\mathrm{i}\omega) G_\ell,
 ```
 where ``\mathrm{i}\omega = (2n+1)\mathrm{i}\pi/\beta`` with ``n \in \mathbb Z`` is a Matsubara frequency.
-The representation in terms of these expansion coefficients is what is called the intermediate representation and what `SparseIR.jl` is concerned with.
+The representation in terms of these expansion coefficients is called the intermediate representation, which `SparseIR.jl` is concerned with.
 
 To standardize our variables, we define ``x \in [-1,+1]`` and ``y \in [-1,+1]`` by
 ```math 
@@ -158,11 +160,11 @@ so that the kernel can be written
 ```
 with ``\Lambda = \beta\omega_\mathrm{max} = 80``.
 This is represented by the object `LogisticKernel(80.0)`, which `FiniteTempBasis` uses internally.
-![Logistic kernel used to construct the basis in our problem treatment 𝐾(𝑥,𝑦).](assets/img/kernel.png)
+![Logistic kernel used to construct the basis in our problem treatment K(x,y).](assets/img/kernel.png)
 
 ### Singular value expansion
 
-Central is the _singular value expansion_'s [Hansen2010](@cite) computation, which is handled by the function `SVEResult`:
+Central is the _singular value expansion_ [Hansen2010](@cite), which is handled by the function `SVEResult`:
 Its purpose is to construct the decomposition
 ```math
     K(x, y) \approx \sum_{\ell = 0}^L U_\ell(x) S_\ell V_\ell(y)
@@ -174,27 +176,26 @@ By construction, the singular functions form an orthonormal basis, i.e.
 ```
 and thus above equation is equivalent to a pair of eigenvalue equations
 ```math
-\left.
 \begin{aligned}
     S_\ell U_\ell(x) &= \int \dd{y} K(x, y) V_\ell(y) \\
     S_\ell V_\ell(y) &= \int \dd{x} K(x, y) U_\ell(x)
 \end{aligned}
-\right\}
 ```
 Here and in what follows, unless otherwise indicated, integrals are taken to be over the interval ``[-1,+1]`` (because we rescaled to ``x`` and ``y`` variables).
 
 1. The function first calls the `choose_accuracy` helper and thereby sets the appropriate working precision.
-   Because we did not specify a working accuracy ``\varepsilon^2``, it chooses for us machine precision `eps(Float64)`, i.e. ``\varepsilon \approx 2.2 \times 10^{-16}`` and working type `Float64x2` - a 128 bits floating point type provided by the MultiFloats.jl package - because in computing the SVD we incur a precision loss of about half our input bits, leaving us with full double accuracy results only if we use quad precision during the computation.
+   Because we did not specify a working accuracy ``\varepsilon^2``, it chooses machine precision `eps(Float64)`, i.e. ``\varepsilon \approx 2.2 \times 10^{-16}`` and working type `Float64x2` - a 128 bits floating point type provided by the MultiFloats.jl package - because in computing the SVD we incur a precision loss of about half our input bits.
+   This leaves us with full double accuracy results only if we use quad precision during the computation.
 
-2. Then - by calling out to the `CentrosymmSVE` constructor - a support grid ``\{x_i\} \times \{y_j\}`` for the kernel to later be evaluated on is built.
-   Along with these support points weights ``\{w_i\}`` and ``\{z_j\}`` are computed.
+2. Then - by calling out to the `CentrosymmSVE` constructor - a support grid ``\{x_i\} \times \{y_j\}`` for the kernel to be evaluated later on is built.
+   Along with these support points, weights ``\{w_i\}`` and ``\{z_j\}`` are computed.
    These points and weights consist of repeated scaled Gauss integration rules, such that
    ```math
        \int \dd{x} f(x) \approx \sum_i f(x_i) w_i
        \quad\text{and}\quad
        \int \dd{y} g(y) \approx \sum_j g(y_j) z_j.
    ```
-   To get an idea regarding the distribution of these sampling points, refer to following figure, which shows ``\{x_i\} \times \{y_j\}`` for ``\Lambda = 80``:
+   To get an idea regarding the distribution of these sampling points, refer to Fig. 2.2, which shows ``\{x_i\} \times \{y_j\}`` for ``\Lambda = 80``:
    ![Sampling point distribution resulting from a Cartesian product of Gauss integration rules.](assets/img/sve_grid.png)
    
    #### Note:
@@ -208,43 +209,35 @@ Here and in what follows, unless otherwise indicated, integrals are taken to be 
    ```
    gaining a 4-fold speedup (because we take only a quarter of the domain) in constructing the SVE.
    The full singular functions can be reconstructed by (anti-)symmetrically continuing them to the negative axis.
-   ![The reduced kernels. Compare their [0,1] × [0,1] subregions with the sampling point distribution plot above.](assets/img/kernel_red.png)
+   ![Reduced kernels, as a function of x and y, parameterizing imaginary time and real frequency, respectively. Compare their [0,1] × [0,1] subregions with the sampling point distribution plot above.](assets/img/kernel_red.png)
 
    Using the integration rules allows us to approximate
    ```math
-   \left.
    \begin{aligned}
        S_\ell U_\ell(x_i) &\approx \sum_j K(x_i, y_j) V_\ell(y_j) z_j &&\forall i \\
        S_\ell V_\ell(y_j) &\approx \sum_i K(x_i, y_j) U_\ell(x_i) w_i &&\forall j
    \end{aligned}
-   \right\}
    ```
    which we now multiply by ``\sqrt{w_i}`` and ``\sqrt{z_j}`` respectively to normalize our basis functions, yielding
    ```math
-   \left.
    \begin{aligned}
        S_\ell \sqrt{w_i} U_\ell(x_i) &\approx \sum_j \sqrt{w_i} K(x_i, y_j) \sqrt{z_j} \sqrt{z_j} V_\ell(y_j) \\
        S_\ell \sqrt{z_j} V_\ell(y_j) &\approx \sum_i \sqrt{w_i} K(x_i, y_j) \sqrt{z_j} \sqrt{w_i} U_\ell(x_i)
    \end{aligned}
-   \right\}
    ```
-   If we now define vectors ``\vec u_\ell``, ``\vec v_\ell`` and a matrix ``K`` with entries ``u_{\ell, i} \equiv \sqrt{w_i} U_\ell(x_i)``, ``v_{\ell, j} \equiv \sqrt{z_j} V_\ell(y_j)`` and ``K_{ij} \equiv \sqrt{w_i} K(x_i, y_j) \sqrt{z_j}``, then
+   If we now define vectors ``\vec u_\ell``, ``\vec v_\ell`` and a matrix ``K`` with entries ``u_{\ell, i} \equiv \sqrt{w_i} U_\ell(x_i)``, ``v_{\ell, j} \equiv \sqrt{z_j} V_\ell(y_j)`` and ``K_{ij} \equiv \sqrt{w_i} K(x_i, y_j) \sqrt{z_j}``, we obtain
    ```math
-   \left.
    \begin{aligned}
        S_\ell u_{\ell, i} &\approx \sum_j K_{ij} v_{\ell, j} \\
        S_\ell v_{\ell, j} &\approx \sum_i K_{ij} u_{\ell, i}
    \end{aligned}
-   \right\}
    ```
    or
    ```math
-   \left.
    \begin{aligned}
        S_\ell \vec u_\ell &\approx K^{\phantom{\mathrm{T}}} \vec v_\ell \\
        S_\ell \vec v_\ell &\approx K^\mathrm{T} \vec u_\ell.
    \end{aligned}
-   \right\}
    ```
    Together with the property ``\vec u_\ell^\mathrm{T} \vec u_{\ell'} \approx \delta_{\ell\ell'} \approx \vec v_\ell^\mathrm{T} \vec v_{\ell'}`` we have successfully translated the original SVE problem into an SVD, because
    ```math
@@ -275,23 +268,23 @@ Here and in what follows, unless otherwise indicated, integrals are taken to be 
    The functions are represented as piecewise Legendre polynomials, which model a function on the interval ``[x_\mathrm{min}, x_\mathrm{max}]`` as a set of segments on the intervals ``[a_i, a_{i+1}]``, where on each interval the function is expanded in scaled Legendre polynomials.
    The interval endpoints are chosen such that they reflect the approximate position of roots of a high-order singular function in ``x``.
 
-### The finishing touches
+### Finishing touches
 
 The difficult part of constructing the `FiniteTempBasis` is now over.
 Next we truncate the left and right singular functions by discarding ``U_\ell`` and ``V_\ell`` with indices ``\ell > L`` to match the ``S_\ell``.
 The functions are now scaled to imaginary-time and frequency according to
 ```math
-    \tau = \beta/2 (x + 1) \qand \omega = \omega_\mathrm{max} y
+    \tau = \beta/2 (x + 1) \qand \omega = \omega_\mathrm{max} y.
 ```
-and to match them, the singular values are multiplied by ``\sqrt{(\beta/2)\omega}``, because ``K(x,y) \sqrt{\dd x\dd y} = K(\tau,\omega) \sqrt{\dd\tau\dd\omega}``.
+This means the singular values need to be multiplied by ``\sqrt{(\beta/2)\omega_\mathrm{max}}``, because ``K(x,y) \sqrt{\dd x\dd y} = K(\tau,\omega) \sqrt{\dd\tau\dd\omega}``.
 We also add to our basis ``\hat{U}_\ell(\mathrm{i}\omega)``, the Fourier transforms of the left singular functions, defined on the fermionic Matsubara frequencies ``\mathrm{i}\omega = \mathrm{i}(2n+1)\beta/\pi`` (with integer ``n``).
 This is particularly simple, because the Legendre polynomials' Fourier transforms are known analytically and given by spherical Bessel functions, for which we can rely on `Bessels.jl` [Helton2022](@cite).
 
 We can now take a look at our basis functions to get a feel for them:
 
-![The first 6 left singular basis functions on the imaginary-time axis.](assets/img/u_basis.pdf)
+![First 6 left singular basis functions on the imaginary-time axis.](assets/img/u_basis.pdf)
 
-![The first 6 right singular basis functions on the frequency axis.](assets/img/v_basis.pdf)
+![First 6 right singular basis functions on the frequency axis.](assets/img/v_basis.pdf)
 
 Looking back at the image of the kernel ``K(x,y)`` we can imagine how it is reconstructed by multiplying and summing (including a factor ``S_\ell``) ``U_\ell(\tau)`` and ``V_\ell(\omega)``.
 An important property of the left singular functions is interlacing, i.e. ``U_\ell`` interlaces ``U_{\ell+1}``.
@@ -299,9 +292,9 @@ A function ``g`` with roots ``\alpha_{n-1} \leq \ldots \leq \alpha_1`` interlace
 ```math
     \beta_n \leq \alpha_{n-1} \leq \beta_{n-1} \leq \ldots \leq \beta_1.
 ```
-We will use this property in constructing our sparse sampling set.
+We will use this property for constructing our sparse sampling set.
 
-![The first 8 Fourier transformed basis functions on the Matsubara frequency axis.](assets/img/uhat_basis.pdf)
+![First 8 Fourier transformed basis functions on the Matsubara frequency axis.](assets/img/uhat_basis.pdf)
 
 As for the Matsubara basis functions, we plot only the non-zero components, i.e. ``\mathrm{Im}\;\hat U_\ell\,(\mathrm{i}\omega)`` with odd ``\ell`` and  ``\mathrm{Re}\;\hat U_\ell\,(\mathrm{i}\omega)`` with even ``\ell``.
 
@@ -344,7 +337,7 @@ and taken together we now have a way of moving efficiently between both.
 In solving these problems, we need to take their conditioning into consideration; in the case of the Matsubara axis, the problem is somewhat worse conditioned than on the imaginary-time axis due to its discrete nature.
 We augment it therefore with 4 additional sampling frequencies.
 
-![Scaling behavior of the fitting problems' conditioning.](assets/img/condscaling.pdf)
+![Scaling behavior of the fitting problem conditioning.](assets/img/condscaling.pdf)
 
 ## Initializing the iteration
 
@@ -418,7 +411,7 @@ julia> G₀iω = evaluate(siω, G₀l)
 
 ## Self-consistency loop
 
-We are now ready to tackle the coupled equations from the start, and will state them here for the reader's convenience:
+We are now ready to tackle the coupled equations from the start, and will restate them here for the reader's convenience:
 ```math
     \Sigma(\tau) = U^2 \pqty{G(\tau)}^3
 ```
@@ -460,7 +453,7 @@ We consider the iteration converged when the difference between subsequent itera
 ```
 where the norm is ``\norm{G_\ell}^2 = \sum_{\ell=1}^L G_\ell^2``.
 
-The entire script, as presented in [Appendix: Optimized script](@ref optimized-script), takes around 60ms to run and allocates roughly 19MiB on a laptop CPU from 2019.
+The entire script, as presented in [Appendix: Optimized script](@ref optimized-script), takes around 60ms to run on a laptop CPU from 2019 (Intel Core i7-9750H) and allocates roughly 19MB in the process.
 
 ## Visualizing the solution
 
@@ -485,10 +478,10 @@ julia> Σiω_box = evaluate(siω_box, Σl)
  -6.624594477591435e-17 - 0.014786512975659354im
   -7.08391512971528e-17 - 0.01441676347590391im
 ```
-We are now in a position to visualize the results of our calculation:
+We are now in a position to visualize the results of our calculation in Fig 2.9:
 - In the main plot, the imaginary part of the self-energy in Matsubara alongside the sampling points on which it was computed.
-  This illustrates very nicely one of the main advantages of our method: During the entire course of the iteration we only ever need to store and calculate with the values of all functions on the sparse set of sampling points and are still able to expand the result the a dense frequency set in the end.
-- In the inset, the IR basis coefficients of the self-energy and of the propagator, along with the basis singular values.
+  This illustrates very nicely one of the main advantages of our method: During the entire course of the iteration we only ever need to store and calculate the values of all functions on the sparse set of sampling points and are still able to expand the result on a dense frequency set in the end.
+- In the inset, the IR basis coefficients of the self-energy and of the propagator are shown, along with the basis singular values.
   We only plot the non-vanishing basis coefficients, which are those at odd values of ``\ell`` because the real parts of ``\hat G(\mathrm{i}\omega)`` and ``\hat \Sigma(\mathrm{i}\omega)`` are almost zero.
   The singular values ``S_\ell/S_1`` are the bound for ``\abs{G_l / G_1}`` and ``\abs{\Sigma_\ell / \Sigma_1}``.
 ![Self-energy calculated in the self-consistency iteration. The inset shows the IR basis coefficients corresponding to the self-energy and the propagator.](assets/img/result.pdf)
@@ -496,12 +489,12 @@ We are now in a position to visualize the results of our calculation:
 # Summary and outlook
 
 We introduced `SparseIR.jl`, a full featured implementation of the intermediate representation in the Julia programming language.
-By means of a worked example, we explained in detail how to use it and the way it works internally.
-In this example, we solved an Anderson impurity model with elliptical density of states to second order via a self-consistent loop.
+By means of a simple example, we explained in detail how to use it and the way it works internally.
+In this example, we solved an Anderson impurity model with elliptical density of states to second order perturbation theory in the interaction via a self-consistent loop.
 We successfully obtained the self-energy (accurate to second order) with minimal computational effort.
 
-Regarding further work, perhaps the single most obvious direction is the extension to multi-particle quantities; And indeed, [Shinaoka2018,Wallerberger2021](@cite) did exactly this, with Markus Wallerberger writing the as of yet unpublished Julia library `OvercompleteIR.jl` which builds on top of `SparseIR.jl`.
-This library has already found applications in solving the parquet equations for the Hubbard model and for the Anderson impurity model [Michalek2024](@cite).
+Regarding further work, perhaps the single most obvious direction is the extension to multi-particle quantities; And indeed, Refs. [Shinaoka2018,Wallerberger2021](@cite) did exactly this, with Markus Wallerberger writing the as of yet unpublished Julia library `OvercompleteIR.jl` which builds upon `SparseIR.jl`.
+So, as a transitive dependency, the library of the present thesis has already found applications in solving the parquet equations for the Hubbard model and for the Anderson impurity model [Michalek2024](@cite).
 
 # References
 
