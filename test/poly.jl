@@ -165,7 +165,12 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         l = 3
         pwlp = SparseIR.PiecewiseLegendrePoly(data, knots, l)
 
-        ∫pwlp, ∫pwlp_err = (0.4934184996836403, 2.7755575615628914e-17)
+        if Sys.isapple() && Sys.ARCH === :aarch64
+            # On macOS (arm64-apple-darwin22.4.0), we get
+            ∫pwlp, ∫pwlp_err = (0.4934184996836404, 8.326672684688674e-17)
+        else
+            ∫pwlp, ∫pwlp_err = (0.4934184996836403, 2.7755575615628914e-17)
+        end
         
         @test overlap(pwlp, identity) ≈ ∫pwlp
         @test all(overlap(pwlp, identity, return_error=true) .≈ (∫pwlp, ∫pwlp_err))
