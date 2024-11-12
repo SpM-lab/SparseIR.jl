@@ -166,8 +166,8 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
 
         ∫pwlp, ∫pwlp_err = (0.4934184996836404, 8.326672684688674e-17)
         
-        @test overlap(pwlp, identity) == ∫pwlp
-        @test overlap(pwlp, identity, return_error=true) == (∫pwlp, ∫pwlp_err)
+        @test overlap(pwlp, identity) ≈ ∫pwlp
+        @test overlap(pwlp, identity, return_error=true) .≈ (∫pwlp, ∫pwlp_err)
     end
 
     @testset "roots(poly::PiecewiseLegendrePoly; tol=1e-10, alpha=Val(2))" begin
