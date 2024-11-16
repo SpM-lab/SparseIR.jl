@@ -46,6 +46,16 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         @test pwlp.knots == knots
         @test pwlp.polyorder == size(data, 1)
         @test pwlp.symm == 0
+
+        # pwlp(x::Real)
+        x = 0.5328437345518631
+        i, x̃ = SparseIR.split(pwlp, x)
+        @test i == 1
+        @test x̃ ≈ -0.25995538114498773
+        ref = SparseIR.legval(x̃, @view SparseIR.data(pwlp)[:, i]) * SparseIR.norms(pwlp)[i]
+        @test pwlp(x) ≈ ref ≈ 2.696073744825952
+        # pwlp(x::AbstractVector)
+        @test all(pwlp([0.5328437345518631, 0.5328437345518631]) .≈ [ref,ref])
     end
 
     @testset "PiecewiseLegendrePoly(data, p::PiecewiseLegendrePoly; symm=symm(p))" begin
