@@ -13,8 +13,8 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         data = rand(rng, 3, 3)
         knots = rand(rng, size(data, 2) + 1) |> sort
         @test data == [
-            0.8177021060277301 0.7085670484724618 0.5033588232863977; 
-            0.3804323567786363 0.7911959541742282 0.8268504271915096; 
+            0.8177021060277301 0.7085670484724618 0.5033588232863977;
+            0.3804323567786363 0.7911959541742282 0.8268504271915096;
             0.5425813266814807 0.38397463704084633 0.21626598379927042
         ]
         @test knots == [
@@ -27,8 +27,8 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         randsymm == 9
         ddata = rand(drng, 3, 3)
         ddata == [
-            0.5328437345518631 0.8443074122979211 0.6722336389122814; 
-            0.1799506228788046 0.6805545318460489 0.17641780726469292; 
+            0.5328437345518631 0.8443074122979211 0.6722336389122814;
+            0.1799506228788046 0.6805545318460489 0.17641780726469292;
             0.13124858727993338 0.2193663343416914 0.7756615110113394
         ]
     end
@@ -63,14 +63,14 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         data = rand(rng, 3, 3)
         knots = rand(rng, size(data, 2) + 1) |> sort
         l = 3
-        
+
         pwlp = SparseIR.PiecewiseLegendrePoly(data, knots, l)
 
         drng = StableRNG(999)
         randsymm = rand(drng, Int)
         ddata = rand(drng, 3, 3)
         ddata_pwlp = SparseIR.PiecewiseLegendrePoly(ddata, pwlp; symm=randsymm)
-        
+
         @test ddata_pwlp.data == ddata
         @test ddata_pwlp.symm == randsymm
         for n in fieldnames(SparseIR.PiecewiseLegendrePoly)
@@ -84,7 +84,7 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         # independent from sve.jl
         # https://github.com/SpM-lab/SparseIR.jl/issues/51
         rng = StableRNG(2024)
-        
+
         data = rand(rng, 3, 3)
         knots = rand(rng, size(data, 2) + 1) |> sort
         l = 3
@@ -93,7 +93,7 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         n = 1
         ddata = SparseIR.legder(pwlp.data, n)
         ddata .*= pwlp.inv_xs'
-        
+
         deriv_pwlp = SparseIR.deriv(pwlp)
 
         @test deriv_pwlp.data == ddata
@@ -169,7 +169,7 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         # independent from sve.jl
         # https://github.com/SpM-lab/SparseIR.jl/issues/51
         rng = StableRNG(2024)
-        
+
         data = rand(rng, 3, 3)
         knots = rand(rng, size(data, 2) + 1) |> sort
         l = 3
@@ -181,7 +181,7 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         else
             ∫pwlp, ∫pwlp_err = (0.4934184996836403, 2.7755575615628914e-17)
         end
-        
+
         @test overlap(pwlp, identity) ≈ ∫pwlp
         @test all(overlap(pwlp, identity, return_error=true) .≈ (∫pwlp, ∫pwlp_err))
     end
@@ -196,7 +196,7 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         julia> sve_result = SparseIR.SVEResult(SparseIR.LogisticKernel(Λ))
         julia> basis = SparseIR.FiniteTempBasis{SparseIR.Fermionic}(1, Λ; sve_result)
         =#
-        
+
         data = reshape([
             0.16774734206553019
             0.49223680914312595
@@ -241,7 +241,7 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         julia> @test basis.u[4].knots == knots
         julia> @test basis.u[4].l == l
         =#
-        
+
         pwlp = SparseIR.PiecewiseLegendrePoly(data, knots, l)
         @test SparseIR.roots(pwlp) == [
             0.1118633448586015
