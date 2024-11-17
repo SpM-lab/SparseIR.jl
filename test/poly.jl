@@ -46,6 +46,16 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         @test pwlp.knots == knots
         @test pwlp.polyorder == size(data, 1)
         @test pwlp.symm == 0
+
+        # pwlp(x::Real)
+        x = 0.5328437345518631
+        i, x̃ = SparseIR.split(pwlp, x)
+        @test i == 1
+        @test x̃ ≈ -0.25995538114498773
+        ref = SparseIR.legval(x̃, @view SparseIR.data(pwlp)[:, i]) * SparseIR.norms(pwlp)[i]
+        @test pwlp(x) ≈ ref ≈ 2.696073744825952
+        # pwlp(x::AbstractVector)
+        @test all(pwlp([0.5328437345518631, 0.5328437345518631]) .≈ [ref,ref])
     end
 
     @testset "PiecewiseLegendrePoly(data, p::PiecewiseLegendrePoly; symm=symm(p))" begin
@@ -53,7 +63,7 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         data = rand(rng, 3, 3)
         knots = rand(rng, size(data, 2) + 1) |> sort
         l = 3
-        
+
         pwlp = SparseIR.PiecewiseLegendrePoly(data, knots, l)
 
         drng = StableRNG(999)
@@ -283,7 +293,7 @@ julia> l3 = sve_result.u[3].l
         n = 1
         ddata = SparseIR.legder(pwlp.data, n)
         ddata .*= pwlp.inv_xs'
-        
+
         deriv_pwlp = SparseIR.deriv(pwlp)
 
         @test deriv_pwlp.data == ddata
@@ -359,7 +369,7 @@ julia> l3 = sve_result.u[3].l
         # independent from sve.jl
         # https://github.com/SpM-lab/SparseIR.jl/issues/51
         rng = StableRNG(2024)
-        
+
         data = rand(rng, 3, 3)
         knots = rand(rng, size(data, 2) + 1) |> sort
         l = 3
@@ -431,7 +441,7 @@ julia> l3 = sve_result.u[3].l
         julia> @test basis.u[4].knots == knots
         julia> @test basis.u[4].l == l
         =#
-        
+
         pwlp = SparseIR.PiecewiseLegendrePoly(data, knots, l)
         @test SparseIR.roots(pwlp) == [
             0.1118633448586015
