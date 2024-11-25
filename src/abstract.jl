@@ -169,6 +169,11 @@ function LinearAlgebra.cond(sampling::AbstractSampling)
     first(sampling.matrix_svd.S) / last(sampling.matrix_svd.S)
 end
 
+"""
+    sampling_points(sampling::AbstractSampling)
+
+Return sampling points.
+"""
 sampling_points(sampling::AbstractSampling) = sampling.sampling_points
 
 function Base.show(io::IO, ::MIME"text/plain", smpl::S) where {S<:AbstractSampling}
