@@ -76,6 +76,7 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
 
         basis = FiniteTempBasis(stat, 1, Λ; sve_result=sve_logistic[Λ])
         smpl = TauSampling(basis)
+        @test basis === SparseIR.basis(smpl)
         @test issorted(smpl.sampling_points)
         Random.seed!(5318008)
 
@@ -109,6 +110,7 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
 
         basis = FiniteTempBasis(stat, 1, Λ; sve_result=sve_logistic[Λ])
         smpl = MatsubaraSampling(basis; positive_only)
+        @test basis === SparseIR.basis(smpl)
         if !positive_only
             @test smpl isa
                   (stat == Fermionic() ? MatsubaraSampling64F : MatsubaraSampling64B)

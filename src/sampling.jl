@@ -6,10 +6,11 @@ Sparse sampling in imaginary time.
 Allows the transformation between the IR basis and a set of sampling points
 in (scaled/unscaled) imaginary time.
 """
-struct TauSampling{T,TMAT,F} <: AbstractSampling{T,TMAT,F}
+struct TauSampling{T,TMAT,F,B} <: AbstractSampling{T,TMAT,F}
     sampling_points :: Vector{T}
     matrix          :: Matrix{TMAT}
     matrix_svd      :: F
+    basis           :: B
 end
 
 """
@@ -24,7 +25,7 @@ function TauSampling(basis::AbstractBasis;
         sampling_points=default_tau_sampling_points(basis), factorize=true)
     matrix = eval_matrix(TauSampling, basis, sampling_points)
     matrix_svd = factorize ? svd(matrix) : nothing
-    sampling = TauSampling(sampling_points, matrix, matrix_svd)
+    sampling = TauSampling(sampling_points, matrix, matrix_svd, basis)
     if factorize && iswellconditioned(basis) && cond(sampling) > 1e8
         @warn "Sampling matrix is poorly conditioned (cond = $(cond(sampling)))."
     end
@@ -41,11 +42,13 @@ Sparse sampling in Matsubara frequencies.
 Allows the transformation between the IR basis and a set of sampling points
 in (scaled/unscaled) imaginary frequencies.
 """
-struct MatsubaraSampling{T<:MatsubaraFreq,TMAT,F} <: AbstractSampling{T,TMAT,F}
+struct MatsubaraSampling{T<:MatsubaraFreq,TMAT,F,B<:AbstractBasis} <:
+       AbstractSampling{T,TMAT,F}
     sampling_points :: Vector{T}
     matrix          :: Matrix{TMAT}
     matrix_svd      :: F
     positive_only   :: Bool
+    basis           :: B
 end
 
 """
@@ -82,7 +85,7 @@ function MatsubaraSampling(basis::AbstractBasis; positive_only=false,
     else
         svd_matrix = nothing
     end
-    sampling = MatsubaraSampling(sampling_points, matrix, svd_matrix, positive_only)
+    sampling = MatsubaraSampling(sampling_points, matrix, svd_matrix, positive_only, basis)
     if factorize && iswellconditioned(basis) && cond(sampling) > 1e8
         @warn "Sampling matrix is poorly conditioned (cond = $(cond(sampling)))."
     end

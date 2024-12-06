@@ -176,6 +176,13 @@ Return sampling points.
 """
 sampling_points(sampling::AbstractSampling) = sampling.sampling_points
 
+"""
+    basis(sampling::AbstractSampling)
+
+Return the IR basis associated with `sampling`.
+"""
+basis(sampling::AbstractSampling) = sampling.basis
+
 function Base.show(io::IO, ::MIME"text/plain", smpl::S) where {S<:AbstractSampling}
     println(io, "$S with sampling points:")
     for p in sampling_points(smpl)[begin:(end - 1)]
