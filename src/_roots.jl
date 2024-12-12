@@ -40,6 +40,7 @@ closeenough(a::T, b::T, ϵ) where {T<:AbstractFloat} = isapprox(a, b; rtol=0, at
 closeenough(a::T, b::T, _) where {T<:Integer} = a == b
 
 function refine_grid(grid::Vector{T}, ::Val{α}) where {T, α}
+    isempty(grid) && return grid
     n = length(grid)
     newn = α * (n - 1) + 1
     newgrid = Vector{float(T)}(undef, newn)
