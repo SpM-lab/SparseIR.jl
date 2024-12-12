@@ -39,10 +39,10 @@ end
 closeenough(a::T, b::T, ϵ) where {T<:AbstractFloat} = isapprox(a, b; rtol=0, atol=ϵ)
 closeenough(a::T, b::T, _) where {T<:Integer} = a == b
 
-function refine_grid(grid, ::Val{α}) where {α}
+function refine_grid(grid::Vector{T}, ::Val{α}) where {T, α}
     n = length(grid)
     newn = α * (n - 1) + 1
-    newgrid = Vector{eltype(grid)}(undef, newn)
+    newgrid = Vector{float(T)}(undef, newn)
 
     @inbounds for i in 1:(n - 1)
         xb = grid[i]
