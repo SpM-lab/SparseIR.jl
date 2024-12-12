@@ -6,7 +6,7 @@ using SparseIR
         @testset "Basic refinement" begin
             # Test with α = 2
             grid = [0.0, 1.0, 2.0]
-            refined = SparseIR.refine_grid(grid, Val(2))
+            refined = @inferred SparseIR.refine_grid(grid, Val(2))
             @test length(refined) == 5  # α * (n-1) + 1 = 2 * (3-1) + 1 = 5
             @test refined ≈ [0.0, 0.5, 1.0, 1.5, 2.0]
 
@@ -29,13 +29,13 @@ using SparseIR
         @testset "Type stability" begin
             # Integer grid
             int_grid = [0, 1, 2]
-            refined_int = SparseIR.refine_grid(int_grid, Val(2))
-            @test eltype(refined_int) === Float64
-            @test refined_int == [0.0, 0.5, 1.0, 1.5, 2.0]
+            refined = @inferred SparseIR.refine_grid(int_grid, Val(2))
+            @test eltype(refined) === Float64
+            @test refined == [0.0, 0.5, 1.0, 1.5, 2.0]
 
             # Float32 grid
             f32_grid = Float32[0, 1, 2]
-            refined_f32 = SparseIR.refine_grid(f32_grid, Val(2))
+            refined_f32 = @inferred SparseIR.refine_grid(f32_grid, Val(2))
             @test eltype(refined_f32) === Float32
             @test refined_f32 ≈ Float32[0, 0.5, 1, 1.5, 2]
         end
@@ -50,7 +50,11 @@ using SparseIR
             # Empty grid
             empty_grid = Float64[]
             @test isempty(SparseIR.refine_grid(empty_grid, Val(2)))
-
+            # Empty grid
+            empty_grid = Int[]
+            out_grid = SparseIR.refine_grid(empty_grid, Val(2))
+            @test isempty(out_grid)
+            @test eltype(out_grid) === Float64
             # Single point
             single_point = [1.0]
             @test SparseIR.refine_grid(single_point, Val(2)) == [1.0]
