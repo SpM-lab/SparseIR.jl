@@ -24,6 +24,45 @@ leaq(a, b; kwargs...) = (a <= b) || isapprox(a, b; kwargs...)
 a ⪅ b = leaq(a, b)
 
 @testset "sve.jl" begin
+    @testset "logistic kernel with Λ = $Λ" for Λ in (10, 42, 10_000)
+        kernel = LogisticKernel(Λ)
+        sve_result=sve_logistic[Λ]
+
+        N = length(sve_result.s)
+        @test length(sve_result.s) == N
+        @test length(sve_result.u) == length(sve_result.s)
+        @test length(sve_result.v) == length(sve_result.s)
+
+        for i in 1:N
+            @test overlap(sve_result.u[i], sve_result.u[i]) ≈ 1.0 atol=1e-10
+        end
+
+        if N < 40 # expensive
+            for i in 1:N, j in 1:N
+                ref = (i == j ? 1.0 : 0.0)
+                @test overlap(sve_result.u[i], sve_result.u[j])≈ref atol=1e-10
+            end
+        else
+            for i in 1:10:N, j in 1:N
+                ref = (i == j ? 1.0 : 0.0)
+                @test overlap(sve_result.u[i], sve_result.u[j])≈ref atol=1e-10
+            end
+        end
+
+        x = 0.1
+        for i in 1:2:N
+            @test sve_result.u[i](x) ≈ sve_result.u[i](-x)
+        end
+        for i in 2:2:N
+            @test sve_result.u[i](x) ≈ -sve_result.u[i](-x)
+        end
+
+        # check k(x, y) \approx sum_l s_l u_l(x) v_l(y)
+        y = 0.2
+        @test sum(sve_result.s[l] * sve_result.u[l](x) * sve_result.v[l](y)
+        for l in 1:N)≈kernel(x, y) atol=1e-10
+    end
+
     @testset "smooth with Λ = $Λ" for Λ in (10, 42, 10_000)
         basis = FiniteTempBasis{Fermionic}(1, Λ; sve_result=sve_logistic[Λ])
         check_smooth(basis.u, basis.s, 2 * maximum(basis.u(1)), 24)
