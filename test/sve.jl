@@ -24,43 +24,46 @@ leaq(a, b; kwargs...) = (a <= b) || isapprox(a, b; kwargs...)
 a ⪅ b = leaq(a, b)
 
 @testset "sve.jl" begin
-    @testset "logistic kernel with Λ = $Λ" for Λ in (10, 42, 10_000)
+    @testset "kernel with Λ = $Λ" for Λ in (10, 42, 10_000)
         kernel = LogisticKernel(Λ)
-        sve_result=sve_logistic[Λ]
+        sve_result = sve_logistic[Λ]
+        ε = nothing
+        u, s, v = SparseIR.part(sve_result; ε, max_size=typemax(Int))
 
-        N = length(sve_result.s)
-        @test length(sve_result.s) == N
-        @test length(sve_result.u) == length(sve_result.s)
-        @test length(sve_result.v) == length(sve_result.s)
+        N = length(s)
+        @test length(s) == N
+        @test length(u) == length(s)
+        @test length(v) == length(s)
 
         for i in 1:N
-            @test overlap(sve_result.u[i], sve_result.u[i]) ≈ 1.0 atol=1e-10
+            @test overlap(u[i], u[i])≈1.0 atol=1e-10
         end
 
         if N < 40 # expensive
             for i in 1:N, j in 1:N
                 ref = (i == j ? 1.0 : 0.0)
-                @test overlap(sve_result.u[i], sve_result.u[j])≈ref atol=1e-10
+                @test overlap(u[i], u[j])≈ref atol=1e-10
             end
         else
             for i in 1:10:N, j in 1:N
                 ref = (i == j ? 1.0 : 0.0)
-                @test overlap(sve_result.u[i], sve_result.u[j])≈ref atol=1e-10
+                @test overlap(u[i], u[j])≈ref atol=1e-10
             end
         end
 
-        x = 0.1
+        x = [0.0, 0.5, 1.0]
         for i in 1:2:N
-            @test sve_result.u[i](x) ≈ sve_result.u[i](-x)
+            @test u[i](x)≈u[i](-x) atol=abs(u[i](1)) * 1e-12
         end
         for i in 2:2:N
-            @test sve_result.u[i](x) ≈ -sve_result.u[i](-x)
+            @test u[i](x)≈-u[i](-x) atol=abs(u[i](1)) * 1e-12
         end
 
         # check k(x, y) \approx sum_l s_l u_l(x) v_l(y)
-        y = 0.2
-        @test sum(sve_result.s[l] * sve_result.u[l](x) * sve_result.v[l](y)
-        for l in 1:N)≈kernel(x, y) atol=1e-10
+        for y in [0.0, 0.1, 0.5, 0.9, 1.0], x in [-1.0, -0.5, 0.0, 0.5, 1.0]
+            diff = kernel(x, y) - sum(s[l] * u[l](x) * v[l](y) for l in 1:N)
+            @test abs(diff) < 1e-12
+        end
     end
 
     @testset "smooth with Λ = $Λ" for Λ in (10, 42, 10_000)
