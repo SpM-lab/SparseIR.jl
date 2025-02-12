@@ -52,8 +52,8 @@ using SparseIR
         @test length(FermionicFreq(1):BosonicFreq(100):FermionicFreq(-1001)) == 0
 
         @test_throws MethodError FermionicFreq(5):BosonicFreq(100)
-        @test_throws ErrorException BosonicFreq(6):FermionicFreq(3):BosonicFreq(100)
-        @test_throws ErrorException FermionicFreq(7):FermionicFreq(3):FermionicFreq(101)
+        @test_throws MethodError BosonicFreq(6):FermionicFreq(3):BosonicFreq(100)
+        @test_throws MethodError FermionicFreq(7):FermionicFreq(3):FermionicFreq(101)
     end
 
     @testset "freqinvalid" begin
@@ -72,5 +72,17 @@ using SparseIR
         @test BosonicFreq(24) % FermionicFreq(-7) == FermionicFreq(3)
         @test FermionicFreq(123) % FermionicFreq(9) == BosonicFreq(6)
         @test promote_type(BosonicFreq, FermionicFreq) == MatsubaraFreq
+    end
+
+    @testset "findfirst (needs dimensionless div)" begin
+        @test BosonicFreq(100) ÷ BosonicFreq(50) === 2
+        @test FermionicFreq(101) ÷ BosonicFreq(50) === 2
+        haystack = FermionicFreq(-31):BosonicFreq(6):FermionicFreq(111)
+        needle = FermionicFreq(23)
+        @test findfirst(==(needle), haystack) === 10 # 6 * (10-1) + (-31) == 23
+        @test haystack[findfirst(==(needle), haystack)] === needle
+        @test isnothing(findfirst(==(needle - oneunit(needle)), haystack))
+        @test findfirst(==(first(haystack)), haystack) === 1
+        @test findfirst(==(last(haystack)), haystack) === length(haystack)
     end
 end

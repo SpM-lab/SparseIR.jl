@@ -114,6 +114,8 @@ Base.:*(a::BosonicFreq, c::Integer)         = BosonicFreq(a.n * c)
 Base.:*(a::FermionicFreq, c::Integer)       = MatsubaraFreq(a.n * c)
 Base.:*(c::Integer, a::MatsubaraFreq)       = a * c
 
+Base.:(==)(::FermionicFreq, ::BosonicFreq)      = false
+Base.:(==)(::BosonicFreq, ::FermionicFreq)      = false
 Base.sign(a::MatsubaraFreq)                     = sign(a.n)
 Base.zero(::MatsubaraFreq)                      = BosonicFreq(0)
 Base.iszero(::FermionicFreq)                    = false
@@ -152,8 +154,9 @@ Base.oneunit(::MatsubaraFreq) = pioverbeta
 
 Base.rem(a::MatsubaraFreq, b::FermionicFreq) = MatsubaraFreq(rem(a.n, b.n))
 Base.rem(a::MatsubaraFreq{S}, b::BosonicFreq) where {S} = MatsubaraFreq{S}(rem(a.n, b.n))
-Base.div(a::MatsubaraFreq, b::MatsubaraFreq) = MatsubaraFreq(div(a.n, b.n))
+Base.div(a::MatsubaraFreq, b::MatsubaraFreq) = div(a.n, b.n)
 
+# Ranges may only consist of elements of a single type
 function Base.:(:)(start::MatsubaraFreq{S}, stop::MatsubaraFreq{S}) where {S}
     start:BosonicFreq(2):stop
 end
