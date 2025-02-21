@@ -116,7 +116,9 @@ function evaluate(smpl::AbstractSampling{S,Tmat}, al::AbstractArray{T,N};
         msg = "Number of columns (got $(size(smpl.matrix, 2))) has to match al's size in dim (got $(size(al, dim)))."
         throw(DimensionMismatch(msg))
     end
-    bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 1), size(al)[(dim + 1):end]...)
+    bufsize = ntuple(N) do d
+        d === dim ? size(smpl.matrix, 1) : size(al, d)
+    end
     buffer = Array{promote_type(Tmat, T),N}(undef, bufsize)
     return evaluate!(buffer, smpl, al; dim)
 end
@@ -150,7 +152,9 @@ function fit(smpl::AbstractSampling{S,Tmat}, al::AbstractArray{T,N};
         "has to match al's size in dim (got $(size(al, dim)))."
         throw(DimensionMismatch(msg))
     end
-    bufsize = (size(al)[1:(dim - 1)]..., size(smpl.matrix, 2), size(al)[(dim + 1):N]...)
+    bufsize = ntuple(N) do d
+        d === dim ? size(smpl.matrix, 2) : size(al, d)
+    end
     buffer = Array{promote_type(Tmat, T),N}(undef, bufsize)
     return fit!(buffer, smpl, al; dim)
 end

@@ -24,5 +24,6 @@ using Aqua
         include("_roots.jl")
         include("_specfuncs.jl")
         include("_multifloat_funcs.jl")
+        include("performance.jl")
     end
 end
