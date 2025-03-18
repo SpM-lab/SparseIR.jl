@@ -16,7 +16,7 @@ export TauSampling, MatsubaraSampling, evaluate, fit, evaluate!, fit!,
 using MultiFloats: MultiFloats, Float64x2, _call_big
 # If we call MultiFloats.use_bigfloat_transcendentals() like MultiFloats
 # recommends, we get an error during precompilation:
-for name in (:exp, :sinh, :cosh)
+for name in (:exp, :sinh, :cosh, :expm1)
     eval(:(function Base.$name(x::Float64x2)
         Float64x2(_call_big($name, x, 107 + 20)) # 107 == precision(Float64x2)
     end))

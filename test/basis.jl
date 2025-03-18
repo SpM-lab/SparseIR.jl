@@ -60,10 +60,11 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         @test_logs (:warn, r"""
         Requesting 13 Bosonic\(\) sampling frequencies for basis size
         L = \d+, but \d+ were returned\. This may indicate a problem with precision\.
-        """) SparseIR.default_matsubara_sampling_points(basis.uhat, 12; fence=true)
+        """) SparseIR.default_matsubara_sampling_points(
+            basis.uhat, 12; fence=true)
     end
 
-    @testset "unit tests" begin
+    @testset "unit tests LogisticKernel" begin
         β = 23
         ωmax = 3e-2
         ε = 1e-5
@@ -79,6 +80,10 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         @test bset.wn_b == SparseIR.sampling_points(MatsubaraSampling(basis_b))
         @test bset.sve_result.s ≈ SparseIR.SVEResult(LogisticKernel(β * ωmax); ε).s
         @test :tau ∈ propertynames(bset)
-        SparseIR.finite_temp_bases(0.1, 0.2, 1e-3; kernel=RegularizedBoseKernel(0.1*0.2))
+        SparseIR.finite_temp_bases(0.1, 0.2, 1e-3; kernel=RegularizedBoseKernel(0.1 * 0.2))
+
+        Λ = 10.0
+        kernel = RegularizedBoseKernel(Λ)
+        SparseIR.SVEResult(kernel; ε=1e-10)
     end
 end
