@@ -191,4 +191,12 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
 
         @test Y * transpose(B) ≈ A
     end
+
+    @testset "frequency range" begin
+        basis = FiniteTempBasis{Fermionic}(3, 3, 1e-6)
+        freqrange = SparseIR.frequency_range(12)
+        smpl = MatsubaraSampling(basis; sampling_points=freqrange)
+        @test sampling_points(smpl) !== freqrange
+        @test sampling_points(smpl) == freqrange
+    end
 end

@@ -160,3 +160,8 @@ Base.div(a::MatsubaraFreq, b::MatsubaraFreq) = div(a.n, b.n)
 function Base.:(:)(start::MatsubaraFreq{S}, stop::MatsubaraFreq{S}) where {S}
     start:BosonicFreq(2):stop
 end
+
+function frequency_range(len::Integer)
+    len > 0 || throw(ArgumentError("Length must be positive"))
+    MatsubaraFreq(-(len - 1)):MatsubaraFreq(+(len - 1))
+end

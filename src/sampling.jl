@@ -74,6 +74,11 @@ space. `factorize` controls whether the SVD decomposition is computed.
 function MatsubaraSampling(basis::AbstractBasis; positive_only=false,
         sampling_points=default_matsubara_sampling_points(basis;
             positive_only), factorize=true)
+    sampling_points = if sampling_points isa AbstractRange
+        collect(sampling_points)
+    else
+        sampling_points
+    end
     issorted(sampling_points) || sort!(sampling_points)
     if positive_only
         Int(first(sampling_points)) ≥ 0 || error("invalid negative sampling frequencies")

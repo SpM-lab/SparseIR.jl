@@ -11,7 +11,8 @@ export overlap
 export LogisticKernel, RegularizedBoseKernel
 export AugmentedBasis, TauConst, TauLinear, MatsubaraConst
 export TauSampling, MatsubaraSampling, evaluate, fit, evaluate!, fit!,
-       MatsubaraSampling64F, MatsubaraSampling64B, TauSampling64, sampling_points
+       MatsubaraSampling64F, MatsubaraSampling64B, TauSampling64, sampling_points,
+       basis
 
 using MultiFloats: MultiFloats, Float64x2, _call_big
 # If we call MultiFloats.use_bigfloat_transcendentals() like MultiFloats
