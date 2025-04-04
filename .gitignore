@@ -3,7 +3,7 @@
 \#*\#
 
 *.ipynb
-Manifest.toml
+Manifest*.toml
 docs/Manifest.toml
 docs/build/
 playground_pluto.jl
