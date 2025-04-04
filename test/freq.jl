@@ -6,10 +6,10 @@ using SparseIR
         @test SparseIR.zeta(MatsubaraFreq(2)) == 0
         @test SparseIR.zeta(MatsubaraFreq(-5)) == 1
 
-        @test Int(FermionicFreq(3)) == 3
-        @test Int(BosonicFreq(-2)) == -2
+        @test Int(FermionicFreq(3)) === 3
+        @test Int(BosonicFreq(-2)) === -2
 
-        @test Int(MatsubaraFreq(Int32(4))) == 4
+        @test Int(MatsubaraFreq(Int32(4))) === 4
 
         @test_throws DomainError FermionicFreq(4)
         @test_throws DomainError BosonicFreq(-7)

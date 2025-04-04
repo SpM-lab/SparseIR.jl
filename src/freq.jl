@@ -84,12 +84,12 @@ statistics(::MatsubaraFreq{S}) where {S} = S()
 """
 Get prefactor `n` for the Matsubara frequency `ω = n*π/β`
 """
-Integer(a::MatsubaraFreq) = a.n
+Base.Integer(a::MatsubaraFreq) = a.n
 
 """
 Get prefactor `n` for the Matsubara frequency `ω = n*π/β`
 """
-Int(a::MatsubaraFreq) = a.n
+Base.Int(a::MatsubaraFreq) = a.n
 
 """
 Get value of the Matsubara frequency `ω = n*π/β`
