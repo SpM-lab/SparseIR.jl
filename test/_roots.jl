@@ -94,3 +94,18 @@ end
           big"99999999999999999999" ÷ 2
     @test SparseIR.midpoint(-10.0, 1) === -4.5
 end
+
+@testitem "sorted output" begin
+    λ = 1e1
+    β = 1e2
+    eps = 1e-10
+    wmax = λ / β
+    basis = FiniteTempBasis{Fermionic}(β, wmax, eps)
+
+    part = nothing
+    grid = SparseIR.DEFAULT_GRID
+    û = last(basis.uhat_full)
+    f = SparseIR.func_for_part(û, part)
+    x₀ = SparseIR.discrete_extrema(f, grid)
+    @test issorted(x₀)
+end
