@@ -39,7 +39,7 @@ end
 closeenough(a::T, b::T, ϵ) where {T<:AbstractFloat} = isapprox(a, b; rtol=0, atol=ϵ)
 closeenough(a::T, b::T, _) where {T<:Integer} = a == b
 
-function refine_grid(grid::Vector{T}, ::Val{α}) where {T, α}
+function refine_grid(grid::Vector{T}, ::Val{α}) where {T,α}
     isempty(grid) && return float(T)[]
     n = length(grid)
     newn = α * (n - 1) + 1
@@ -86,7 +86,7 @@ function discrete_extrema(f::F, xgrid) where {F<:Function}
         push!(res, last(xgrid))
     end
 
-    return res
+    return sort!(res)
 end
 
 function bisect_discr_extremum(absf, a, b, absf_a, absf_b)
@@ -101,8 +101,8 @@ function bisect_discr_extremum(absf, a, b, absf_a, absf_b)
     absf_n = absf(n)
 
     a, b, absf_a, absf_b = ifelse(absf_m > absf_n,
-                                  (a, n, absf_a, absf_n),
-                                  (m, b, absf_m, absf_b))
+        (a, n, absf_a, absf_n),
+        (m, b, absf_m, absf_b))
 
     return bisect_discr_extremum(absf, a, b, absf_a, absf_b)
 end

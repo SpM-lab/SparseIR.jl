@@ -1,26 +1,30 @@
-using Test
-using SparseIR
-using SparseIR._LinAlg
-using SparseIR.LinearAlgebra
-using SparseIR: Float64x2
+@testitem "jacobi with T = $T" begin
+    using LinearAlgebra
 
-@testset "_linalg.jl" begin
-    @testset "jacobi with T = $T" for T in (Float64, Float64x2)
+    for T in (Float64, SparseIR.Float64x2)
         A = T.(randn(20, 10))
-        U, S, V = svd_jacobi(A)
+        U, S, V = SparseIR._LinAlg.svd_jacobi(A)
         @test U * Diagonal(S) * V' ≈ A
     end
+end
 
-    @testset "rrqr with T = $T" for T in (Float64, Float64x2)
+@testitem "rrqr with T = $T" begin
+    using LinearAlgebra
+
+    for T in (Float64, SparseIR.Float64x2)
         A = T.(randn(40, 30))
         A_eps = norm(A) * eps(eltype(A))
-        A_qr, A_rank = rrqr(A)
+        A_qr, A_rank = SparseIR._LinAlg.rrqr(A)
         A_rec = A_qr.Q * A_qr.R * A_qr.P'
         @test isapprox(A_rec, A; rtol=0, atol=4 * A_eps)
         @test A_rank == 30
     end
+end
 
-    @testset "rrqr_trunc with T = $T" for T in (Float64, Float64x2)
+@testitem "rrqr_trunc with T = $T" begin
+    using LinearAlgebra
+
+    for T in (Float64, SparseIR.Float64x2)
         # Vandermonde matrix
         A = Vector{T}(-1:0.02:1) .^ Vector(0:20)'
         m, n = size(A)
@@ -31,8 +35,12 @@ using SparseIR: Float64x2
         A_rec = Q * R * A_qr.P'
         @test isapprox(A, A_rec, rtol=0, atol=1e-5 * norm(A))
     end
+end
 
-    @testset "tsvd with T = $T" for T in (Float64, Float64x2), tol in (1e-14, 1e-13)
+@testitem "tsvd with T = $T" begin
+    using LinearAlgebra
+
+    for T in (Float64, SparseIR.Float64x2), tol in (1e-14, 1e-13)
         A = Vector{T}(-1:0.01:1) .^ Vector(0:50)'
         U, S, V = SparseIR._LinAlg.tsvd(A; rtol=tol)
         k = length(S)
@@ -46,8 +54,10 @@ using SparseIR: Float64x2
         A_svd = svd(Float64.(A))
         @test S ≈ A_svd.S[1:k]
     end
+end
 
-    @testset "svd of VERY triangular 2x2 with T = $T" for T in (Float64, Float64x2)
+@testitem "svd of VERY triangular 2x2 with T = $T" begin
+    for T in (Float64, SparseIR.Float64x2)
         (cu, su), (smax, smin), (cv, sv) = SparseIR._LinAlg.svd2x2(T(1), T(1e100), T(1))
         @test cu ≈ 1.0
         @test su ≈ 1e-100
@@ -100,7 +110,7 @@ using SparseIR: Float64x2
         @test U * S * Vt ≈ A
 
         (cu, su), (smax, smin), (cv, sv) = SparseIR._LinAlg.svd2x2(T(1e-100), T(1),
-                                                                   T(1e-100))
+            T(1e-100))
         @test cu ≈ 1.0
         @test su ≈ 1e-100
         @test smax ≈ 1.0
@@ -117,10 +127,12 @@ using SparseIR: Float64x2
         T(0) T(1e-100)]
         @test U * S * Vt ≈ A
     end
+end
 
-    @testset "svd of 'more lower' 2x2 with T = $T" for T in (Float64, Float64x2)
+@testitem "svd of 'more lower' 2x2 with T = $T" begin
+    for T in (Float64, SparseIR.Float64x2)
         (cu, su), (smax, smin), (cv, sv) = SparseIR._LinAlg.svd2x2(T(1), T(1e-100),
-                                                                   T(1e100), T(1))
+            T(1e100), T(1))
         @test cu ≈ 1e-100
         @test su ≈ 1.0
         @test smax ≈ 1e100
@@ -137,9 +149,10 @@ using SparseIR: Float64x2
         T(1e100) T(1)]
         @test U * S * Vt ≈ A
     end
+end
 
-    @testset "givens rotation of 2d vector - special cases with T = $T" for T in (Float64,
-                                                                                  Float64x2)
+@testitem "givens rotation of 2d vector - special cases with T = $T" begin
+    for T in (Float64, SparseIR.Float64x2)
         for v in ([42, 0], [-42, 0], [0, 42], [0, -42], [0, 0])
             v = T.(v)
             (c, s), r = SparseIR._LinAlg.givens_params(v...)

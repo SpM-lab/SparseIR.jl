@@ -1,53 +1,50 @@
-using Test
-using SparseIR
-using SparseIR.LinearAlgebra
-using Random
+@testitem "alias" setup=[CommonTestData] begin
+    β = 1
+    ωmax = 10
+    basis = FiniteTempBasis{Fermionic}(
+        β, ωmax; sve_result=CommonTestData.sve_logistic[β * ωmax])
+    @test TauSampling(basis) isa TauSampling64
+end
 
-isdefined(Main, :sve_logistic) || include("_conftest.jl")
+@testitem "decomp" begin
+    using Random
+    using LinearAlgebra
 
-@testset "sampling.jl" begin
-    @testset "alias" begin
-        β = 1
-        ωmax = 10
-        basis = FiniteTempBasis{Fermionic}(β, ωmax; sve_result=sve_logistic[β * ωmax])
-        @test TauSampling(basis) isa TauSampling64
-    end
+    Random.seed!(420)
+    A = randn(49, 39)
 
-    @testset "decomp" begin
-        Random.seed!(420)
-        A = randn(49, 39)
+    Ad = svd(A)
+    norm_A = first(Ad.S) / last(Ad.S)
+    @test all(isapprox.(A, Matrix(Ad), atol=1e-15 * norm_A, rtol=0))
 
-        Ad = svd(A)
-        norm_A = first(Ad.S) / last(Ad.S)
-        @test all(isapprox.(A, Matrix(Ad), atol=1e-15 * norm_A, rtol=0))
+    x = randn(39)
+    @test A * x≈Ad.U * Diagonal(Ad.S) * Ad.Vt * x atol=1e-14 * norm_A rtol=0
 
-        x = randn(39)
-        @test A * x≈Ad.U * Diagonal(Ad.S) * Ad.Vt * x atol=1e-14 * norm_A rtol=0
+    x = randn(39, 3)
+    @test A * x≈Ad.U * Diagonal(Ad.S) * Ad.Vt * x atol=2e-14 * norm_A rtol=0
 
-        x = randn(39, 3)
-        @test A * x≈Ad.U * Diagonal(Ad.S) * Ad.Vt * x atol=2e-14 * norm_A rtol=0
+    y = randn(49)
+    @test A \ y≈Ad \ y atol=1e-14 * norm_A rtol=0
 
-        y = randn(49)
-        @test A \ y≈Ad \ y atol=1e-14 * norm_A rtol=0
+    y = randn(49, 2)
+    @test A \ y≈Ad \ y atol=1e-14 * norm_A rtol=0
+end
 
-        y = randn(49, 2)
-        @test A \ y≈Ad \ y atol=1e-14 * norm_A rtol=0
-    end
+@testitem "don't factorize" setup=[CommonTestData] begin
+    stat = Bosonic()
+    Λ = 10
+    basis = FiniteTempBasis(stat, 1, Λ; sve_result=CommonTestData.sve_logistic[Λ])
+    τ_smpl = TauSampling(basis; factorize=false)
+    ω_smpl = MatsubaraSampling(basis; factorize=false)
+    @test isnothing(τ_smpl.matrix_svd)
+    @test isnothing(ω_smpl.matrix_svd)
+end
 
-    @testset "don't factorize" begin
-        stat = Bosonic()
-        Λ = 10
-        basis = FiniteTempBasis(stat, 1, Λ; sve_result=sve_logistic[Λ])
-        τ_smpl = TauSampling(basis; factorize=false)
-        ω_smpl = MatsubaraSampling(basis; factorize=false)
-        @test isnothing(τ_smpl.matrix_svd)
-        @test isnothing(ω_smpl.matrix_svd)
-    end
+@testitem "fit from tau" setup=[CommonTestData] begin
+    using Random
 
-    @testset "fit from tau with stat = $stat, Λ = $Λ" for stat in (Bosonic(), Fermionic()),
-        Λ in (10, 42)
-
-        basis = FiniteTempBasis(stat, 1, Λ; sve_result=sve_logistic[Λ])
+    for stat in (Bosonic(), Fermionic()), Λ in (10, 42)
+        basis = FiniteTempBasis(stat, 1, Λ; sve_result=CommonTestData.sve_logistic[Λ])
         smpl = TauSampling(basis)
         @test issorted(smpl.sampling_points)
         Random.seed!(5318008)
@@ -70,11 +67,14 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
             @test gl_from_tau2 ≈ gl
         end
     end
+end
 
-    @testset "τ noise with stat = $stat, Λ = $Λ" for stat in (Bosonic(), Fermionic()),
-        Λ in (10, 42)
+@testitem "τ noise" setup=[CommonTestData] begin
+    using Random
+    using LinearAlgebra
 
-        basis = FiniteTempBasis(stat, 1, Λ; sve_result=sve_logistic[Λ])
+    for stat in (Bosonic(), Fermionic()), Λ in (10, 42)
+        basis = FiniteTempBasis(stat, 1, Λ; sve_result=CommonTestData.sve_logistic[Λ])
         smpl = TauSampling(basis)
         @test basis === SparseIR.basis(smpl)
         @test issorted(smpl.sampling_points)
@@ -103,12 +103,14 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
 
         @test isapprox(Gℓ, Gℓ_n, atol=12 * noise * Gℓ_magn, rtol=0)
     end
+end
 
-    @testset "iω noise with stat = $stat, Λ = $Λ" for stat in (Bosonic(), Fermionic()),
-        Λ in (10, 42),
-        positive_only in (false, true)
+@testitem "iω noise" setup=[CommonTestData] begin
+    using Random
+    using LinearAlgebra
 
-        basis = FiniteTempBasis(stat, 1, Λ; sve_result=sve_logistic[Λ])
+    for stat in (Bosonic(), Fermionic()), Λ in (10, 42), positive_only in (false, true)
+        basis = FiniteTempBasis(stat, 1, Λ; sve_result=CommonTestData.sve_logistic[Λ])
         smpl = MatsubaraSampling(basis; positive_only)
         @test basis === SparseIR.basis(smpl)
         if !positive_only
@@ -141,35 +143,36 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         fit!(Gℓ_n_inplace, smpl, Giwn_n)
         @test Gℓ_n == Gℓ_n_inplace
     end
+end
 
-    @testset "conditioning" begin
-        basis = FiniteTempBasis{Fermionic}(3, 3, 1e-6)
-        @test cond(TauSampling(basis)) < 3
-        @test cond(MatsubaraSampling(basis)) < 5
-        @test_logs (:warn,
-            r"Sampling matrix is poorly conditioned \(cond = \d\.\d+e\d+\)\.") TauSampling(
-            basis;
-            sampling_points=[
-                1.0,
-                1.0
-            ])
-        @test_logs (:warn,
-            r"Sampling matrix is poorly conditioned \(cond = \d\.\d+e\d+\)\.") MatsubaraSampling(
-            basis;
-            sampling_points=[
-                FermionicFreq(1),
-                FermionicFreq(1)
-            ])
+@testitem "conditioning" begin
+    using LinearAlgebra
 
-        basis = FiniteTempBasis{Fermionic}(3, 3, 1e-2)
-        @test cond(TauSampling(basis)) < 2
-        @test cond(MatsubaraSampling(basis)) < 3
-    end
+    basis = FiniteTempBasis{Fermionic}(3, 3, 1e-6)
+    @test cond(TauSampling(basis)) < 3
+    @test cond(MatsubaraSampling(basis)) < 5
+    @test_logs (:warn,
+        r"Sampling matrix is poorly conditioned \(cond = \d\.\d+e\d+\)\.") TauSampling(
+        basis;
+        sampling_points=[
+            1.0,
+            1.0
+        ])
+    @test_logs (:warn,
+        r"Sampling matrix is poorly conditioned \(cond = \d\.\d+e\d+\)\.") MatsubaraSampling(
+        basis;
+        sampling_points=[
+            FermionicFreq(1),
+            FermionicFreq(1)
+        ])
 
-    @testset "errors with stat = $stat, $sampling" for stat in (Bosonic(), Fermionic()),
-        sampling in (TauSampling,
-            MatsubaraSampling)
+    basis = FiniteTempBasis{Fermionic}(3, 3, 1e-2)
+    @test cond(TauSampling(basis)) < 2
+    @test cond(MatsubaraSampling(basis)) < 3
+end
 
+@testitem "errors" begin
+    for stat in (Bosonic(), Fermionic()), sampling in (TauSampling, MatsubaraSampling)
         basis = FiniteTempBasis(stat, 3, 3, 1e-6)
         smpl = sampling(basis)
         @test_throws DimensionMismatch evaluate(smpl, rand(100))
@@ -179,24 +182,26 @@ isdefined(Main, :sve_logistic) || include("_conftest.jl")
         @test_throws DomainError SparseIR.matop!(rand(2, 3, 4), rand(5, 6), rand(7, 8, 9),
             *, 2)
     end
+end
 
-    @testset "noalloc divs" begin
-        A = rand(ComplexF64, 3, 4)
-        B = rand(ComplexF64, 4, 5)
-        B_SVD = svd(B)
-        Y = Matrix{ComplexF64}(undef, 3, 5)
-        workarr = Vector{ComplexF64}(undef, 4 * 5)
+@testitem "noalloc divs" begin
+    using LinearAlgebra
 
-        SparseIR.rdiv_noalloc!(Y, A, B_SVD, workarr)
+    A = rand(ComplexF64, 3, 4)
+    B = rand(ComplexF64, 4, 5)
+    B_SVD = svd(B)
+    Y = Matrix{ComplexF64}(undef, 3, 5)
+    workarr = Vector{ComplexF64}(undef, 4 * 5)
 
-        @test Y * transpose(B) ≈ A
-    end
+    SparseIR.rdiv_noalloc!(Y, A, B_SVD, workarr)
 
-    @testset "frequency range" begin
-        basis = FiniteTempBasis{Fermionic}(3, 3, 1e-6)
-        freqrange = SparseIR.frequency_range(12)
-        smpl = MatsubaraSampling(basis; sampling_points=freqrange)
-        @test sampling_points(smpl) !== freqrange
-        @test sampling_points(smpl) == freqrange
-    end
+    @test Y * transpose(B) ≈ A
+end
+
+@testitem "frequency range" begin
+    basis = FiniteTempBasis{Fermionic}(3, 3, 1e-6)
+    freqrange = SparseIR.frequency_range(12)
+    smpl = MatsubaraSampling(basis; sampling_points=freqrange)
+    @test sampling_points(smpl) !== freqrange
+    @test sampling_points(smpl) == freqrange
 end
