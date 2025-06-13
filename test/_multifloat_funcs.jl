@@ -1,12 +1,10 @@
 @testsnippet MultiFloatSetup begin
-    using SparseIR: Float64x2
-
     logrange(x1, x2, length) = (exp10(y) for y in range(log10(x1), log10(x2); length))
 
     xx = collect(logrange(floatmin(Float64), 20.0, 1000))
     xx = [0.0] ∪ xx ∪ [Inf]
     xx = -xx ∪ xx
-    xx = Float64x2.(xx)
+    xx = SparseIR.Float64x2.(xx)
 end
 
 @testitem "type inference and stability" setup=[MultiFloatSetup] begin

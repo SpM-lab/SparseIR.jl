@@ -1,4 +1,4 @@
-@testitem "matsubara" tags=[:above_julia1_11] begin
+@testitem "matsubara" tags=[:jet_tests] begin
     using JET
 
     beta = 2.0
@@ -23,7 +23,7 @@
     @test_opt evaluate!(G_matsubara, sampling, G_l)
 end
 
-@testitem "imaginary time" tags=[:above_julia1_11] begin
+@testitem "imaginary time" tags=[:jet_tests] begin
     using JET
 
     beta = 2.0

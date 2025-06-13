@@ -1,7 +1,3 @@
-# using Test
-# using SparseIR
-# using SparseIR.LinearAlgebra
-
 @testitem "StableRNG" begin
     using StableRNGs: StableRNG
 

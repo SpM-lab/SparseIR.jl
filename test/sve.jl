@@ -1,10 +1,3 @@
-# using Test
-# using SparseIR
-# using SparseIR: Float64x2
-# using Logging: with_logger, NullLogger
-
-# isdefined(Main, :CommonTestData.sve_logistic) || include("_conftest.jl")
-
 @testsnippet SVETestsFunctions begin
     function check_smooth(u, s, uscale, fudge_factor)
         ε = eps(eltype(s))
