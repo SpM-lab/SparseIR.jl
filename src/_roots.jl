@@ -86,7 +86,6 @@ function discrete_extrema(f::F, xgrid) where {F<:Function}
         push!(res, last(xgrid))
     end
 
-    return res
     return sort!(res)
 end
 
