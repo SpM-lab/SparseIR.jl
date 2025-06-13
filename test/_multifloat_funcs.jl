@@ -12,23 +12,23 @@ end
     @inferred sinh(x)
     @inferred cosh(x)
 
-    @test sinh(x) isa Float64x2
-    @test cosh(x) isa Float64x2
+    @test sinh(x) isa SparseIR.Float64x2
+    @test cosh(x) isa SparseIR.Float64x2
 end
 
 @testitem "sinh(x)" setup=[MultiFloatSetup] begin
     for x in xx
-        @test sinh(x)≈sinh(big(x)) rtol=eps(Float64x2)
+        @test sinh(x)≈sinh(big(x)) rtol=eps(SparseIR.Float64x2)
     end
 end
 
 @testitem "cosh(x)" setup=[MultiFloatSetup] begin
     for x in xx
-        @test cosh(x)≈cosh(big(x)) rtol=eps(Float64x2)
+        @test cosh(x)≈cosh(big(x)) rtol=eps(SparseIR.Float64x2)
     end
 end
 
 @testitem "Float64x2(NaN) sinh/cosh" setup=[MultiFloatSetup] begin
-    @test isnan(sinh(Float64x2(NaN)))
-    @test isnan(cosh(Float64x2(NaN)))
+    @test isnan(sinh(SparseIR.Float64x2(NaN)))
+    @test isnan(cosh(SparseIR.Float64x2(NaN)))
 end
