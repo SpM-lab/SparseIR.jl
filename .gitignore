@@ -14,3 +14,4 @@ lcov.info
 !/.dev/
 !/.github/
 !/.JuliaFormatter.toml
+!/.typos.toml

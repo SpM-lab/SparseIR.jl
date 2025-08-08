@@ -1,0 +1,9 @@
+[default]
+extend-ignore-words-re = [
+    "Missings",
+    "Pople",
+    "giv",
+    "nd",
+    "strat",
+    "thm",
+]

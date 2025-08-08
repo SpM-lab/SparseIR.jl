@@ -413,7 +413,7 @@ end
 Provide discretisation hints for the SVE routines.
 
 Advises the SVE routines of discretisation parameters suitable in
-tranforming the (infinite) SVE into an (finite) SVD problem.
+transforming the (infinite) SVE into an (finite) SVD problem.
 
 See also [`AbstractSVEHints`](@ref).
 """
