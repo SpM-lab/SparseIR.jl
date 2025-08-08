@@ -29,7 +29,7 @@ Base.length(basis::AbstractBasis) = length(basis.s)
 
 Accuracy of the basis.
 
-Upper bound to the relative error of reprensenting a propagator with
+Upper bound to the relative error of representing a propagator with
 the given number of basis functions (number between 0 and 1).
 """
 function accuracy end

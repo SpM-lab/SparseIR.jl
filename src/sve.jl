@@ -134,7 +134,7 @@ using a collocation).
     Defaults to a small multiple of the machine epsilon.
 
     Note that `cutoff` and `ε` serve distinct purposes. `cutoff`
-    reprsents the accuracy to which the kernel is reproduced, whereas
+    represents the accuracy to which the kernel is reproduced, whereas
     `ε` is the accuracy to which the singular values and vectors
     are guaranteed.
   - `lmax::Integer`: Maximum basis size. If given, only at most the `lmax` most

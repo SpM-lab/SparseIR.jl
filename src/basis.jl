@@ -186,7 +186,7 @@ function default_sampling_points(u::PiecewiseLegendrePolyVector, L::Integer)
 
         # Putting the sampling points right at [0, β], which would be the
         # local extrema, is slightly worse conditioned than putting it in the
-        # middel. This can be understood by the fact that the roots never
+        # middle. This can be understood by the fact that the roots never
         # occur right at the border.
         left  = (first(maxima) + xmin(poly)) / 2
         right = (last(maxima) + xmax(poly)) / 2
