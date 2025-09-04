@@ -25,10 +25,10 @@ and associated sparse-sampling objects.
   - ωmax::Float64: Cut-off frequency
 """
 struct FiniteTempBasisSet
-    basis_f    :: FiniteTempBasis{Fermionic,LogisticKernel}
-    basis_b    :: FiniteTempBasis{Bosonic,LogisticKernel}
-    smpl_tau_f :: TauSampling64
-    smpl_tau_b :: TauSampling64
+    basis_f    :: FiniteTempBasis{Fermionic}
+    basis_b    :: FiniteTempBasis{Bosonic}
+    smpl_tau_f :: TauSampling64F
+    smpl_tau_b :: TauSampling64B
     smpl_wn_f  :: MatsubaraSampling64F
     smpl_wn_b  :: MatsubaraSampling64B
 
@@ -38,8 +38,8 @@ struct FiniteTempBasisSet
     Create basis sets for fermion and boson and associated sampling objects.
     Fermion and bosonic bases are constructed by SVE of the logistic kernel.
     """
-    function FiniteTempBasisSet(β::Real, ωmax::Real, ε=nothing;
-                                sve_result=SVEResult(LogisticKernel(β * ωmax); ε))
+    function FiniteTempBasisSet(β::Real, ωmax::Real, ε::Real;
+                                sve_result=SVEResult(LogisticKernel(β * ωmax), ε))
         basis_f = FiniteTempBasis{Fermionic}(β, ωmax, ε; sve_result)
         basis_b = FiniteTempBasis{Bosonic}(β, ωmax, ε; sve_result)
 

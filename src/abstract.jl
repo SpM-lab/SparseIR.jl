@@ -20,6 +20,65 @@ where `basis.uhat[l]` is now the Fourier transform of the basis function.
 """
 abstract type AbstractBasis{S<:Statistics} end
 
+@doc raw"""
+    AbstractKernel
+
+Integral kernel `K(x, y)`.
+
+Abstract base type for an integral kernel, i.e. a AbstractFloat binary function
+``K(x, y)`` used in a Fredhold integral equation of the first kind:
+```math
+    u(x) = ∫ K(x, y) v(y) dy
+```
+where ``x ∈ [x_\mathrm{min}, x_\mathrm{max}]`` and
+``y ∈ [y_\mathrm{min}, y_\mathrm{max}]``. For its SVE to exist,
+the kernel must be square-integrable, for its singular values to decay
+exponentially, it must be smooth.
+
+In general, the kernel is applied to a scaled spectral function ``ρ'(y)`` as:
+```math
+    ∫ K(x, y) ρ'(y) dy,
+```
+where ``ρ'(y) = w(y) ρ(y)``.
+"""
+abstract type AbstractKernel end
+
+abstract type AbstractReducedKernel <: AbstractKernel end
+
+###############################################################################
+
+"""
+    AbstractSVEHints
+
+Discretization hints for singular value expansion of a given kernel.
+"""
+abstract type AbstractSVEHints end
+
+###############################################################################
+
+"""
+    AbstractSampling
+
+Abstract type for sparse sampling.
+
+Encodes the "basis transformation" of a propagator from the truncated IR
+basis coefficients `G_ir[l]` to time/frequency sampled on sparse points
+`G(x[i])` together with its inverse, a least squares fit:
+
+         ________________                   ___________________
+        |                |    evaluate     |                   |
+        |     Basis      |---------------->|     Value on      |
+        |  coefficients  |<----------------|  sampling points  |
+        |________________|      fit        |___________________|
+"""
+abstract type AbstractSampling{T,Tmat,F} end
+
+###############################################################################
+
+abstract type AbstractSVE end
+
+_get_ptr(basis::AbstractBasis) = basis.ptr
+
 Base.broadcastable(b::AbstractBasis) = Ref(b)
 Base.firstindex(::AbstractBasis) = 1
 Base.length(basis::AbstractBasis) = length(basis.s)
@@ -29,7 +88,7 @@ Base.length(basis::AbstractBasis) = length(basis.s)
 
 Accuracy of the basis.
 
-Upper bound to the relative error of representing a propagator with
+Upper bound to the relative error of reprensenting a propagator with
 the given number of basis functions (number between 0 and 1).
 """
 function accuracy end
@@ -44,6 +103,34 @@ propagator, then any basis function where `σ[i] < ϵ` can be neglected.
 For the IR basis, we simply have that `σ[i] = s[i] / first(s)`.
 """
 function significance end
+
+"""
+    s(basis::AbstractBasis)
+
+Get the singular values of the basis.
+"""
+function s end
+
+"""
+    u(basis::AbstractBasis)
+
+Get the u basis functions (imaginary time).
+"""
+function u end
+
+"""
+    v(basis::AbstractBasis)
+
+Get the v basis functions (real frequency).
+"""
+function v end
+
+"""
+    uhat(basis::AbstractBasis)
+
+Get the uhat basis functions (Matsubara frequency).
+"""
+function uhat end
 
 """
     default_tau_sampling_points(basis::AbstractBasis)
@@ -108,65 +195,15 @@ iswellconditioned(::AbstractBasis) = true
 
 ###############################################################################
 
-@doc raw"""
-    AbstractKernel
-
-Integral kernel `K(x, y)`.
-
-Abstract base type for an integral kernel, i.e. a AbstractFloat binary function
-``K(x, y)`` used in a Fredhold integral equation of the first kind:
-```math
-    u(x) = ∫ K(x, y) v(y) dy
-```
-where ``x ∈ [x_\mathrm{min}, x_\mathrm{max}]`` and
-``y ∈ [y_\mathrm{min}, y_\mathrm{max}]``. For its SVE to exist,
-the kernel must be square-integrable, for its singular values to decay
-exponentially, it must be smooth.
-
-In general, the kernel is applied to a scaled spectral function ``ρ'(y)`` as:
-```math
-    ∫ K(x, y) ρ'(y) dy,
-```
-where ``ρ'(y) = w(y) ρ(y)``.
-"""
-abstract type AbstractKernel end
-
-abstract type AbstractReducedKernel <: AbstractKernel end
-
 Base.broadcastable(kernel::AbstractKernel) = Ref(kernel)
-
-###############################################################################
-
-"""
-    AbstractSVEHints
-
-Discretization hints for singular value expansion of a given kernel.
-"""
-abstract type AbstractSVEHints end
-
-###############################################################################
-
-"""
-    AbstractSampling
-
-Abstract type for sparse sampling.
-
-Encodes the "basis transformation" of a propagator from the truncated IR
-basis coefficients `G_ir[l]` to time/frequency sampled on sparse points
-`G(x[i])` together with its inverse, a least squares fit:
-
-         ________________                   ___________________
-        |                |    evaluate     |                   |
-        |     Basis      |---------------->|     Value on      |
-        |  coefficients  |<----------------|  sampling points  |
-        |________________|      fit        |___________________|
-"""
-abstract type AbstractSampling{T,Tmat,F} end
 
 Base.broadcastable(sampling::AbstractSampling) = Ref(sampling)
 
 function LinearAlgebra.cond(sampling::AbstractSampling)
-    first(sampling.matrix_svd.S) / last(sampling.matrix_svd.S)
+    cond_num = Ref{Float64}(-1.0)
+    status = spir_sampling_get_cond_num(sampling.ptr, cond_num)
+    status == SPIR_COMPUTATION_SUCCESS || error("Failed to get condition number: $status")
+    return cond_num[]
 end
 
 """
@@ -190,7 +227,3 @@ function Base.show(io::IO, ::MIME"text/plain", smpl::S) where {S<:AbstractSampli
     end
     print(io, " $(last(sampling_points(smpl)))")
 end
-
-###############################################################################
-
-abstract type AbstractSVE end
