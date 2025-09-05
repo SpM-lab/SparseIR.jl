@@ -39,6 +39,13 @@ julia -e 'import Pkg; Pkg.develop(url="https://github.com/SpM-lab/SparseIR.jl")'
 > **Warning**
 > This is recommended only for developers - you won't get automatic updates!
 
+You can also control debug output at runtime using the `SPARSEIR_DEBUG` environment variable:
+
+```bash
+export SPARSEIR_DEBUG=1
+julia
+```
+
 Documentation and tutorial
 --------------------------
 Check out our [comprehensive tutorial], where self-contained
