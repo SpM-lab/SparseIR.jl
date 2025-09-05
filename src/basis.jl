@@ -1,3 +1,45 @@
+"""
+    FiniteTempBasis <: AbstractBasis
+
+Intermediate representation (IR) basis for given temperature.
+
+For a continuation kernel `K` from real frequencies, `ω ∈ [-ωmax, ωmax]`, to
+imaginary time, `τ ∈ [0, β]`, this type stores the truncated singular
+value expansion or IR basis:
+
+    K(τ, ω) ≈ sum(u[l](τ) * s[l] * v[l](ω) for l in 1:L)
+
+This basis is inferred from a reduced form by appropriate scaling of
+the variables.
+
+# Fields
+
+  - `u::PiecewiseLegendrePolyVector`:
+    Set of IR basis functions on the imaginary time (`tau`) axis.
+    These functions are stored as piecewise Legendre polynomials.
+
+    To obtain the value of all basis functions at a point or a array of
+    points `x`, you can call the function `u(x)`. To obtain a single
+    basis function, a slice or a subset `l`, you can use `u[l]`.
+
+  - `uhat::PiecewiseLegendreFTVector`:
+    Set of IR basis functions on the Matsubara frequency (`wn`) axis.
+    These objects are stored as a set of Bessel functions.
+
+    To obtain the value of all basis functions at a Matsubara frequency
+    or a array of points `wn`, you can call the function `uhat(wn)`.
+    Note that we expect reduced frequencies, which are simply even/odd
+    numbers for bosonic/fermionic objects. To obtain a single basis
+    function, a slice or a subset `l`, you can use `uhat[l]`.
+  - `s`: Vector of singular values of the continuation kernel
+  - `v::PiecewiseLegendrePolyVector`:
+    Set of IR basis functions on the real frequency (`w`) axis.
+    These functions are stored as piecewise Legendre polynomials.
+
+    To obtain the value of all basis functions at a point or a array of
+    points `w`, you can call the function `v(w)`. To obtain a single
+    basis function, a slice or a subset `l`, you can use `v[l]`.
+"""
 mutable struct FiniteTempBasis{S, K} <: AbstractBasis{S}
 	ptr::Ptr{spir_basis}
 	kernel::K
@@ -45,11 +87,42 @@ mutable struct FiniteTempBasis{S, K} <: AbstractBasis{S}
 	end
 end
 
+"""
+    FiniteTempBasis{S}(β, ωmax, ε; kernel=LogisticKernel(β * ωmax), sve_result=SVEResult(kernel, ε), max_size=-1)
+
+Construct a finite temperature basis suitable for the given `S` (`Fermionic`
+or `Bosonic`) and cutoffs `β` and `ωmax`.
+
+# Arguments
+
+- `β`: Inverse temperature (must be positive)
+- `ωmax`: Frequency cutoff (must be non-negative)
+- `ε`: This parameter controls the number of basis functions. Only singular values ≥ ε * s[1] are kept.
+  Typical values are 1e-6 to 1e-12 depending on the desired accuracy for your calculations. If ε is smaller than the square root of double precision machine epsilon (≈ 1.49e-8), the library will automatically use higher precision for the singular value decomposition, resulting in longer computation time for basis generation.
+
+The number of basis functions grows logarithmically as log(1/ε) log (β * ωmax).
+"""
 function FiniteTempBasis{S}(β::Real, ωmax::Real, ε::Real; kernel=LogisticKernel(β * ωmax), sve_result=SVEResult(kernel, ε), max_size=-1) where {S<:Statistics}
 	FiniteTempBasis{S}(kernel, sve_result, Float64(β), Float64(ωmax), Float64(ε), max_size)
 end
 
-# Convenience constructor - matches SparseIR.jl signature
+"""
+    FiniteTempBasis(stat::Statistics, β, ωmax, ε; kernel=LogisticKernel(β * ωmax), sve_result=SVEResult(kernel, ε), max_size=-1)
+
+Convenience constructor that matches SparseIR.jl signature.
+
+Construct a finite temperature basis for the given statistics type and cutoffs.
+
+# Arguments
+
+- `stat`: Statistics type (`Fermionic()` or `Bosonic()`)
+- `β`: Inverse temperature (must be positive)
+- `ωmax`: Frequency cutoff (must be non-negative)
+- `ε`: Accuracy target for the basis. This parameter controls the number of basis functions. Only singular values ≥ ε * s[1] are kept.
+  Typical values are 1e-6 to 1e-12 depending on the desired accuracy for your calculations. If ε is smaller than the square root of double precision machine epsilon (≈ 1.49e-8), the library will automatically use higher precision for the singular value decomposition, resulting in longer computation time for basis generation.
+
+The number of basis functions grows logarithmically as log(1/ε) log (β * ωmax).
+"""
 function FiniteTempBasis(stat::S, β::Real, ωmax::Real, ε::Real; kernel=LogisticKernel(β * ωmax), sve_result=SVEResult(kernel, ε), max_size=-1) where {S<:Statistics}
     FiniteTempBasis{typeof(stat)}(β, ωmax, ε; kernel, sve_result, max_size)
 end
@@ -104,6 +177,22 @@ function (f::BasisFunction)(freq::MatsubaraFreq)
     return f(freq.n)
 end
 
+"""
+    rescale(basis::FiniteTempBasis, new_beta)
+
+Return a basis for different temperature.
+
+Creates a new basis with the same accuracy ``ε`` but different temperature.
+The new kernel is constructed with the same cutoff parameter ``Λ = β * ωmax``,
+which implies a different UV cutoff ``ωmax`` since ``Λ`` stays constant.
+
+# Arguments
+- `basis`: The original basis to rescale
+- `new_beta`: New inverse temperature
+
+# Returns
+A new `FiniteTempBasis` with the same statistics type and accuracy but different temperature.
+"""
 function rescale(basis::FiniteTempBasis{S}, new_beta::Real) where {S}
     # Rescale basis to new temperature
     new_lambda = Λ(basis) * new_beta / β(basis)
@@ -121,11 +210,20 @@ end
 
 
 """
-    finite_temp_bases(β::Real, ωmax::Real, ε=nothing;
-                      kernel=LogisticKernel(β * ωmax), sve_result=SVEResult(kernel; ε))
+    finite_temp_bases(β::Real, ωmax::Real, ε;
+                      kernel=LogisticKernel(β * ωmax), sve_result=SVEResult(kernel, ε))
 
 Construct `FiniteTempBasis` objects for fermion and bosons using the same
 `LogisticKernel` instance.
+
+# Arguments
+
+- `β`: Inverse temperature (must be positive)
+- `ωmax`: Frequency cutoff (must be non-negative)
+- `ε`: This parameter controls the number of basis functions. Only singular values ≥ ε * s[1] are kept.
+  Typical values are 1e-6 to 1e-12 depending on the desired accuracy for your calculations. If ε is smaller than the square root of double precision machine epsilon (≈ 1.49e-8), the library will automatically use higher precision for the singular value decomposition, resulting in longer computation time for basis generation.
+
+The number of basis functions grows logarithmically as log(1/ε) log (β * ωmax).
 """
 function finite_temp_bases(β::Real, ωmax::Real, ε::Real;
         kernel=LogisticKernel(β * ωmax),

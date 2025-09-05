@@ -181,7 +181,9 @@ const wmax = ωmax
     β(basis::AbstractBasis)
     beta(basis::AbstractBasis)
 
-Inverse temperature or `nothing` if unscaled basis.
+Inverse temperature of the basis.
+
+Returns the inverse temperature parameter β used in the basis construction.
 """
 β(basis::AbstractBasis) = basis.β
 const beta = β

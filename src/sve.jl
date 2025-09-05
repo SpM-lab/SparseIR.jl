@@ -24,25 +24,18 @@ using a collocation).
 # Arguments
 
   - `K::AbstractKernel`: Integral kernel to take SVE from.
-
-  - `ε::Real`: Accuracy target for the basis: attempt to have singular values down
-    to a relative magnitude of `ε`, and have each singular value
-    and singular vector be accurate to `ε`. A `Twork` with
-    a machine epsilon of `ε^2` or lower is required to satisfy
-    this. Defaults to `2.2e-16` if xprec is available, and `1.5e-8`
-    otherwise.
-  - `cutoff::Real`: Relative cutoff for the singular values. A `Twork` with
-    machine epsilon of `cutoff` is required to satisfy this.
-    Defaults to a small multiple of the machine epsilon.
-
-    Note that `cutoff` and `ε` serve distinct purposes. `cutoff`
-    reprsents the accuracy to which the kernel is reproduced, whereas
-    `ε` is the accuracy to which the singular values and vectors
-    are guaranteed.
+  - `ϵ::Real`: Relative cutoff for the singular values. Only singular values
+    with relative magnitude ≥ `cutoff` are kept. Defaults to `eps(Float64)` (≈ 2.22e-16).
+  - `cutoff::Real`: Accuracy target for the basis. Controls the precision to which
+    singular values and singular vectors are computed. Defaults to `NaN` (uses internal default).
   - `lmax::Integer`: Maximum basis size. If given, only at most the `lmax` most
     significant singular values and associated singular functions are returned.
   - `n_gauss (int): Order of Legendre polynomials. Defaults to kernel hinted value.
-  - `Twork``: Working data type. Defaults to a data type with machine epsilon of at  most `ε^2`and at most `cutoff`, or otherwise most accurate data type available.
+  - `Twork::Integer`: Working data type. Defaults to `SPIR_TWORK_AUTO` which automatically selects the appropriate precision based on the accuracy requirements.
+    Available options:
+    - `SPIR_TWORK_AUTO`: Automatically select the best precision (default)
+    - `SPIR_TWORK_FLOAT64`: Use double precision (64-bit)
+    - `SPIR_TWORK_FLOAT64X2`: Use extended precision (128-bit)
   - `sve_strat::AbstractSVE`: SVE to SVD translation strategy. Defaults to `SamplingSVE`,
     optionally wrapped inside of a `CentrosymmSVE` if the kernel is centrosymmetric.
   - `svd_strat` ('fast' or 'default' or 'accurate'): SVD solver. Defaults to fast
@@ -55,14 +48,7 @@ An `SVEResult` containing the truncated singular value expansion.
 mutable struct SVEResult{K<:AbstractKernel}
     ptr::Ptr{spir_sve_result}
     kernel::K
-    function SVEResult(kernel::K, ε::Real; cutoff::Union{Nothing, Real}=nothing, lmax::Integer=typemax(Int32), n_gauss::Integer=-1, Twork::Union{Nothing, Integer}=nothing) where {K<:AbstractKernel}
-        if isnothing(Twork)
-          Twork = SPIR_TWORK_FLOAT64X2
-        end
-
-        if isnothing(cutoff)
-          cutoff = -1
-        end
+    function SVEResult(kernel::K, ε::Real=eps(Float64); cutoff::Real=NaN, lmax::Integer=typemax(Int32), n_gauss::Integer=-1, Twork::Integer=SPIR_TWORK_AUTO) where {K<:AbstractKernel}
 
         status = Ref{Int32}(-100)
         sve_result = spir_sve_result_new(kernel.ptr, ε, cutoff, lmax, n_gauss, Twork, status)
@@ -72,19 +58,3 @@ mutable struct SVEResult{K<:AbstractKernel}
         return result
     end
 end
-
-#=
-function SVEResult(K::AbstractKernel, ε::Real; cutoff=nothing, lmax::Int32=typemax(Int32), n_gauss::Integer=-1, Twork=nothing)
-    if isnothing(Twork)
-      Twork = SPIR_TWORK_FLOAT64X2
-    end
-
-    if isnothing(cutoff)
-      cutoff = -1
-    end
-
-    SVEResult(K, ε, cutoff, Int32(lmax), Int32(n_gauss), Twork)
-
-    return result
-end
-=#

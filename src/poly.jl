@@ -1,3 +1,12 @@
+"""
+    PiecewiseLegendrePoly <: Function
+
+Piecewise Legendre polynomial.
+
+Models a function on the interval ``[xmin, xmax]`` as a set of segments on the
+intervals ``S[i] = [a[i], a[i+1]]``, where on each interval the function
+is expanded in scaled Legendre polynomials.
+"""
 mutable struct PiecewiseLegendrePoly
     ptr::Ptr{spir_funcs}
     xmin::Float64
@@ -9,6 +18,11 @@ mutable struct PiecewiseLegendrePoly
     end
 end
 
+"""
+    PiecewiseLegendrePolyVector
+
+Contains a `Vector{PiecewiseLegendrePoly}`.
+"""
 mutable struct PiecewiseLegendrePolyVector
     ptr::Ptr{spir_funcs}
     xmin::Float64
@@ -20,6 +34,16 @@ mutable struct PiecewiseLegendrePolyVector
     end
 end
 
+"""
+    PiecewiseLegendreFTVector
+
+Fourier transform of piecewise Legendre polynomials.
+
+For a given frequency index `n`, the Fourier transform of the Legendre
+function is defined as:
+
+        p̂(n) == ∫ dx exp(im * π * n * x / (xmax - xmin)) p(x)
+"""
 mutable struct PiecewiseLegendreFTVector
     ptr::Ptr{spir_funcs}
     xmin::Float64
