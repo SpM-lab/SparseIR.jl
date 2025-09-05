@@ -1,6 +1,6 @@
 module C_API
 
-using CEnum
+using CEnum: CEnum, @cenum
 
 using Libdl: dlext
 
@@ -192,7 +192,7 @@ function spir_kernel_domain(k, xmin, xmax, ymin, ymax)
 end
 
 """
-    spir_sve_result_new(k, epsilon, cutoff, lmax, n_gauss, work_dtype, status)
+    spir_sve_result_new(k, epsilon, cutoff, lmax, n_gauss, Twork, status)
 
 Perform truncated singular value expansion (SVE) of a kernel.
 
@@ -206,7 +206,7 @@ The SVE is computed by mapping it onto a singular value decomposition (SVD) of a
 
 !!! note
 
-    The computation automatically uses optimized strategies: - For centrosymmetric kernels, specialized algorithms are employed - The working precision is adjusted to meet accuracy requirements - If epsilon is below √ε (where ε is machine epsilon), a warning is issued and higher precision arithmetic is used
+    The computation automatically uses optimized strategies: - For centrosymmetric kernels, specialized algorithms are employed - If Twork is [`SPIR_TWORK_AUTO`](@ref), the working precision is automatically adjusted to meet accuracy requirements based on epsilon - If epsilon is below √ε (where ε is machine epsilon), a warning is issued and higher precision arithmetic is used if possible.
 
 !!! note
 
@@ -215,14 +215,18 @@ The SVE is computed by mapping it onto a singular value decomposition (SVD) of a
 # Arguments
 * `k`: Pointer to the kernel object for which to compute SVE
 * `epsilon`: Accuracy target for the basis. Determines: - The relative magnitude of included singular values - The accuracy of computed singular values and vectors
+* `cutoff`: Cutoff value for singular values
+* `lmax`: Maximum number of Legendre polynomials to use
+* `n_gauss`: Number of Gauss points for numerical integration
+* `Twork`: Working data type for computations (sve). Must be one of: - [`SPIR_TWORK_FLOAT64`](@ref) (0): Use double precision (64-bit) - [`SPIR_TWORK_FLOAT64X2`](@ref) (1): Use extended precision (128-bit) - [`SPIR_TWORK_AUTO`](@ref) (-1): Automatically choose precision based on epsilon
 * `status`: Pointer to store the status code
 # Returns
 Pointer to the newly created SVE result, or NULL if creation fails
 # See also
 spir\\_release\\_sve\\_result
 """
-function spir_sve_result_new(k, epsilon, cutoff, lmax, n_gauss, work_dtype, status)
-    ccall((:spir_sve_result_new, libsparseir), Ptr{spir_sve_result}, (Ptr{spir_kernel}, Cdouble, Cdouble, Cint, Cint, Cint, Ptr{Cint}), k, epsilon, cutoff, lmax, n_gauss, work_dtype, status)
+function spir_sve_result_new(k, epsilon, cutoff, lmax, n_gauss, Twork, status)
+    ccall((:spir_sve_result_new, libsparseir), Ptr{spir_sve_result}, (Ptr{spir_kernel}, Cdouble, Cdouble, Cint, Cint, Cint, Ptr{Cint}), k, epsilon, cutoff, lmax, n_gauss, Twork, status)
 end
 
 """
@@ -1397,11 +1401,13 @@ const SPIR_TWORK_FLOAT64 = 0
 
 const SPIR_TWORK_FLOAT64X2 = 1
 
+const SPIR_TWORK_AUTO = -1
+
 const SPARSEIR_VERSION_MAJOR = 0
 
 const SPARSEIR_VERSION_MINOR = 4
 
-const SPARSEIR_VERSION_PATCH = 0
+const SPARSEIR_VERSION_PATCH = 2
 
 # exports
 const PREFIXES = ["spir_", "SPIR_"]

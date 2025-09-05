@@ -24,6 +24,7 @@ using a collocation).
 # Arguments
 
   - `K::AbstractKernel`: Integral kernel to take SVE from.
+
   - `ϵ::Real`: Relative cutoff for the singular values. Only singular values
     with relative magnitude ≥ `cutoff` are kept. Defaults to `eps(Float64)` (≈ 2.22e-16).
   - `cutoff::Real`: Accuracy target for the basis. Controls the precision to which
@@ -33,9 +34,10 @@ using a collocation).
   - `n_gauss (int): Order of Legendre polynomials. Defaults to kernel hinted value.
   - `Twork::Integer`: Working data type. Defaults to `SPIR_TWORK_AUTO` which automatically selects the appropriate precision based on the accuracy requirements.
     Available options:
-    - `SPIR_TWORK_AUTO`: Automatically select the best precision (default)
-    - `SPIR_TWORK_FLOAT64`: Use double precision (64-bit)
-    - `SPIR_TWORK_FLOAT64X2`: Use extended precision (128-bit)
+
+      + `SPIR_TWORK_AUTO`: Automatically select the best precision (default)
+      + `SPIR_TWORK_FLOAT64`: Use double precision (64-bit)
+      + `SPIR_TWORK_FLOAT64X2`: Use extended precision (128-bit)
   - `sve_strat::AbstractSVE`: SVE to SVD translation strategy. Defaults to `SamplingSVE`,
     optionally wrapped inside of a `CentrosymmSVE` if the kernel is centrosymmetric.
   - `svd_strat` ('fast' or 'default' or 'accurate'): SVD solver. Defaults to fast
@@ -48,10 +50,18 @@ An `SVEResult` containing the truncated singular value expansion.
 mutable struct SVEResult{K<:AbstractKernel}
     ptr::Ptr{spir_sve_result}
     kernel::K
-    function SVEResult(kernel::K, ε::Real=eps(Float64); cutoff::Real=NaN, lmax::Integer=typemax(Int32), n_gauss::Integer=-1, Twork::Integer=SPIR_TWORK_AUTO) where {K<:AbstractKernel}
+    function SVEResult(
+            kernel::K, ε::Real=eps(Float64); cutoff::Real=NaN, lmax::Integer=typemax(Int32),
+            n_gauss::Integer=-1, Twork::Integer=SPIR_TWORK_AUTO) where {K<:AbstractKernel}
+
+        # check Twork
+        if Twork ∉ [SPIR_TWORK_AUTO, SPIR_TWORK_FLOAT64, SPIR_TWORK_FLOAT64X2]
+            error("Invalid Twork value: $Twork")
+        end
 
         status = Ref{Int32}(-100)
-        sve_result = spir_sve_result_new(kernel.ptr, ε, cutoff, lmax, n_gauss, Twork, status)
+        sve_result = spir_sve_result_new(
+            kernel.ptr, ε, cutoff, lmax, n_gauss, Twork, status)
         status[] == 0 || error("Failed to create SVEResult")
         result = new{K}(sve_result, kernel)
         finalizer(r -> spir_sve_result_release(r.ptr), result)
