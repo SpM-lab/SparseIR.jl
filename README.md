@@ -55,8 +55,8 @@ Lichtenstein formula, FLEX, ... - are presented.
 Refer to the [API documentation] for more details on how to work
 with the Julia library.
 
-There is also a [Python library] and (currently somewhat restricted)
-[Fortran library] available for the IR basis and sparse sampling.
+This library is built upon the [libsparseir C library](https://github.com/SpM-lab/libsparseir) with Fortran bindings.
+There is also a [Python library].
 
 [comprehensive tutorial]: https://spm-lab.github.io/sparse-ir-tutorial
 [API documentation]: https://spm-lab.github.io/SparseIR.jl/stable/
