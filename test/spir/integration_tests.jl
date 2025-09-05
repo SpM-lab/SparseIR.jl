@@ -19,9 +19,9 @@
         return dims
     end
 
-
     # Helper function to compare tensors with relative error
-    function compare_tensors_with_relative_error(a::Array{T,N}, b::Array{T,N}, tol) where {T,N}
+    function compare_tensors_with_relative_error(a::Array{T,N}, b::Array{T,N}, tol) where {
+            T,N}
         diff = abs.(a .- b)
         ref = abs.(a)
         max_diff = maximum(diff)
@@ -50,7 +50,7 @@
 
     # Main integration test function
     function integration_test(::Type{T}, ::Type{S}, ::Type{K}, ndim::Int,
-                            beta, wmax, epsilon, extra_dims, target_dim, tol, positive_only) where {T,S,K}
+            beta, wmax, epsilon, extra_dims, target_dim, tol, positive_only) where {T,S,K}
         # positive_only is not supported for complex numbers
         @assert !(T <: Complex && positive_only)
 
@@ -74,7 +74,8 @@
         @info "Matsubara sampling"
         matsubara_points = SparseIR.default_matsubara_sampling_points(basis; positive_only=positive_only)
         num_matsubara_points = length(matsubara_points)
-        matsubara_sampling = MatsubaraSampling(basis; positive_only=positive_only, sampling_points=matsubara_points)
+        matsubara_sampling = MatsubaraSampling(
+            basis; positive_only=positive_only, sampling_points=matsubara_points)
         if positive_only
             @assert num_matsubara_points >= basis_size ÷ 2
         else
@@ -108,7 +109,8 @@
 
         # DLR sampling objects
         tau_sampling_dlr = TauSampling(dlr; sampling_points=tau_points)
-        matsubara_sampling_dlr = MatsubaraSampling(dlr; positive_only=positive_only, sampling_points=matsubara_points)
+        matsubara_sampling_dlr = MatsubaraSampling(
+            dlr; positive_only=positive_only, sampling_points=matsubara_points)
 
         # Move the axis for the poles from the first to the target dimension
         perm = collect(1:ndim)
@@ -141,7 +143,8 @@
         gtau_from_DLR_reconst_dims = collect(size(g_DLR_reconst))
         gtau_from_DLR_reconst_dims[target_dim + 1] = num_tau_points
         gtau_from_DLR_reconst = similar(g_DLR_reconst, T, gtau_from_DLR_reconst_dims...)
-        evaluate!(gtau_from_DLR_reconst, tau_sampling_dlr, g_DLR_reconst; dim=target_dim + 1)
+        evaluate!(gtau_from_DLR_reconst, tau_sampling_dlr, g_DLR_reconst; dim=target_dim +
+                                                                              1)
 
         @test compare_tensors_with_relative_error(gtau_from_IR, gtau_from_DLR, tol)
         @test compare_tensors_with_relative_error(gtau_from_IR, gtau_from_DLR_reconst, tol)
@@ -250,18 +253,19 @@
             extra_dims = Int[]
             @info "Integration test for bosonic LogisticKernel"
             integration_test(Float64, SparseIR.Bosonic, SparseIR.LogisticKernel, 1,
-                           beta, wmax, epsilon, extra_dims, 0, tol, positive_only)
+                beta, wmax, epsilon, extra_dims, 0, tol, positive_only)
 
             @info "Integration test for fermionic LogisticKernel"
             integration_test(Float64, SparseIR.Fermionic, SparseIR.LogisticKernel, 1,
-                           beta, wmax, epsilon, extra_dims, 0, tol, positive_only)
+                beta, wmax, epsilon, extra_dims, 0, tol, positive_only)
 
             if !positive_only
                 integration_test(ComplexF64, SparseIR.Bosonic, SparseIR.LogisticKernel, 1,
-                               beta, wmax, epsilon, extra_dims, 0, tol, positive_only)
+                    beta, wmax, epsilon, extra_dims, 0, tol, positive_only)
 
-                integration_test(ComplexF64, SparseIR.Fermionic, SparseIR.LogisticKernel, 1,
-                               beta, wmax, epsilon, extra_dims, 0, tol, positive_only)
+                integration_test(
+                    ComplexF64, SparseIR.Fermionic, SparseIR.LogisticKernel, 1,
+                    beta, wmax, epsilon, extra_dims, 0, tol, positive_only)
             end
 
             # 4D tests with extra_dims = [2, 3, 4]
@@ -269,12 +273,13 @@
                 extra_dims = [2, 3, 4]
                 @info "Integration test for bosonic LogisticKernel, target_dim = $target_dim"
                 integration_test(Float64, SparseIR.Bosonic, SparseIR.LogisticKernel, 4,
-                                beta, wmax, epsilon, extra_dims, target_dim, tol, positive_only)
+                    beta, wmax, epsilon, extra_dims, target_dim, tol, positive_only)
 
                 # Also test complex for multi-dimensional arrays when positive_only=false
                 if !positive_only && target_dim == 0
-                    integration_test(ComplexF64, SparseIR.Bosonic, SparseIR.LogisticKernel, 4,
-                                    beta, wmax, epsilon, extra_dims, target_dim, tol, positive_only)
+                    integration_test(
+                        ComplexF64, SparseIR.Bosonic, SparseIR.LogisticKernel, 4,
+                        beta, wmax, epsilon, extra_dims, target_dim, tol, positive_only)
                 end
             end
         end

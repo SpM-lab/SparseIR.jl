@@ -25,7 +25,8 @@
 
         # Create basis
         basis_status = Ref{Int32}(0)
-        basis = SparseIR.spir_basis_new(statistics, beta, omega_max, kernel, sve, basis_status)
+        basis = SparseIR.spir_basis_new(
+            statistics, beta, omega_max, kernel, sve, basis_status)
         if basis_status[] != SparseIR.SPIR_COMPUTATION_SUCCESS || basis == C_NULL
             SparseIR.spir_sve_result_release(sve)
             SparseIR.spir_kernel_release(kernel)
@@ -76,7 +77,8 @@
 
         # DLR constructor using custom poles (corresponds to C++ spir_dlr_new_with_poles)
         dlr_with_poles_status = Ref{Int32}(0)
-        dlr_with_poles = SparseIR.spir_dlr_new_with_poles(basis, num_default_poles, default_poles, dlr_with_poles_status)
+        dlr_with_poles = SparseIR.spir_dlr_new_with_poles(
+            basis, num_default_poles, default_poles, dlr_with_poles_status)
         @test dlr_with_poles_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
         @test dlr_with_poles != C_NULL
 

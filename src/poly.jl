@@ -60,17 +60,21 @@ end
 
 function (polys::PiecewiseLegendrePoly)(x::Real)
     sz = Ref{Int32}(-1)
-    spir_funcs_get_size(polys.ptr, sz) == SPIR_COMPUTATION_SUCCESS || error("Failed to get funcs size")
+    spir_funcs_get_size(polys.ptr, sz) == SPIR_COMPUTATION_SUCCESS ||
+        error("Failed to get funcs size")
     ret = Vector{Float64}(undef, Int(sz[]))
-    spir_funcs_eval(polys.ptr, x, ret) == SPIR_COMPUTATION_SUCCESS || error("Failed to evaluate funcs")
+    spir_funcs_eval(polys.ptr, x, ret) == SPIR_COMPUTATION_SUCCESS ||
+        error("Failed to evaluate funcs")
     return only(ret)
 end
 
 function (polys::PiecewiseLegendrePolyVector)(x::Real)
     sz = Ref{Int32}(-1)
-    spir_funcs_get_size(polys.ptr, sz) == SPIR_COMPUTATION_SUCCESS || error("Failed to get funcs size")
+    spir_funcs_get_size(polys.ptr, sz) == SPIR_COMPUTATION_SUCCESS ||
+        error("Failed to get funcs size")
     ret = Vector{Float64}(undef, Int(sz[]))
-    spir_funcs_eval(polys.ptr, x, ret) == SPIR_COMPUTATION_SUCCESS || error("Failed to evaluate funcs")
+    spir_funcs_eval(polys.ptr, x, ret) == SPIR_COMPUTATION_SUCCESS ||
+        error("Failed to evaluate funcs")
     return ret
 end
 
@@ -81,9 +85,11 @@ end
 function (polys::PiecewiseLegendreFTVector)(freq::MatsubaraFreq)
     n = freq.n
     sz = Ref{Int32}(-1)
-    spir_funcs_get_size(polys.ptr, sz) == SPIR_COMPUTATION_SUCCESS || error("Failed to get funcs size")
+    spir_funcs_get_size(polys.ptr, sz) == SPIR_COMPUTATION_SUCCESS ||
+        error("Failed to get funcs size")
     ret = Vector{ComplexF64}(undef, Int(sz[]))
-    spir_funcs_eval_matsu(polys.ptr, n, ret) == SPIR_COMPUTATION_SUCCESS || error("Failed to evaluate funcs")
+    spir_funcs_eval_matsu(polys.ptr, n, ret) == SPIR_COMPUTATION_SUCCESS ||
+        error("Failed to evaluate funcs")
     return ret
 end
 
@@ -96,7 +102,8 @@ function Base.getindex(funcs::Ptr{spir_funcs}, i::Int)
     indices = Vector{Int32}(undef, 1)
     indices[1] = i - 1 # Julia indices are 1-based, C indices are 0-based
     ret = spir_funcs_get_slice(funcs, 1, indices, status)
-    status[] == SPIR_COMPUTATION_SUCCESS || error("Failed to get basis function for index $i: $(status[])")
+    status[] == SPIR_COMPUTATION_SUCCESS ||
+        error("Failed to get basis function for index $i: $(status[])")
     return ret
 end
 
@@ -105,11 +112,13 @@ function Base.getindex(polys::PiecewiseLegendrePolyVector, i::Int)
 end
 
 # Base.getindex(funcs::Ptr{spir_funcs}, I) = [funcs[i] for i in I]
-Base.getindex(polys::PiecewiseLegendrePolyVector, I) = PiecewiseLegendrePoly[polys[i] for i in I]
+Base.getindex(polys::PiecewiseLegendrePolyVector, I) = PiecewiseLegendrePoly[polys[i]
+                                                                             for i in I]
 
 function Base.length(funcs::Ptr{spir_funcs})
     sz = Ref{Int32}(-1)
-    spir_funcs_get_size(funcs, sz) == SPIR_COMPUTATION_SUCCESS || error("Failed to get funcs size")
+    spir_funcs_get_size(funcs, sz) == SPIR_COMPUTATION_SUCCESS ||
+        error("Failed to get funcs size")
     return Int(sz[])
 end
 
@@ -153,7 +162,8 @@ function overlap(poly::PiecewiseLegendrePolyVector, f::F) where {F}
     xmin = poly.xmin
     xmax = poly.xmax
     pts = filter(x -> xmin ≤ x ≤ xmax, roots(poly))
-    q, _ = quadgk(
+    q,
+    _ = quadgk(
         x -> poly(x) * f(x),
         unique!(sort!(vcat(pts, [xmin, xmax])));
         rtol=eps(), order=10, maxevals=10^4)
@@ -164,7 +174,8 @@ function overlap(poly::PiecewiseLegendrePoly, f::F) where {F}
     xmin = poly.xmin
     xmax = poly.xmax
     pts = filter(x -> xmin ≤ x ≤ xmax, roots(poly))
-    q, _ = quadgk(
+    q,
+    _ = quadgk(
         x -> poly(x) * f(x),
         unique!(sort!(vcat(pts, [xmin, xmax])));
         rtol=eps(), order=10, maxevals=10^4)

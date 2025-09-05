@@ -6,7 +6,6 @@
     using LinearAlgebra
     using StableRNGs
 
-
     @testset "Augmented bosonic basis" begin
         ωmax = 2
         β = 1000
@@ -24,7 +23,6 @@
         @test size(gτ_reconst) == size(gτ)
 
         @test isapprox(gτ_reconst, gτ, atol=1e-8)
-
     end
 
     @testset "Vertex basis with stat = $stat" for stat in (Fermionic(), Bosonic())

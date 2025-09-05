@@ -18,9 +18,8 @@ export TauSampling, MatsubaraSampling, evaluate, fit, evaluate!, fit!,
        sampling_points, npoints
 export from_IR, to_IR, npoles, get_poles, default_omega_sampling_points
 
-
 function _is_column_major_contiguous(A::AbstractArray)
-    strides(A) == cumprod((1, size(A)...)[1:end-1])
+    strides(A) == cumprod((1, size(A)...)[1:(end - 1)])
 end
 
 include("freq.jl")

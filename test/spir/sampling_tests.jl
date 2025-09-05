@@ -25,6 +25,7 @@
 
     @testset "fit from tau with stat = $stat, Λ = $Λ" for stat in (Bosonic(), Fermionic()),
         Λ in (10, 42)
+
         sve_logistic = SparseIR.SVEResult(LogisticKernel(Λ), 1e-10)
         basis = FiniteTempBasis(stat, 1, Λ, 1e-10; sve_result=sve_logistic)
         smpl = TauSampling(basis)
@@ -52,6 +53,7 @@
 
     @testset "τ noise with stat = $stat, Λ = $Λ" for stat in (Bosonic(), Fermionic()),
         Λ in (10, 42)
+
         sve_logistic = SparseIR.SVEResult(LogisticKernel(Λ), 1e-10)
         basis = FiniteTempBasis(stat, 1, Λ, 1e-10; sve_result=sve_logistic)
         smpl = TauSampling(basis)
@@ -86,7 +88,6 @@
     @testset "iω noise with stat = $stat, Λ = $Λ" for stat in (Bosonic(), Fermionic()),
         Λ in (10, 42),
         positive_only in (false, true)
-
         sve_logistic = SparseIR.SVEResult(LogisticKernel(Λ), 1e-10)
         basis = FiniteTempBasis(stat, 1, Λ, 1e-10; sve_result=sve_logistic)
         smpl = MatsubaraSampling(basis; positive_only)
@@ -152,5 +153,4 @@
         points = SparseIR.default_matsubara_sampling_points(basis)
         @test length(points) > 0
     end
-
 end

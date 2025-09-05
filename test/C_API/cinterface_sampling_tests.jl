@@ -134,13 +134,15 @@
         # Test evaluation
         evaluate_output = Vector{Float64}(undef, n_points)
         evaluate_status = SparseIR.spir_sampling_eval_dd(
-            sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, dims, target_dim, coeffs, evaluate_output)
+            sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim,
+            dims, target_dim, coeffs, evaluate_output)
         @test evaluate_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         # Test fitting
         fit_output = Vector{Float64}(undef, basis_size)
         fit_status = SparseIR.spir_sampling_fit_dd(
-            sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, dims, target_dim, evaluate_output, fit_output)
+            sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, dims,
+            target_dim, evaluate_output, fit_output)
         @test fit_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         # Check round-trip accuracy
@@ -219,13 +221,15 @@
             # Test evaluation
             evaluate_output = Vector{Float64}(undef, output_total_size)
             evaluate_status = SparseIR.spir_sampling_eval_dd(
-                sampling, SparseIR.SPIR_ORDER_ROW_MAJOR, ndim, dims, target_dim, coeffs, evaluate_output)
+                sampling, SparseIR.SPIR_ORDER_ROW_MAJOR, ndim,
+                dims, target_dim, coeffs, evaluate_output)
             @test evaluate_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
             # Test fitting
             fit_output = Vector{Float64}(undef, total_size)
             fit_status = SparseIR.spir_sampling_fit_dd(
-                sampling, SparseIR.SPIR_ORDER_ROW_MAJOR, ndim, output_dims, target_dim, evaluate_output, fit_output)
+                sampling, SparseIR.SPIR_ORDER_ROW_MAJOR, ndim, output_dims,
+                target_dim, evaluate_output, fit_output)
             @test fit_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
             # Check round-trip accuracy
@@ -305,13 +309,15 @@
             # Test evaluation
             evaluate_output = Vector{Float64}(undef, output_total_size)
             evaluate_status = SparseIR.spir_sampling_eval_dd(
-                sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, dims, target_dim, coeffs, evaluate_output)
+                sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim,
+                dims, target_dim, coeffs, evaluate_output)
             @test evaluate_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
             # Test fitting
             fit_output = Vector{Float64}(undef, total_size)
             fit_status = SparseIR.spir_sampling_fit_dd(
-                sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, output_dims, target_dim, evaluate_output, fit_output)
+                sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, output_dims,
+                target_dim, evaluate_output, fit_output)
             @test fit_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
             # Check round-trip accuracy
@@ -393,13 +399,15 @@
             # Test evaluation
             evaluate_output = Vector{ComplexF64}(undef, output_total_size)
             evaluate_status = SparseIR.spir_sampling_eval_zz(
-                sampling, SparseIR.SPIR_ORDER_ROW_MAJOR, ndim, dims, target_dim, coeffs, evaluate_output)
+                sampling, SparseIR.SPIR_ORDER_ROW_MAJOR, ndim,
+                dims, target_dim, coeffs, evaluate_output)
             @test evaluate_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
             # Test fitting
             fit_output = Vector{ComplexF64}(undef, total_size)
             fit_status = SparseIR.spir_sampling_fit_zz(
-                sampling, SparseIR.SPIR_ORDER_ROW_MAJOR, ndim, output_dims, target_dim, evaluate_output, fit_output)
+                sampling, SparseIR.SPIR_ORDER_ROW_MAJOR, ndim, output_dims,
+                target_dim, evaluate_output, fit_output)
             @test fit_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
             # Check round-trip accuracy
@@ -482,13 +490,15 @@
             # Test evaluation
             evaluate_output = Vector{ComplexF64}(undef, output_total_size)
             evaluate_status = SparseIR.spir_sampling_eval_zz(
-                sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, dims, target_dim, coeffs, evaluate_output)
+                sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim,
+                dims, target_dim, coeffs, evaluate_output)
             @test evaluate_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
             # Test fitting
             fit_output = Vector{ComplexF64}(undef, total_size)
             fit_status = SparseIR.spir_sampling_fit_zz(
-                sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, output_dims, target_dim, evaluate_output, fit_output)
+                sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, output_dims,
+                target_dim, evaluate_output, fit_output)
             @test fit_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
             # Check round-trip accuracy
@@ -558,12 +568,14 @@
 
             # Test dimension mismatch for evaluation
             status_dimension_mismatch = SparseIR.spir_sampling_eval_dd(
-                sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, dims1, target_dim, coeffs, output_double)
+                sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim,
+                dims1, target_dim, coeffs, output_double)
             @test status_dimension_mismatch == SparseIR.SPIR_INPUT_DIMENSION_MISMATCH
 
             # Test dimension mismatch for fitting
             fit_status_dimension_mismatch = SparseIR.spir_sampling_fit_zz(
-                sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, dims1, target_dim, output_complex, fit_output_complex)
+                sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, dims1,
+                target_dim, output_complex, fit_output_complex)
             @test fit_status_dimension_mismatch == SparseIR.SPIR_INPUT_DIMENSION_MISMATCH
         end
 
@@ -623,7 +635,8 @@ end
         get_points_status = SparseIR.spir_basis_get_default_matsus(basis, positive_only, smpl_points)
         @test get_points_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
-        sampling = SparseIR.spir_matsu_sampling_new(basis, positive_only, n_matsubara_points, smpl_points, status)
+        sampling = SparseIR.spir_matsu_sampling_new(
+            basis, positive_only, n_matsubara_points, smpl_points, status)
         @test status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
         @test sampling != C_NULL
 
@@ -661,7 +674,8 @@ end
         @test points_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sampling_status = Ref{Int32}(0)
-        sampling = SparseIR.spir_matsu_sampling_new(basis, false, n_points_org, smpl_points_org, sampling_status)
+        sampling = SparseIR.spir_matsu_sampling_new(
+            basis, false, n_points_org, smpl_points_org, sampling_status)
         @test sampling_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
         @test sampling != C_NULL
 
@@ -673,11 +687,14 @@ end
         @test n_points_positive_only_org > 0
 
         smpl_points_positive_only_org = Vector{Int64}(undef, n_points_positive_only_org)
-        positive_points_status = SparseIR.spir_basis_get_default_matsus(basis, true, smpl_points_positive_only_org)
+        positive_points_status = SparseIR.spir_basis_get_default_matsus(
+            basis, true, smpl_points_positive_only_org)
         @test positive_points_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sampling_positive_status = Ref{Int32}(0)
-        sampling_positive_only = SparseIR.spir_matsu_sampling_new(basis, true, n_points_positive_only_org, smpl_points_positive_only_org, sampling_positive_status)
+        sampling_positive_only = SparseIR.spir_matsu_sampling_new(
+            basis, true, n_points_positive_only_org,
+            smpl_points_positive_only_org, sampling_positive_status)
         @test sampling_positive_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
         @test sampling_positive_only != C_NULL
 
@@ -689,7 +706,8 @@ end
         @test n_points > 0
 
         n_points_positive_only_ref = Ref{Int32}(0)
-        get_positive_points_status = SparseIR.spir_sampling_get_npoints(sampling_positive_only, n_points_positive_only_ref)
+        get_positive_points_status = SparseIR.spir_sampling_get_npoints(
+            sampling_positive_only, n_points_positive_only_ref)
         @test get_positive_points_status == SparseIR.SPIR_COMPUTATION_SUCCESS
         n_points_positive_only = n_points_positive_only_ref[]
         @test n_points_positive_only > 0

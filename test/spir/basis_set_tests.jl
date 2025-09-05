@@ -1,7 +1,7 @@
 @testitem "basis_set.jl" tags=[:julia, :spir] begin
-using Test
-using SparseIR
-import SparseIR as SparseIR
+    using Test
+    using SparseIR
+    import SparseIR as SparseIR
 
     @testset "consistency" begin
         β = 2.0

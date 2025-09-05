@@ -45,36 +45,36 @@ function make_plot(basis, siω, Gl, Σl, β, thm, filename)
     box = collect(first(wsample):last(wsample))[1:43]
     siω_box = MatsubaraSampling(basis; positive_only=true, sampling_points=box)
     plot(SparseIR.value.(box, β), imag(evaluate(siω_box, Σl));
-         ylims=(-0.13, 0),
-         marker=(:+, 5, 1.0, stroke(2)),
-         line=(:dot),
-         label=L"\operatorname{Im}\;\hat\Sigma\,(\mathrm{i}\omega)",
-         xaxis=L"$\omega$ (Matsubara frequency)",
-         legend=:topleft,
-         dpi=300)
+        ylims=(-0.13, 0),
+        marker=(:+, 5, 1.0, stroke(2)),
+        line=(:dot),
+        label=L"\operatorname{Im}\;\hat\Sigma\,(\mathrm{i}\omega)",
+        xaxis=L"$\omega$ (Matsubara frequency)",
+        legend=:topleft,
+        dpi=300)
     scatter!(SparseIR.value.(wsample, β)[1:(end - 1)], imag(evaluate(siω, Σl));
-             marker=(:x, 5, 1.0, stroke(3)),
-             label="sampling points")
+        marker=(:x, 5, 1.0, stroke(3)),
+        label="sampling points")
     plot!(eachindex(Gl)[1:2:end], abs.(Gl[1:2:end] / first(Gl));
-          inset=(1, bbox(0.05, 0.15, 0.5, 0.5, :bottom, :right)),
-          subplot=2,
-          label=L"\left| G_l / G_1 \right|",
-          marker=(:+, 4, stroke(2)),
-          line=(:dash),
-          xaxis=(L"$l$ (expansion order)"),
-          yminorgrid=true, yticks=[1e-6, 1e-4, 1e-2, 1])
+        inset=(1, bbox(0.05, 0.15, 0.5, 0.5, :bottom, :right)),
+        subplot=2,
+        label=L"\left| G_l / G_1 \right|",
+        marker=(:+, 4, stroke(2)),
+        line=(:dash),
+        xaxis=(L"$l$ (expansion order)"),
+        yminorgrid=true, yticks=[1e-6, 1e-4, 1e-2, 1])
     plot!(eachindex(Σl)[1:2:end], abs.(Σl[1:2:end] / first(Σl));
-          subplot=2,
-          label=L"\left|\Sigma_l/\Sigma_1\right|",
-          marker=(:x, 4, stroke(2)),
-          line=(:dash))
+        subplot=2,
+        label=L"\left|\Sigma_l/\Sigma_1\right|",
+        marker=(:x, 4, stroke(2)),
+        line=(:dash))
     plot!(eachindex(basis.s), basis.s / first(basis.s);
-          subplot=2,
-          ylims=(1e-6, 1),
-          yaxis=:log,
-          label=L"S_l / S_1",
-          marker=(:+, 2),
-          line=(:dot))
+        subplot=2,
+        ylims=(1e-6, 1),
+        yaxis=:log,
+        label=L"S_l / S_1",
+        marker=(:+, 2),
+        line=(:dot))
     savefig(filename)
 end
 

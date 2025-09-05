@@ -59,21 +59,24 @@ struct AugmentedBasis{S<:Statistics,B<:FiniteTempBasis{S},A<:AugmentationTuple,F
     uhat          :: FHAT
 end
 
-function TauSampling(basis::AugmentedBasis{S}; sampling_points=default_tau_sampling_points(basis)) where S
+function TauSampling(basis::AugmentedBasis{S}; sampling_points=default_tau_sampling_points(basis)) where {S}
     matrix = eval_matrix(TauSampling, basis, sampling_points)
     status = Ref{Int32}(-100)
-    ptr = C_API.spir_tau_sampling_new_with_matrix(C_API.SPIR_ORDER_COLUMN_MAJOR, _statistics_to_c(S), length(basis), length(sampling_points), sampling_points, matrix, status)
-    status[] == C_API.SPIR_COMPUTATION_SUCCESS || error("Failed to create tau sampling: status=$(status[])")
+    ptr = C_API.spir_tau_sampling_new_with_matrix(
+        C_API.SPIR_ORDER_COLUMN_MAJOR, _statistics_to_c(S), length(basis),
+        length(sampling_points), sampling_points, matrix, status)
+    status[] == C_API.SPIR_COMPUTATION_SUCCESS ||
+        error("Failed to create tau sampling: status=$(status[])")
     ptr != C_NULL || error("Failed to create tau sampling: null pointer returned")
 
     return TauSampling{Float64,typeof(basis)}(ptr, sampling_points, basis)
 end
 
 function MatsubaraSampling(
-    basis::AugmentedBasis{S};
-    positive_only=false,
-    sampling_points=default_matsubara_sampling_points(basis; positive_only),
-) where S
+        basis::AugmentedBasis{S};
+        positive_only=false,
+        sampling_points=default_matsubara_sampling_points(basis; positive_only)
+) where {S}
     pts = MatsubaraFreq.(sampling_points)
     matrix = eval_matrix(MatsubaraSampling, basis, pts)
     status = Ref{Int32}(-100)
@@ -85,9 +88,10 @@ function MatsubaraSampling(
         length(sampling_points),
         sampling_points,
         matrix,
-        status,
+        status
     )
-    status[] == C_API.SPIR_COMPUTATION_SUCCESS || error("Failed to create Matsubara sampling: status=$(status[])")
+    status[] == C_API.SPIR_COMPUTATION_SUCCESS ||
+        error("Failed to create Matsubara sampling: status=$(status[])")
     ptr != C_NULL || error("Failed to create Matsubara sampling: null pointer returned")
 
     return MatsubaraSampling{eltype(pts),typeof(basis)}(ptr, pts, positive_only, basis)
@@ -132,12 +136,16 @@ end
 function default_matsubara_sampling_points(basis::AugmentedBasis; positive_only=false)
     n_points = Ref{Cint}(0)
     status = spir_basis_get_n_default_matsus_ext(_get_ptr(basis.basis), positive_only, length(basis), n_points)
-    status == SPIR_COMPUTATION_SUCCESS || error("Failed to get number of default Matsubara sampling points")
+    status == SPIR_COMPUTATION_SUCCESS ||
+        error("Failed to get number of default Matsubara sampling points")
     points = Vector{Int64}(undef, n_points[])
     n_points_returned = Ref{Cint}(0)
-    status = spir_basis_get_default_matsus_ext(_get_ptr(basis.basis), positive_only, length(basis), points, n_points_returned)
-    status == SPIR_COMPUTATION_SUCCESS || error("Failed to get default Matsubara sampling points")
-    n_points_returned[] == n_points[] || error("n_points_returned=$(n_points_returned[]) != n_points=$(n_points[])")
+    status = spir_basis_get_default_matsus_ext(
+        _get_ptr(basis.basis), positive_only, length(basis), points, n_points_returned)
+    status == SPIR_COMPUTATION_SUCCESS ||
+        error("Failed to get default Matsubara sampling points")
+    n_points_returned[] == n_points[] ||
+        error("n_points_returned=$(n_points_returned[]) != n_points=$(n_points[])")
     return points
 end
 
@@ -253,7 +261,7 @@ function (aug::TauConst)(n::BosonicFreq)
 end
 (::TauConst)(::FermionicFreq) = error("TauConst is not a Fermionic basis.")
 
-function deriv(aug::TauConst, ::Val{n}=Val(1)) where {n}
+function deriv(aug::TauConst, (::Val{n})=Val(1)) where {n}
     iszero(n) && return aug
     return τ -> zero(β(aug))
 end
@@ -264,8 +272,8 @@ end
 Linear function in imaginary time, antisymmetric around β/2.
 """
 struct TauLinear <: AbstractAugmentation
-    β    :: Float64
-    norm :: Float64
+    β::Float64
+    norm::Float64
     function TauLinear(β)
         β > 0 || throw(DomainError(β, "Temperature must be positive."))
         norm = sqrt(3 / β)
@@ -288,7 +296,7 @@ function (aug::TauLinear)(n::BosonicFreq)
 end
 (::TauLinear)(::FermionicFreq) = error("TauLinear is not a Fermionic basis.")
 
-function deriv(aug::TauLinear, ::Val{n}=Val(1)) where {n}
+function deriv(aug::TauLinear, (::Val{n})=Val(1)) where {n}
     iszero(n) && return aug
     isone(n) && return τ -> aug.norm * 2 / β(aug)
     return τ -> zero(β(aug))

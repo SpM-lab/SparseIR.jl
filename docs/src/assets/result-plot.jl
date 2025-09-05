@@ -46,76 +46,75 @@ end
 
 # ╔═╡ c386d225-825a-4906-acc6-042b6809aba8
 function dos(basis, Gl)
-	w = range(-8, 8; length=100)
-	E = transpose(basis.v(w))
-	display(E)
-	Gw = E * Gl
-	-1/pi * imag(Gw)
+    w = range(-8, 8; length=100)
+    E = transpose(basis.v(w))
+    display(E)
+    Gw = E * Gl
+    -1/pi * imag(Gw)
 end
 
 # ╔═╡ bc15f8ab-ded8-4a62-b7de-9f0a2230e7d6
 function make_plot(basis, siω, Gl, Σl, β, filename)
-	box = FermionicFreq.(1:2:79)
-	siω_box = MatsubaraSampling(basis; sampling_points=box);
-	Σiω_box = evaluate(siω_box, Σl)
+    box = FermionicFreq.(1:2:79)
+    siω_box = MatsubaraSampling(basis; sampling_points=box);
+    Σiω_box = evaluate(siω_box, Σl)
 
-	iω = sampling_points(siω)
-	isinbox = in.(iω, Ref(box))
-	iω = iω[isinbox]
-	Σiω = evaluate(siω, Σl)[isinbox]
-		
-	
+    iω = sampling_points(siω)
+    isinbox = in.(iω, Ref(box))
+    iω = iω[isinbox]
+    Σiω = evaluate(siω, Σl)[isinbox]
+
     fig = Figure()
-	
-	ax = Axis(fig[1,1]; 
-		xlabel=L"Matsubara frequency $\omega\;[\pi/\beta]$",
-		ylabel=L"\mathrm{Im}\;\hat\Sigma\,(\mathrm{i}\omega)",
-		limits=(nothing, (-0.13, 0.0))
-	)
-	scatterlines!(ax, Int.(box), imag(Σiω_box);
+
+    ax = Axis(fig[1, 1];
+        xlabel=L"Matsubara frequency $\omega\;[\pi/\beta]$",
+        ylabel=L"\mathrm{Im}\;\hat\Sigma\,(\mathrm{i}\omega)",
+        limits=(nothing, (-0.13, 0.0))
+    )
+    scatterlines!(ax, Int.(box), imag(Σiω_box);
         marker=:+,
-        linestyle=:dot,
+        linestyle=:dot
     )
     scatter!(ax, Int.(iω), imag(Σiω);
         marker=:x,
         label=L"Sampling points$$",
-		color=:red,
-		markersize=15,
-	)
-	axislegend(ax; position=:lt)
+        color=:red,
+        markersize=15
+    )
+    axislegend(ax; position=:lt)
 
-	ax_inset = Axis(fig[1,1];
-		xlabel=L"Expansion order $\ell$",
-        yminorticksvisible=true, 
-		yticks=LogTicks(WilkinsonTicks(4)),
-		yminorticks=IntervalsBetween(9),
-		limits=(nothing, (1e-6, 1.5)),
-		yscale=log10,
-    	width=Relative(0.5),
-    	height=Relative(0.5),
-    	halign=0.93,
-    	valign=0.3,
-	)
-	translate!(ax_inset.scene, 0, 0, 10)
-	translate!(ax_inset.elements[:background], 0, 0, 9)
+    ax_inset = Axis(fig[1, 1];
+        xlabel=L"Expansion order $\ell$",
+        yminorticksvisible=true,
+        yticks=LogTicks(WilkinsonTicks(4)),
+        yminorticks=IntervalsBetween(9),
+        limits=(nothing, (1e-6, 1.5)),
+        yscale=log10,
+        width=Relative(0.5),
+        height=Relative(0.5),
+        halign=0.93,
+        valign=0.3
+    )
+    translate!(ax_inset.scene, 0, 0, 10)
+    translate!(ax_inset.elements[:background], 0, 0, 9)
     scatterlines!(ax_inset, eachindex(Gl)[1:2:end], abs.(Gl[1:2:end] / first(Gl));
         label=L"\left| G_\ell / G_1 \right|",
         marker=:+,
-		markersize=13,
+        markersize=13,
         linestyle=:dash)
     scatterlines!(ax_inset, eachindex(Σl)[1:2:end], abs.(Σl[1:2:end] / first(Σl));
         label=L"\left|\Sigma_\ell / \Sigma_1\right|",
         marker=:x,
-		markersize=13,
+        markersize=13,
         linestyle=:dash)
     scatterlines!(ax_inset, eachindex(basis.s), basis.s / first(basis.s);
         label=L"S_\ell / S_1",
         marker=:+,
-		markersize=8,
+        markersize=8,
         linestyle=:dot)
-	axislegend(ax_inset)
+    axislegend(ax_inset)
     save(filename, fig)
-	fig
+    fig
 end
 
 # ╔═╡ 2e8e225d-8e72-4b36-9975-a0c44e271f8a
@@ -129,71 +128,71 @@ lines(dos(basis, Gl))
 
 # ╔═╡ 61e1df2f-54f2-4f39-8f3a-ee70a471b125
 let
-	ωs = FermionicFreq.(-15:2:15)
-	fig = Figure(size=(600, 600))
-	ax = Axis(fig[1,1];
-		xticksvisible=false,
-		xticklabelsvisible=false,
-		ylabel=L"\mathrm{Im}\;\hat{U}_\ell\,(\mathrm{i}\omega)")
-	ls = 1:2:7
-	for l in ls
-		scatterlines!(ax, Int.(ωs), imag(basis.uhat[l].(ωs));
-			color = RGBf(l / last(ls), 0.0, 1 - l / last(ls)),
-			linestyle=:dot, label=string(l)
-		)
-	end
-	Legend(fig[1,2], ax, L"\ell"; framevisible=false)
-	ax = Axis(fig[2,1];
-		xlabel=L"Matsubara frequency $\omega\;[\pi/\beta]$",
-		ylabel=L"\mathrm{Re}\;\hat{U}_\ell\,(\mathrm{i}\omega)")
-	ls = 2:2:8
-	for l in ls
-		scatterlines!(ax, Int.(ωs), real(basis.uhat[l].(ωs));
-			color = RGBf(l / last(ls), 0.0, 1 - l / last(ls)),
-			linestyle=:dot, label=string(l)
-		)
-	end
-	Legend(fig[2,2], ax, L"\ell"; framevisible=false)
-	save("img/uhat_basis.pdf", fig)
-	fig
+    ωs = FermionicFreq.(-15:2:15)
+    fig = Figure(; size=(600, 600))
+    ax = Axis(fig[1, 1];
+        xticksvisible=false,
+        xticklabelsvisible=false,
+        ylabel=L"\mathrm{Im}\;\hat{U}_\ell\,(\mathrm{i}\omega)")
+    ls = 1:2:7
+    for l in ls
+        scatterlines!(ax, Int.(ωs), imag(basis.uhat[l].(ωs));
+            color=RGBf(l / last(ls), 0.0, 1 - l / last(ls)),
+            linestyle=:dot, label=string(l)
+        )
+    end
+    Legend(fig[1, 2], ax, L"\ell"; framevisible=false)
+    ax = Axis(fig[2, 1];
+        xlabel=L"Matsubara frequency $\omega\;[\pi/\beta]$",
+        ylabel=L"\mathrm{Re}\;\hat{U}_\ell\,(\mathrm{i}\omega)")
+    ls = 2:2:8
+    for l in ls
+        scatterlines!(ax, Int.(ωs), real(basis.uhat[l].(ωs));
+            color=RGBf(l / last(ls), 0.0, 1 - l / last(ls)),
+            linestyle=:dot, label=string(l)
+        )
+    end
+    Legend(fig[2, 2], ax, L"\ell"; framevisible=false)
+    save("img/uhat_basis.pdf", fig)
+    fig
 end
 
 # ╔═╡ b5bb004e-3ceb-41d9-8a30-3822d18a8c3b
 let
-	ωs = range(-5, 5; length=1000)
-	fig = Figure(size=(600, 300))
-	ax = Axis(fig[1,1];
-		xlabel=L"Frequency $\omega$",
-		ylabel=L"V_\ell\,(\omega)")
-	ls = 1:6
-	for l in ls
-		lines!(ax, ωs, basis.v[l].(ωs);
-			color = RGBf(l / last(ls), 0.0, 1 - l / last(ls)),
-			label=string(l)
-		)
-	end
-	Legend(fig[1,2], ax, L"\ell"; framevisible=false)
-	save("img/v_basis.pdf", fig)
-	fig
+    ωs = range(-5, 5; length=1000)
+    fig = Figure(; size=(600, 300))
+    ax = Axis(fig[1, 1];
+        xlabel=L"Frequency $\omega$",
+        ylabel=L"V_\ell\,(\omega)")
+    ls = 1:6
+    for l in ls
+        lines!(ax, ωs, basis.v[l].(ωs);
+            color=RGBf(l / last(ls), 0.0, 1 - l / last(ls)),
+            label=string(l)
+        )
+    end
+    Legend(fig[1, 2], ax, L"\ell"; framevisible=false)
+    save("img/v_basis.pdf", fig)
+    fig
 end
 
 # ╔═╡ 9e5840ab-a480-4527-b938-1eac8cbe0330
 let
-	τs = range(0, 10; length=1000)
-	fig = Figure(size=(600, 300))
-	ax = Axis(fig[1,1];
-		xlabel=L"Imaginary time $\tau$",
-		ylabel=L"U_\ell\,(\tau)")
-	ls = 1:6
-	for l in ls
-		lines!(ax, τs, basis.u[l].(τs);
-			color = RGBf(l / last(ls), 0.0, 1 - l / last(ls)),
-			label=string(l)
-		)
-	end
-	Legend(fig[1,2], ax, L"\ell"; framevisible=false)
-	save("img/u_basis.pdf", fig)
-	fig
+    τs = range(0, 10; length=1000)
+    fig = Figure(; size=(600, 300))
+    ax = Axis(fig[1, 1];
+        xlabel=L"Imaginary time $\tau$",
+        ylabel=L"U_\ell\,(\tau)")
+    ls = 1:6
+    for l in ls
+        lines!(ax, τs, basis.u[l].(τs);
+            color=RGBf(l / last(ls), 0.0, 1 - l / last(ls)),
+            label=string(l)
+        )
+    end
+    Legend(fig[1, 2], ax, L"\ell"; framevisible=false)
+    save("img/u_basis.pdf", fig)
+    fig
 end
 
 # ╔═╡ c39a2c55-af9b-43ed-b11f-c89bcc3a1d00
@@ -201,32 +200,32 @@ make_plot(basis, siω, Gl, Σl, β, "img/result.pdf")
 
 # ╔═╡ 94984eca-ae0c-40d3-b938-b2f6ecc72198
 begin
-	tauconds = []
-	iwconds  = []
-	betas = exp.(range(log(1), log(100); length=1000))
-	for β in betas
-		basis = FiniteTempBasis{Fermionic}(β, 1.0, 1e-6)
-		stau = TauSampling(basis)
-		siw = MatsubaraSampling(basis)
-		push!(tauconds, cond(stau))
-		push!(iwconds, cond(siw))
-	end
+    tauconds = []
+    iwconds  = []
+    betas    = exp.(range(log(1), log(100); length=1000))
+    for β in betas
+        basis = FiniteTempBasis{Fermionic}(β, 1.0, 1e-6)
+        stau = TauSampling(basis)
+        siw = MatsubaraSampling(basis)
+        push!(tauconds, cond(stau))
+        push!(iwconds, cond(siw))
+    end
 end
 
 # ╔═╡ 6f0b1e60-2acb-4e6a-9b15-bdb6be3ea76e
 begin
-	fig = Figure()
-	ax = Axis(fig[1,1]; yscale=log10, xscale=log10,
-		xlabel=L"Cutoff $\Lambda$", ylabel=L"Sampling condition number$$",
-		xticks=LogTicks(WilkinsonTicks(3)),
-		xminorticks=IntervalsBetween(9),
-		xminorticksvisible=true,
-		yminorticksvisible=true)
-	lines!(ax, betas, tauconds, label=L"TauSampling$$")
-	lines!(ax, betas, iwconds, label=L"MatsubaraSampling$$")
-	axislegend(ax; position=:lt)
-	save("img/condscaling.pdf", fig)
-	fig
+    fig = Figure()
+    ax = Axis(fig[1, 1]; yscale=log10, xscale=log10,
+        xlabel=L"Cutoff $\Lambda$", ylabel=L"Sampling condition number$$",
+        xticks=LogTicks(WilkinsonTicks(3)),
+        xminorticks=IntervalsBetween(9),
+        xminorticksvisible=true,
+        yminorticksvisible=true)
+    lines!(ax, betas, tauconds; label=L"TauSampling$$")
+    lines!(ax, betas, iwconds; label=L"MatsubaraSampling$$")
+    axislegend(ax; position=:lt)
+    save("img/condscaling.pdf", fig)
+    fig
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001

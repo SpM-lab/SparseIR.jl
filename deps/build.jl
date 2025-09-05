@@ -15,7 +15,8 @@ options = load_options(joinpath(@__DIR__, "generator.toml"))
 args = get_default_args()
 push!(args, "-I$include_dir")
 
-headers = [joinpath(sparseir_dir, header) for header in readdir(sparseir_dir) if endswith(header, ".h")]
+headers = [joinpath(sparseir_dir, header)
+           for header in readdir(sparseir_dir) if endswith(header, ".h")]
 # there is also an experimental `detect_headers` function for auto-detecting top-level headers in the directory
 # headers = detect_headers(sparseir_dir, args)
 

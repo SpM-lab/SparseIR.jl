@@ -71,7 +71,6 @@
         retrieved_poles = get_poles(dlr_random)
         @test retrieved_poles ≈ random_poles
     end
-
 end
 
 @testitem "IR to DLR transformation" tags=[:julia, :spir] begin

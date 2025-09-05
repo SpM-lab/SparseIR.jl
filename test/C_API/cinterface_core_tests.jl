@@ -72,7 +72,8 @@ end
 
         # Create basis
         basis_status = Ref{Int32}(0)
-        basis = SparseIR.spir_basis_new(statistics, beta, omega_max, kernel, sve, basis_status)
+        basis = SparseIR.spir_basis_new(
+            statistics, beta, omega_max, kernel, sve, basis_status)
         if basis_status[] != SparseIR.SPIR_COMPUTATION_SUCCESS || basis == C_NULL
             SparseIR.spir_sve_result_release(sve)
             SparseIR.spir_kernel_release(kernel)
@@ -132,7 +133,8 @@ end
 
         # Create basis with SVE
         basis_status = Ref{Int32}(0)
-        basis = SparseIR.spir_basis_new(statistics, beta, wmax, kernel, sve_result, basis_status)
+        basis = SparseIR.spir_basis_new(
+            statistics, beta, wmax, kernel, sve_result, basis_status)
         @test basis_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
         @test basis != C_NULL
 
@@ -193,7 +195,8 @@ end
 
         # Create basis
         basis_status = Ref{Int32}(0)
-        basis = SparseIR.spir_basis_new(statistics, beta, omega_max, kernel, sve, basis_status)
+        basis = SparseIR.spir_basis_new(
+            statistics, beta, omega_max, kernel, sve, basis_status)
         if basis_status[] != SparseIR.SPIR_COMPUTATION_SUCCESS || basis == C_NULL
             SparseIR.spir_sve_result_release(sve)
             SparseIR.spir_kernel_release(kernel)
