@@ -20,7 +20,8 @@
     end
 
     # Helper function to compare tensors with relative error
-    function compare_tensors_with_relative_error(a::Array{T,N}, b::Array{T,N}, tol) where {
+    function compare_tensors_with_relative_error(
+            a::Array{T,N}, b::Array{T,N}, tol) where {
             T,N}
         diff = abs.(a .- b)
         ref = abs.(a)
@@ -37,11 +38,13 @@
     end
 
     # Generate random coefficient based on type
-    function generate_random_coeff(::Type{Float64}, random_value_real, random_value_imag, pole)
+    function generate_random_coeff(
+            ::Type{Float64}, random_value_real, random_value_imag, pole)
         return (2.0 * random_value_real - 1.0) * sqrt(abs(pole))
     end
 
-    function generate_random_coeff(::Type{ComplexF64}, random_value_real, random_value_imag, pole)
+    function generate_random_coeff(
+            ::Type{ComplexF64}, random_value_real, random_value_imag, pole)
         return ComplexF64(
             (2.0 * random_value_real - 1.0) * sqrt(abs(pole)),
             (2.0 * random_value_imag - 1.0) * sqrt(abs(pole))
@@ -72,7 +75,8 @@
 
         # Matsubara Sampling
         @info "Matsubara sampling"
-        matsubara_points = SparseIR.default_matsubara_sampling_points(basis; positive_only=positive_only)
+        matsubara_points = SparseIR.default_matsubara_sampling_points(
+            basis; positive_only=positive_only)
         num_matsubara_points = length(matsubara_points)
         matsubara_sampling = MatsubaraSampling(
             basis; positive_only=positive_only, sampling_points=matsubara_points)
@@ -143,8 +147,9 @@
         gtau_from_DLR_reconst_dims = collect(size(g_DLR_reconst))
         gtau_from_DLR_reconst_dims[target_dim + 1] = num_tau_points
         gtau_from_DLR_reconst = similar(g_DLR_reconst, T, gtau_from_DLR_reconst_dims...)
-        evaluate!(gtau_from_DLR_reconst, tau_sampling_dlr, g_DLR_reconst; dim=target_dim +
-                                                                              1)
+        evaluate!(
+            gtau_from_DLR_reconst, tau_sampling_dlr, g_DLR_reconst; dim=target_dim +
+                                                                        1)
 
         @test compare_tensors_with_relative_error(gtau_from_IR, gtau_from_DLR, tol)
         @test compare_tensors_with_relative_error(gtau_from_IR, gtau_from_DLR_reconst, tol)

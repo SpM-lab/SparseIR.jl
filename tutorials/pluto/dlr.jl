@@ -21,7 +21,7 @@ end
 begin
     wmax = 1.0
     lambda_ = 1e+4
-    beta = lambda_/wmax
+    beta = lambda_ / wmax
 
     basis = FiniteTempBasis(Fermionic(), beta, wmax, 1e-15)
     print(length(basis))
@@ -29,10 +29,11 @@ end
 
 # ╔═╡ dbfea9c2-8464-4c66-991f-b42d08fbc44e
 begin
-    rho(omega) = sqrt(1-omega^2)/sqrt(0.5*π)
+    rho(omega) = sqrt(1 - omega^2) / sqrt(0.5 * π)
 
     omega = LinRange(-wmax, wmax, 1000)
-    plot(omega, rho.(omega); xlabel=latexstring("\\omega"), ylabel=latexstring("\\rho(\\omega)"))
+    plot(omega, rho.(omega); xlabel=latexstring("\\omega"),
+        ylabel=latexstring("\\rho(\\omega)"))
 end
 
 # ╔═╡ a825a7b9-0f17-4512-a697-f993120e7661
@@ -44,7 +45,7 @@ end
 
 # ╔═╡ f8cffacc-100c-4735-9eb8-9e853e020c25
 begin
-    gl = - basis.s .* rhol
+    gl = -basis.s .* rhol
     plot(ls[1:2:end], abs.(gl)[1:2:end]; marker=:cross, ylims=(1e-5, 10), yaxis=:log)
 end
 
@@ -64,7 +65,7 @@ begin
     gl_reconst = SparseIR.to_IR(dlr, g_dlr)
 
     plot(
-        [abs.(gl), abs.(gl_reconst), abs.(gl-gl_reconst)];
+        [abs.(gl), abs.(gl_reconst), abs.(gl - gl_reconst)];
         label=["Exact" "Reconstructed from DLR" "error"],
         marker=[:cross :x :circle], line=(nothing, nothing, nothing), yaxis=:log,
         ylims=(1e-18, 10)

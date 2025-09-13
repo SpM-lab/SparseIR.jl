@@ -27,7 +27,8 @@ mutable struct PiecewiseLegendrePolyVector
     ptr::Ptr{spir_funcs}
     xmin::Float64
     xmax::Float64
-    function PiecewiseLegendrePolyVector(funcs::Ptr{spir_funcs}, xmin::Float64, xmax::Float64)
+    function PiecewiseLegendrePolyVector(
+            funcs::Ptr{spir_funcs}, xmin::Float64, xmax::Float64)
         result = new(funcs, xmin, xmax)
         finalizer(r -> spir_funcs_release(r.ptr), result)
         return result
@@ -112,8 +113,10 @@ function Base.getindex(polys::PiecewiseLegendrePolyVector, i::Int)
 end
 
 # Base.getindex(funcs::Ptr{spir_funcs}, I) = [funcs[i] for i in I]
-Base.getindex(polys::PiecewiseLegendrePolyVector, I) = PiecewiseLegendrePoly[polys[i]
-                                                                             for i in I]
+function Base.getindex(polys::PiecewiseLegendrePolyVector, I)
+    PiecewiseLegendrePoly[polys[i]
+                          for i in I]
+end
 
 function Base.length(funcs::Ptr{spir_funcs})
     sz = Ref{Int32}(-1)

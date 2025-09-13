@@ -1,4 +1,4 @@
-@testitem "poly.jl" tags = [:julia, :lib] begin
+@testitem "poly.jl" tags=[:julia, :lib] begin
     using Test
     using SparseIR
     import SparseIR as SparseIR

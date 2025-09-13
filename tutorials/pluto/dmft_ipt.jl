@@ -27,7 +27,7 @@ begin
     """
     Compute spectral function rho(omega)
     """
-    rho_omega(omega::Float64) = sqrt(4 - omega^2) / (2*pi)
+    rho_omega(omega::Float64) = sqrt(4 - omega^2) / (2 * pi)
 
     num_omega = 100
     omegas = collect(range(-2, 2; length=num_omega))
@@ -134,14 +134,14 @@ function renormalization_factor(
         if rdiff < 1e-14
             break
         end
-        sigma_iv = mixing .* new_sigma_iv .+ (1-mixing) .* sigma_iv
+        sigma_iv = mixing .* new_sigma_iv .+ (1 - mixing) .* sigma_iv
     end
 
-    center = Int(length(sigma_iv)/2) + 1 # julia
-    delta_sigma_iv = sigma_iv[center + 1]-sigma_iv[center]
-    inv_z = (1 - imag(delta_sigma_iv)*solver.beta/(2*pi))
+    center = Int(length(sigma_iv) / 2) + 1 # julia
+    delta_sigma_iv = sigma_iv[center + 1] - sigma_iv[center]
+    inv_z = (1 - imag(delta_sigma_iv) * solver.beta / (2 * pi))
 
-    return 1/inv_z, sigma_iv
+    return 1 / inv_z, sigma_iv
 end
 
 # ╔═╡ 32b41074-6932-43c3-ab2f-77209cc6289a
@@ -183,7 +183,7 @@ begin
     omega_range = (-2.0, 2.0)
     nitr = 1000
     mixing = 0.25
-    Z, sigma_history = sweepU(basis, D, U_range, rho_omega, omega_range, nitr, mixing);
+    Z, sigma_history = sweepU(basis, D, U_range, rho_omega, omega_range, nitr, mixing)
 end
 
 # ╔═╡ eb8bc670-ce2d-4f3f-b432-652acc61be38
@@ -194,7 +194,7 @@ begin
     v = value.(sigma_history[begin][2], beta)
     p1 = plot(; xlabel="\$\\nu\$", ylabel="\$\\mathrm{Im}\\ \\Sigma(\\mathrm{i}\\nu)\$",
         title=latexstring("U=$(U_range[begin]),T=0.05"), size=(400, 500))
-    plot!(v, sigma; marker=:circle, label=nothing);
+    plot!(v, sigma; marker=:circle, label=nothing)
 
     sigma = imag.(sigma_history[end][1])
     v = value.(sigma_history[end][2], beta)

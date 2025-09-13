@@ -57,7 +57,8 @@
 
         # Create sampling
         sampling_status = Ref{Int32}(0)
-        sampling = SparseIR.spir_tau_sampling_new(basis, n_tau_points, tau_points_org, sampling_status)
+        sampling = SparseIR.spir_tau_sampling_new(
+            basis, n_tau_points, tau_points_org, sampling_status)
         @test sampling_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
         @test sampling != C_NULL
 
@@ -75,7 +76,7 @@
 
         # Compare tau_points and tau_points_org (corresponds to C++ comparison)
         for i in 1:n_points
-            @test tau_points[i] ≈ tau_points_org[i] atol=1e-14
+            @test tau_points[i]≈tau_points_org[i] atol=1e-14
         end
 
         # Test that matsubara points are not supported for tau sampling
@@ -147,7 +148,7 @@
 
         # Check round-trip accuracy
         for i in 1:basis_size
-            @test fit_output[i] ≈ coeffs[i] atol=1e-10
+            @test fit_output[i]≈coeffs[i] atol=1e-10
         end
 
         # Clean up
@@ -234,7 +235,7 @@
 
             # Check round-trip accuracy
             for i in 1:total_size
-                @test fit_output[i] ≈ coeffs[i] atol=1e-10
+                @test fit_output[i]≈coeffs[i] atol=1e-10
             end
         end
 
@@ -322,7 +323,7 @@
 
             # Check round-trip accuracy
             for i in 1:total_size
-                @test fit_output[i] ≈ coeffs[i] atol=1e-10
+                @test fit_output[i]≈coeffs[i] atol=1e-10
             end
         end
 
@@ -412,8 +413,8 @@
 
             # Check round-trip accuracy
             for i in 1:total_size
-                @test real(fit_output[i]) ≈ real(coeffs[i]) atol=1e-10
-                @test imag(fit_output[i]) ≈ imag(coeffs[i]) atol=1e-10
+                @test real(fit_output[i])≈real(coeffs[i]) atol=1e-10
+                @test imag(fit_output[i])≈imag(coeffs[i]) atol=1e-10
             end
         end
 
@@ -503,8 +504,8 @@
 
             # Check round-trip accuracy
             for i in 1:total_size
-                @test real(fit_output[i]) ≈ real(coeffs[i]) atol=1e-10
-                @test imag(fit_output[i]) ≈ imag(coeffs[i]) atol=1e-10
+                @test real(fit_output[i])≈real(coeffs[i]) atol=1e-10
+                @test imag(fit_output[i])≈imag(coeffs[i]) atol=1e-10
             end
         end
 
@@ -627,12 +628,14 @@ end
         status = Ref{Int32}(0)
 
         n_matsubara_points_ref = Ref{Int32}(0)
-        points_status = SparseIR.spir_basis_get_n_default_matsus(basis, positive_only, n_matsubara_points_ref)
+        points_status = SparseIR.spir_basis_get_n_default_matsus(
+            basis, positive_only, n_matsubara_points_ref)
         @test points_status == SparseIR.SPIR_COMPUTATION_SUCCESS
         n_matsubara_points = n_matsubara_points_ref[]
 
         smpl_points = Vector{Int64}(undef, n_matsubara_points)
-        get_points_status = SparseIR.spir_basis_get_default_matsus(basis, positive_only, smpl_points)
+        get_points_status = SparseIR.spir_basis_get_default_matsus(
+            basis, positive_only, smpl_points)
         @test get_points_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sampling = SparseIR.spir_matsu_sampling_new(
@@ -670,7 +673,8 @@ end
         @test n_points_org > 0
 
         smpl_points_org = Vector{Int64}(undef, n_points_org)
-        points_status = SparseIR.spir_basis_get_default_matsus(basis, false, smpl_points_org)
+        points_status = SparseIR.spir_basis_get_default_matsus(
+            basis, false, smpl_points_org)
         @test points_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sampling_status = Ref{Int32}(0)
@@ -681,7 +685,8 @@ end
 
         # Test with positive_only = true
         n_points_positive_only_org_ref = Ref{Int32}(0)
-        positive_status = SparseIR.spir_basis_get_n_default_matsus(basis, true, n_points_positive_only_org_ref)
+        positive_status = SparseIR.spir_basis_get_n_default_matsus(
+            basis, true, n_points_positive_only_org_ref)
         @test positive_status == SparseIR.SPIR_COMPUTATION_SUCCESS
         n_points_positive_only_org = n_points_positive_only_org_ref[]
         @test n_points_positive_only_org > 0

@@ -50,13 +50,13 @@ function dos(basis, Gl)
     E = transpose(basis.v(w))
     display(E)
     Gw = E * Gl
-    -1/pi * imag(Gw)
+    -1 / pi * imag(Gw)
 end
 
 # ╔═╡ bc15f8ab-ded8-4a62-b7de-9f0a2230e7d6
 function make_plot(basis, siω, Gl, Σl, β, filename)
     box = FermionicFreq.(1:2:79)
-    siω_box = MatsubaraSampling(basis; sampling_points=box);
+    siω_box = MatsubaraSampling(basis; sampling_points=box)
     Σiω_box = evaluate(siω_box, Σl)
 
     iω = sampling_points(siω)

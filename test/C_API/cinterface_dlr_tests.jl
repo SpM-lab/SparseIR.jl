@@ -5,7 +5,8 @@
     using SparseIR
 
     # Helper function equivalent to C++ _spir_basis_new
-    function _spir_basis_new(statistics::Integer, beta::Float64, omega_max::Float64, epsilon::Float64)
+    function _spir_basis_new(
+            statistics::Integer, beta::Float64, omega_max::Float64, epsilon::Float64)
         status = Ref{Int32}(0)
 
         # Create logistic kernel
@@ -90,7 +91,8 @@
         @test num_poles == num_default_poles
 
         num_poles_with_poles_ref = Ref{Int32}(0)
-        npoles_with_poles_status = SparseIR.spir_dlr_get_npoles(dlr_with_poles, num_poles_with_poles_ref)
+        npoles_with_poles_status = SparseIR.spir_dlr_get_npoles(
+            dlr_with_poles, num_poles_with_poles_ref)
         @test npoles_with_poles_status == SparseIR.SPIR_COMPUTATION_SUCCESS
         num_poles_with_poles = num_poles_with_poles_ref[]
         @test num_poles_with_poles == num_default_poles
@@ -102,7 +104,7 @@
 
         # Strict numerical comparison (corresponds to C++ Approx comparison)
         for i in 1:num_poles
-            @test poles_reconst[i] ≈ default_poles[i] atol=1e-14
+            @test poles_reconst[i]≈default_poles[i] atol=1e-14
         end
 
         # Clean up (corresponds to C++ cleanup)

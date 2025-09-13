@@ -29,9 +29,9 @@ begin
 
     rhol_pole = ein"lp,p->l"(
         basis_b.v(omega_p),
-        coeff ./ tanh.(0.5*beta*omega_p)
+        coeff ./ tanh.(0.5 * beta * omega_p)
     )
-    gl_pole = - basis_b.s .* rhol_pole
+    gl_pole = -basis_b.s .* rhol_pole
 
     plot([abs.(rhol_pole), abs.(gl_pole)]; yaxis=:log,
         label=[latexstring("|\\rho_l|") latexstring("|g_l|")],
@@ -41,7 +41,7 @@ end
 # ╔═╡ ebbff3a0-2db1-4828-9d21-db421b1311ac
 begin
     dlr = DiscreteLehmannRepresentation(basis_b, omega_p)
-    gl_pole2 = to_IR(dlr, coeff ./ tanh.(0.5*beta*omega_p))
+    gl_pole2 = to_IR(dlr, coeff ./ tanh.(0.5 * beta * omega_p))
 
     plot(
         [abs.(gl_pole2), abs.(gl_pole)];
@@ -53,10 +53,12 @@ end
 # ╔═╡ be191751-2c1d-47af-bf13-9c1c9c0b587b
 begin
     # Three Gaussian peaks (normalized to 1)
-    gaussian(x, mu, sigma) = exp(-((x-mu)/sigma)^2)/(sqrt(π)*sigma)
+    gaussian(x, mu, sigma) = exp(-((x - mu) / sigma)^2) / (sqrt(π) * sigma)
 
-    rho(omega) = 0.2*gaussian(omega, 0.0, 0.15) +
-                 0.4*gaussian(omega, 1.0, 0.8) + 0.4*gaussian(omega, -1.0, 0.8)
+    function rho(omega)
+        0.2 * gaussian(omega, 0.0, 0.15) +
+        0.4 * gaussian(omega, 1.0, 0.8) + 0.4 * gaussian(omega, -1.0, 0.8)
+    end
 
     omegas = LinRange(-5, 5, 1000)
     plot(omegas, rho.(omegas); xlabel=latexstring("\\omega"),
@@ -68,7 +70,7 @@ begin
     basis = FiniteTempBasis(Fermionic(), beta, wmax, 1e-7)
 
     rhol = [overlap(basis.v[l], rho) for l in 1:length(basis)]
-    gl = - basis.s .* rhol
+    gl = -basis.s .* rhol
 
     plot([abs.(rhol), abs.(gl)]; yaxis=:log, ylims=(1e-5, 1),
         marker=[:circle :diamond], line=nothing, xlabel=latexstring("l"),

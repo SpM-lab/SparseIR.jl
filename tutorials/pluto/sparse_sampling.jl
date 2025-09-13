@@ -21,7 +21,7 @@ end
 # ╔═╡ a8a7b92c-f9bd-4d47-b765-cfd267ac4644
 begin
     function rho(omega)
-        return abs.(omega) < 1 ? (2/π) .* sqrt.(1-omega^2) : 0.0
+        return abs.(omega) < 1 ? (2 / π) .* sqrt.(1 - omega^2) : 0.0
     end
 
     beta = 10000.0
@@ -30,7 +30,7 @@ begin
     basis = FiniteTempBasis(Fermionic(), beta, wmax, eps)
 
     rhol = overlap(basis.v, rho)
-    gl = - basis.s .* rhol
+    gl = -basis.s .* rhol
 
     ls = collect(0:(length(basis) - 1))
     p = plot(; marker=:x, yaxis=:log, ylabel=L"|g_l|", xlabel=L"l", ylims=(1e-15, 10))

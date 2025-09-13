@@ -24,7 +24,7 @@ mutable struct DiscreteLehmannRepresentation{S<:Statistics,B<:AbstractBasis{S}} 
     function DiscreteLehmannRepresentation{S,B}(ptr::Ptr{spir_basis}, basis::B,
             poles::Vector{Float64}) where {S<:Statistics,B<:AbstractBasis{S}}
         obj = new{S,B}(ptr, basis, poles)
-        finalizer(s->spir_basis_release(s.ptr), obj)
+        finalizer(s -> spir_basis_release(s.ptr), obj)
         return obj
     end
 end
@@ -36,13 +36,15 @@ Construct a DLR basis from an IR basis.
 
 If `poles` is not provided, uses the default omega sampling points from the IR basis.
 """
-function DiscreteLehmannRepresentation(basis::AbstractBasis, poles=default_omega_sampling_points(basis))
+function DiscreteLehmannRepresentation(
+        basis::AbstractBasis, poles=default_omega_sampling_points(basis))
     status = Ref{Int32}(-100)
     dlr_ptr = C_API.spir_dlr_new_with_poles(basis.ptr, length(poles), poles, status)
     status[] == C_API.SPIR_COMPUTATION_SUCCESS ||
         error("Failed to create DLR with poles: status=$(status[])")
     dlr_ptr != C_NULL || error("Failed to create DLR with poles: null pointer returned")
-    return DiscreteLehmannRepresentation{typeof(statistics(basis)),typeof(basis)}(dlr_ptr, basis, poles)
+    return DiscreteLehmannRepresentation{typeof(statistics(basis)),typeof(basis)}(
+        dlr_ptr, basis, poles)
 end
 
 """

@@ -26,17 +26,17 @@ end
 begin
     ### System parameters
     t    = 1      # hopping amplitude
-    W    = 8*t    # bandwidth
+    W    = 8 * t    # bandwidth
     wmax = 10     # set wmax >= W
 
     T    = 0.1    # temperature
-    beta = 1/T    # inverse temperature
+    beta = 1 / T    # inverse temperature
     n    = 0.85   # electron filling, here per spin per lattice site (n=1: half filling)
     U    = 4.0    # Hubbard interaction
 
     ### Numerical parameters
     nk1, nk2  = 24, 24    # number of k_points along one repiprocal crystal lattice direction k1 = kx, k2 = ky
-    nk        = nk1*nk2
+    nk        = nk1 * nk2
     IR_tol    = 1e-10     # accuary for l-cutoff of IR basis functions
     sfc_tol   = 1e-4      # accuracy for self-consistent iteration
     maxiter   = 30        # maximal number of iterations in self-consistent cycle
@@ -90,20 +90,19 @@ begin
             nk2::Int64,
             IR_basis_set::FiniteTempBasisSet
     )::Mesh
-        nk::Int64 = nk1*nk2
+        nk::Int64 = nk1 * nk2
 
         # Compute Hamiltonian
         ek = Array{ComplexF64,2}(undef, nk1, nk2)
         for iy in 1:nk2, ix in 1:nk1
-
-            kx::Float64 = (2*π*(ix-1))/nk1
-            ky::Float64 = (2*π*(iy-1))/nk2
-            ek[ix, iy] = -2.0*(cos(kx)+cos(ky))
+            kx::Float64 = (2 * π * (ix - 1)) / nk1
+            ky::Float64 = (2 * π * (iy - 1)) / nk2
+            ek[ix, iy] = -2.0 * (cos(kx) + cos(ky))
         end
 
         # lowest Matsubara frequency index
-        iw0_f = findall(x->x==FermionicFreq(1), IR_basis_set.smpl_wn_f.sampling_points)[1]
-        iw0_b = findall(x->x==BosonicFreq(0), IR_basis_set.smpl_wn_b.sampling_points)[1]
+        iw0_f = findall(x -> x == FermionicFreq(1), IR_basis_set.smpl_wn_f.sampling_points)[1]
+        iw0_b = findall(x -> x == BosonicFreq(0), IR_basis_set.smpl_wn_b.sampling_points)[1]
 
         # the number of sampling point for fermion and boson
         fnw   = length(IR_basis_set.smpl_wn_f.sampling_points)
@@ -156,7 +155,7 @@ begin
 
     function r_to_k(mesh::Mesh, obj_r)
         """ Fourier transform from real space to k-space """
-        obj_k = ifft(obj_r, [2, 3])/mesh.nk
+        obj_k = ifft(obj_r, [2, 3]) / mesh.nk
         return obj_k
     end
 
@@ -230,12 +229,12 @@ begin
         end
 
         # perform loop until convergence is reached:
-        for it in 1:solver.maxiter
+        for it in 1:(solver.maxiter)
             sigma_old = copy(solver.sigma)
             loop(solver)
 
             # check whether solution is converged.
-            sfc_check = sum(abs.(solver.sigma-sigma_old))/sum(abs.(solver.sigma))
+            sfc_check = sum(abs.(solver.sigma - sigma_old)) / sum(abs.(solver.sigma))
 
             if solver.verbose
                 println(it, '\t', sfc_check)
@@ -257,7 +256,7 @@ begin
         solver.mu = mu_calc(solver)
         gkio_calc(solver, solver.mu)
 
-        solver.gkio .= solver.mix*solver.gkio .+ (1-solver.mix)*gkio_old
+        solver.gkio .= solver.mix * solver.gkio .+ (1 - solver.mix) * gkio_old
 
         grit_calc(solver)
         ckio_calc(solver)
@@ -274,11 +273,11 @@ begin
         # renormalization loop may run infinitely! Insert break condition after U_it_max steps
         U_it::Int64 = 0
 
-        while U_old*maximum(abs, solver.ckio) >= 1.0
+        while U_old * maximum(abs, solver.ckio) >= 1.0
             U_it += 1
 
             # remormalize U such that U*chi0 < 1
-            solver.U = solver.U / (maximum(abs, solver.ckio)*solver.U + 0.01)
+            solver.U = solver.U / (maximum(abs, solver.ckio) * solver.U + 0.01)
             println(U_it, '\t', solver.U, '\t', U_old)
 
             # perform one shot FLEX loop
@@ -299,11 +298,12 @@ begin
     #%%%%%%%%%%% Calculation steps
     function gkio_calc(solver::FLEXSolver, mu::Float64)
         """ calculate Green function G(iw,k) """
-        for iy in 1:solver.mesh.nk2, ix in 1:solver.mesh.nk1, iw in 1:solver.mesh.fnw
+        for iy in 1:(solver.mesh.nk2), ix in 1:(solver.mesh.nk1), iw in 1:(solver.mesh.fnw)
             #iv::ComplexF64 = (im * π/solver.beta) * solver.mesh.IR_basis_set.smpl_wn_f.sampling_points[iw]
-            iv::ComplexF64 = valueim(solver.mesh.IR_basis_set.smpl_wn_f.sampling_points[iw], solver.beta)
-            solver.gkio[iw, ix, iy] = 1.0/(iv - solver.mesh.ek[ix, iy] + mu -
-                                           solver.sigma[iw, ix, iy])
+            iv::ComplexF64 = valueim(
+                solver.mesh.IR_basis_set.smpl_wn_f.sampling_points[iw], solver.beta)
+            solver.gkio[iw, ix, iy] = 1.0 / (iv - solver.mesh.ek[ix, iy] + mu -
+                                       solver.sigma[iw, ix, iy])
         end
     end
 
@@ -317,9 +317,11 @@ begin
     function ckio_calc(solver::FLEXSolver)
         """ Calculate irreducible susciptibility chi0(iv,q) """
         crit = Array{ComplexF64}(undef, solver.mesh.bntau, solver.mesh.nk1, solver.mesh.nk2)
-        for iy in 1:solver.mesh.nk2, ix in 1:solver.mesh.nk1, it in 1:solver.mesh.bntau
+        for iy in 1:(solver.mesh.nk2), ix in 1:(solver.mesh.nk1),
+            it in 1:(solver.mesh.bntau)
+
             crit[it, ix, iy] = solver.grit[it, ix, iy] *
-                               (- solver.grit[solver.mesh.bntau - it + 1, ix, iy])
+                               (-solver.grit[solver.mesh.bntau - it + 1, ix, iy])
         end
 
         # Fourier transform
@@ -330,7 +332,7 @@ begin
     function V_calc(solver::FLEXSolver)
         """ Calculate interaction V(tau,r) from RPA-like spin and charge susceptibility for calculating sigma """
         # check whether U is too large and give warning
-        if maximum(abs.(solver.ckio))*solver.U >= 1
+        if maximum(abs.(solver.ckio)) * solver.U >= 1
             error("U*max(chi0) >= 1! Paramagnetic phase is left and calculations will turn unstable!")
         end
 
@@ -338,7 +340,7 @@ begin
         chi_spin   = solver.ckio ./ (1 .- solver.U .* solver.ckio)
         chi_charge = solver.ckio ./ (1 .+ solver.U .* solver.ckio)
 
-        Vkio = (1.5*solver.U^2) .* chi_spin .+ (0.5*solver.U^2) .* chi_charge .-
+        Vkio = (1.5 * solver.U^2) .* chi_spin .+ (0.5 * solver.U^2) .* chi_charge .-
                (solver.U^2) .* solver.ckio
         # Constant Hartree Term V ~ U needs to be treated extra, since they cannot be modeled by the IR basis.
         # In the single-band case, the Hartree term can be absorbed into the chemical potential.
@@ -361,7 +363,7 @@ begin
     function calc_electron_density(solver::FLEXSolver, mu::Float64)::Float64
         """ Calculate electron density from Green function """
         gkio_calc(solver, mu)
-        gio = dropdims(sum(solver.gkio; dims=(2, 3)); dims=(2, 3))/solver.mesh.nk
+        gio = dropdims(sum(solver.gkio; dims=(2, 3)); dims=(2, 3)) / solver.mesh.nk
 
         g_l = fit(solver.mesh.IR_basis_set.smpl_wn_f, gio; dim=1)
         g_tau0 = dot(solver.mesh.IR_basis_set.basis_f.u(0), g_l)
@@ -374,7 +376,8 @@ begin
         """ Find chemical potential for a given filling n0 via brent's root finding algorithm """
         f = x -> calc_electron_density(solver, x) - solver.n
 
-        mu = find_zero(f, (3*minimum(solver.mesh.ek), 3*maximum(solver.mesh.ek)), Roots.Brent())
+        mu = find_zero(
+            f, (3 * minimum(solver.mesh.ek), 3 * maximum(solver.mesh.ek)), Roots.Brent())
     end
     @assert typestable(U_renormalization, (FLEXSolver,))
     @assert typestable(solve, (FLEXSolver,))

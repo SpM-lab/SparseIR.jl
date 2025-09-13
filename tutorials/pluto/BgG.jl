@@ -40,11 +40,11 @@ begin
     end
 
     function make_x_plushop(Nx, Ny, BC)
-        N = Nx*Ny
+        N = Nx * Ny
         Txhop = spzeros(Int64, N, N)
         for ix in 1:Nx
             for iy in 1:Ny
-                i = (iy-1)*Nx + ix
+                i = (iy - 1) * Nx + ix
                 jx = ix + 1
                 jy = iy
                 if BC == "PBC"
@@ -54,7 +54,7 @@ begin
                     error("BC = $BC is not supported")
                 end
                 if 1 <= jx <= Nx
-                    j = (jy-1)*Nx + jx
+                    j = (jy - 1) * Nx + jx
                     Txhop[i, j] = 1
                 end
             end
@@ -63,11 +63,11 @@ begin
     end
 
     function make_x_minushop(Nx, Ny, BC)
-        N = Nx*Ny
+        N = Nx * Ny
         Txhop = spzeros(Int64, N, N)
         for ix in 1:Nx
             for iy in 1:Ny
-                i = (iy-1)*Nx + ix
+                i = (iy - 1) * Nx + ix
                 jx = ix - 1
                 jy = iy
                 if BC == "PBC"
@@ -77,7 +77,7 @@ begin
                     error("BC = $BC is not supported")
                 end
                 if 1 <= jx <= Nx
-                    j = (jy-1)*Nx + jx
+                    j = (jy - 1) * Nx + jx
                     Txhop[i, j] = 1
                 end
             end
@@ -86,11 +86,11 @@ begin
     end
 
     function make_y_plushop(Nx, Ny, BC)
-        N = Nx*Ny
+        N = Nx * Ny
         Tyhop = spzeros(Int64, N, N)
         for ix in 1:Nx
             for iy in 1:Ny
-                i = (iy-1)*Nx + ix
+                i = (iy - 1) * Nx + ix
                 jx = ix
                 jy = iy + 1
                 if BC == "PBC"
@@ -100,7 +100,7 @@ begin
                     error("BC = $BC is not supported")
                 end
                 if 1 <= jy <= Ny
-                    j = (jy-1)*Nx + jx
+                    j = (jy - 1) * Nx + jx
                     Tyhop[i, j] = 1
                 end
             end
@@ -109,11 +109,11 @@ begin
     end
 
     function make_y_minushop(Nx, Ny, BC)
-        N = Nx*Ny
+        N = Nx * Ny
         Tyhop = spzeros(Int64, N, N)
         for ix in 1:Nx
             for iy in 1:Ny
-                i = (iy-1)*Nx + ix
+                i = (iy - 1) * Nx + ix
                 jx = ix
                 jy = iy - 1
                 if BC == "PBC"
@@ -123,7 +123,7 @@ begin
                     error("BC = $BC is not supported")
                 end
                 if 1 <= jy <= Ny
-                    j = (jy-1)*Nx + jx
+                    j = (jy - 1) * Nx + jx
                     Tyhop[i, j] = 1
                 end
             end
@@ -132,15 +132,15 @@ begin
     end
 
     function make_H_normal(Nx, Ny, μ, BC)
-        N = Nx*Ny
+        N = Nx * Ny
         Tx_plushop = make_x_plushop(Nx, Ny, BC)
         Tx_minushop = make_x_minushop(Nx, Ny, BC)
         Ty_plushop = make_y_plushop(Nx, Ny, BC)
         Ty_minushop = make_y_minushop(Nx, Ny, BC)
-        HN = sparse(I, N, N)*(-μ)
+        HN = sparse(I, N, N) * (-μ)
         t = 1.0
 
-        HN += -t*(Tx_plushop + Tx_minushop + Ty_plushop + Ty_minushop)
+        HN += -t * (Tx_plushop + Tx_minushop + Ty_plushop + Ty_minushop)
         return HN
     end
 
@@ -154,11 +154,11 @@ end
 begin
     function make_Δ(Δ)
         Nx, Ny = size(Δ)
-        N = Nx*Ny
+        N = Nx * Ny
         Δmat = spzeros(ComplexF64, N, N)
         for ix in 1:Nx
             for iy in 1:Ny
-                i = (iy-1)*Nx + ix
+                i = (iy - 1) * Nx + ix
                 Δmat[i, i] = Δ[ix, iy]
             end
         end
@@ -184,9 +184,9 @@ begin
     function update_H_sc!(H, Δ)
         matΔ = make_Δ(Δ)
         Nx, Ny = size(Δ)
-        N = Nx*Ny
-        H[1:N, (1 + N):2N] = matΔ
-        H[(1 + N):2N, 1:N] = matΔ'
+        N = Nx * Ny
+        H[1:N, (1 + N):(2N)] = matΔ
+        H[(1 + N):(2N), 1:N] = matΔ'
     end
 
     @assert typestable(update_H_sc!, (AbstractMatrix{ComplexF64}, Matrix{ComplexF64}))
@@ -195,11 +195,11 @@ end
 # ╔═╡ 75ec114a-9447-4735-9b9b-c734320bb6ae
 begin
     function calc_ωn(T, ωc)
-        M = Int((round(ωc/(T*π)))/2-1)
+        M = Int((round(ωc / (T * π))) / 2 - 1)
         println("num. of Matsubara freq: ", 2M)
         ωn = zeros(ComplexF64, 2M)
-        for n in 1:2M
-            ωn[n] = π*T*(2.0*(n-M-1)+1)*im
+        for n in 1:(2M)
+            ωn[n] = π * T * (2.0 * (n - M - 1) + 1) * im
         end
         return ωn
     end
@@ -218,8 +218,8 @@ begin
     function calc_Δi!(i, N, H, Δold, T, U, ωn; mixratio=0.5)
         j = i + N
         Gij = greensfunctions(i, j, ωn, H)
-        Δi = U*T*sum(Gij)
-        Δi = (1-mixratio)*Δold[i] + mixratio*Δi
+        Δi = U * T * sum(Gij)
+        Δi = (1 - mixratio) * Δold[i] + mixratio * Δi
         return Δi
     end
 
@@ -229,7 +229,7 @@ begin
 
     function calc_Δ!(Δnew, H, Δold, T, U, ωn; mixratio=0.5)
         Nx, Ny = size(Δold)
-        N = Nx*Ny
+        N = Nx * Ny
         map!(i -> calc_Δi!(i, N, H, Δold, T, U, ωn; mixratio=mixratio), Δnew, 1:N) #If you use pmap! instead of map!, you can do the parallel computation.
         return
     end
@@ -248,7 +248,7 @@ begin
     Δnew = zero(Δ)
     BC = "OBC" #open boundary condition
     #BC = "PBC" #periodic boundary condition
-    U  = -2
+    U = -2
     μ = -0.2
 
     H = make_H_sc(Nx, Ny, μ, Δ, BC)
@@ -262,7 +262,7 @@ begin
     for ite in 1:itemax
         calc_Δ!(Δnew, H, Δold, T, U, ωn)
         update_H_sc!(H, Δnew)
-        eps = sum(abs.(Δnew-Δold))/sum(abs.(Δold))
+        eps = sum(abs.(Δnew - Δold)) / sum(abs.(Δold))
         println("$ite $eps ", Δnew[ix, iy])
         Δold .= Δnew
         if eps < 1e-3
@@ -274,7 +274,7 @@ end
 # ╔═╡ 5e12c321-c89f-434e-8b2a-19934d0cd23f
 begin
     wmax = 10.0
-    beta = 1/T
+    beta = 1 / T
     basis = FiniteTempBasis(Fermionic(), beta, wmax, 1e-7)
     smpl = MatsubaraSampling(basis)
     ωn_s = valueim.(smpl.sampling_points, beta)
@@ -296,8 +296,8 @@ begin
         j = i + N
         Gij = greensfunctions(i, j, ωn, H)
         G0 = fit_ir(Gij, smpl_Matsubara, smpl_beta)
-        Δi = U*G0
-        Δi = (1-mixratio)*Δold[i] + mixratio*Δi
+        Δi = U * G0
+        Δi = (1 - mixratio) * Δold[i] + mixratio * Δi
         return Δi
     end
 
@@ -307,7 +307,7 @@ begin
 
     function calc_Δ_ir!(Δnew, H, Δold, T, U, ωn, smpl_Matsubara, smpl_beta; mixratio=0.5)
         Nx, Ny = size(Δold)
-        N = Nx*Ny
+        N = Nx * Ny
         map!(
             i -> calc_Δi_ir!(
                 i, N, H, Δold, T, U, ωn, smpl_Matsubara, smpl_beta; mixratio=mixratio),
@@ -330,7 +330,7 @@ let
     Δnew = zero(Δ)
     BC = "OBC" #open boundary condition
     #BC = "PBC" #periodic boundary condition
-    U  = -2
+    U = -2
     μ = -0.2
 
     H = make_H_sc(Nx, Ny, μ, Δ, BC)
@@ -339,7 +339,7 @@ let
         calc_Δ_ir!(Δnew, H, Δold, T, U, ωn_s, smpl, smpl_beta)
         update_H_sc!(H, Δnew)
 
-        eps = sum(abs.(Δnew-Δold))/sum(abs.(Δold))
+        eps = sum(abs.(Δnew - Δold)) / sum(abs.(Δold))
         println("$ite $eps ", Δnew[ix, iy])
         Δold .= Δnew
         if eps < 1e-4
@@ -359,17 +359,17 @@ begin
     M = 1000
     σ = zeros(ComplexF64, M)
     η = 0.05
-    σmin = -4.0 + im*η
-    σmax = 4.0+im*η
+    σmin = -4.0 + im * η
+    σmax = 4.0 + im * η
     for i in 1:M
-        σ[i] = (i-1)*(σmax-σmin)/(M-1) + σmin
+        σ[i] = (i - 1) * (σmax - σmin) / (M - 1) + σmin
     end
 
-    i = (iy-1)*Nx + ix
+    i = (iy - 1) * Nx + ix
     j = i
 
     Gij1 = greensfunctions(i, j, σ, H)
-    plot(real.(σ), (-1/π)*imag.(Gij1);
+    plot(real.(σ), (-1 / π) * imag.(Gij1);
         xlabel = "Energy [t]",
         ylabel = "Local DOS")
 end
@@ -389,20 +389,20 @@ end
 # ╔═╡ 72af392d-9d89-4085-901f-4c97083480d5
 begin
     function make_Htsc_normal(Nx, Ny, μ, BC, h, α)
-        N = Nx*Ny
+        N = Nx * Ny
         Tx_plushop = make_x_plushop(Nx, Ny, BC)
         Tx_minushop = make_x_minushop(Nx, Ny, BC)
         Ty_plushop = make_y_plushop(Nx, Ny, BC)
         Ty_minushop = make_y_minushop(Nx, Ny, BC)
-        HN = kron(sparse(I, N, N)*(-μ), σ0)
-        HN += kron(sparse(I, N, N)*(-h), σz) #Zeeman magnetic field
+        HN = kron(sparse(I, N, N) * (-μ), σ0)
+        HN += kron(sparse(I, N, N) * (-h), σz) #Zeeman magnetic field
         t = 1.0
 
-        HN += kron(-t*(Tx_plushop + Tx_minushop + Ty_plushop + Ty_minushop), σ0)
+        HN += kron(-t * (Tx_plushop + Tx_minushop + Ty_plushop + Ty_minushop), σ0)
 
-        Hax = kron((α/(2im))*(Tx_plushop - Tx_minushop), σy)
+        Hax = kron((α / (2im)) * (Tx_plushop - Tx_minushop), σy)
         HN += Hax
-        Hay = kron((α/(2im))*(Ty_plushop - Ty_minushop), σx)
+        Hay = kron((α / (2im)) * (Ty_plushop - Ty_minushop), σx)
         HN += Hay
 
         return HN
@@ -415,15 +415,15 @@ end
 begin
     function make_Δtsc(Δ)
         Nx, Ny = size(Δ)
-        N = Nx*Ny
+        N = Nx * Ny
         Δmat = spzeros(ComplexF64, N, N)
         for ix in 1:Nx
             for iy in 1:Ny
-                i = (iy-1)*Nx + ix
+                i = (iy - 1) * Nx + ix
                 Δmat[i, i] = Δ[ix, iy]
             end
         end
-        return kron(Δmat, im*σy)
+        return kron(Δmat, im * σy)
     end
 
     @assert typestable(make_Δtsc, (Matrix{ComplexF64},))
@@ -439,8 +439,9 @@ begin
         return H
     end
 
-    @assert typestable(make_Htsc_sc, (
-        Int64, Int64, Float64, Matrix{ComplexF64}, String, Float64, Float64))
+    @assert typestable(
+        make_Htsc_sc, (
+            Int64, Int64, Float64, Matrix{ComplexF64}, String, Float64, Float64))
 end
 
 # ╔═╡ 5dc554b2-bf57-4548-81bd-9ecd066ef405
@@ -448,8 +449,8 @@ begin
     function update_Htsc_sc!(H, Δ)
         matΔ = make_Δtsc(Δ)
         N, _ = size(matΔ)
-        H[1:N, (1 + N):2N] = matΔ
-        H[(1 + N):2N, 1:N] = matΔ'
+        H[1:N, (1 + N):(2N)] = matΔ
+        H[(1 + N):(2N), 1:N] = matΔ'
     end
 
     @assert typestable(update_Htsc_sc!, (AbstractMatrix{ComplexF64}, Matrix{ComplexF64}))
@@ -460,14 +461,14 @@ begin
     function calc_Δitsc_ir!(
             i, N, H, Δold, T, U, ωn, smpl_Matsubara, smpl_beta; mixratio=0.5)
         ispin = 1
-        ii = (i-1)*2 + ispin
+        ii = (i - 1) * 2 + ispin
         jspin = 2
-        jj = (i-1)*2 + jspin + N
+        jj = (i - 1) * 2 + jspin + N
 
         Gij = greensfunctions(ii, jj, ωn, H)
         G0 = fit_ir(Gij, smpl_Matsubara, smpl_beta)
-        Δi = U*G0
-        Δi = (1-mixratio)*Δold[i] + mixratio*Δi
+        Δi = U * G0
+        Δi = (1 - mixratio) * Δold[i] + mixratio * Δi
         return Δi
     end
 
@@ -478,7 +479,7 @@ begin
     function calc_Δtsc_ir!(
             Δnew, H, Δold, T, U, ωn, smpl_Matsubara, smpl_beta, ; mixratio=0.5)
         Nx, Ny = size(Δold)
-        N = Nx*Ny*2
+        N = Nx * Ny * 2
         map!(
             i -> calc_Δitsc_ir!(
                 i, N, H, Δold, T, U, ωn, smpl_Matsubara, smpl_beta; mixratio=mixratio),
@@ -495,7 +496,7 @@ end
 Htsc = let
     T = 0.01
 
-    beta = 1/T
+    beta = 1 / T
     wmax = 10.0
 
     basis = FiniteTempBasis(Fermionic(), beta, wmax, 1e-5)
@@ -510,7 +511,7 @@ Htsc = let
 
     Nx = 16
     Ny = 16
-    Δ = 3*ones(ComplexF64, Nx, Ny)
+    Δ = 3 * ones(ComplexF64, Nx, Ny)
     Δold = copy(Δ)
     Δnew = zero(Δ)
     BC = "OBC"
@@ -520,15 +521,15 @@ Htsc = let
 
     ix = Nx ÷ 2
     iy = Ny ÷ 2
-    i = (iy-1)*Nx + ix
+    i = (iy - 1) * Nx + ix
     j = i
 
     for ite in 1:itemax
         calc_Δtsc_ir!(Δnew, Htsc, Δold, T, U, ωn, smpl, smpl_beta; mixratio=1)
         update_Htsc_sc!(Htsc, Δnew)
 
-        eps = sum(abs.(Δnew-Δold))/sum(abs.(Δold))
-        println("$ite $eps ", Δnew[ix, iy], " ave: ", sum(abs.(Δnew))/length(Δnew))
+        eps = sum(abs.(Δnew - Δold)) / sum(abs.(Δold))
+        println("$ite $eps ", Δnew[ix, iy], " ave: ", sum(abs.(Δnew)) / length(Δnew))
 
         Δold .= Δnew
         if eps < 1e-2
@@ -548,25 +549,25 @@ let
     M = 1000
     σ = zeros(ComplexF64, M)
     η = 0.01
-    σmin = -4.0 + im*η
-    σmax = 4.0+im*η
+    σmin = -4.0 + im * η
+    σmax = 4.0 + im * η
     for i in 1:M
-        σ[i] = (i-1)*(σmax-σmin)/(M-1) + σmin
+        σ[i] = (i - 1) * (σmax - σmin) / (M - 1) + σmin
     end
 
     ix = Nx ÷ 2
     iy = Ny ÷ 2
     ispin = 1
 
-    i = ((iy-1)*Nx + ix-1)*2 + ispin
+    i = ((iy - 1) * Nx + ix - 1) * 2 + ispin
     j = i
     Gij1 = greensfunctions(i, j, σ, Htsc)
 
     ispin = 2
-    i = ((iy-1)*Nx + ix-1)*2 + ispin
+    i = ((iy - 1) * Nx + ix - 1) * 2 + ispin
     j = i
     Gij2 = greensfunctions(i, j, σ, Htsc)
-    plot(real.(σ), (-1/π)*imag.(Gij1 .+ Gij2);
+    plot(real.(σ), (-1 / π) * imag.(Gij1 .+ Gij2);
         xlabel = "Energy [t]",
         ylabel = "Local DOS")
 end
@@ -577,15 +578,15 @@ let
     iy = Ny ÷ 2
     ispin = 1
 
-    i = ((iy-1)*Nx + ix-1)*2 + ispin
+    i = ((iy - 1) * Nx + ix - 1) * 2 + ispin
     j = i
     Gij1 = greensfunctions(i, j, σ, Htsc)
 
     ispin = 2
-    i = ((iy-1)*Nx + ix-1)*2 + ispin
+    i = ((iy - 1) * Nx + ix - 1) * 2 + ispin
     j = i
     Gij2 = greensfunctions(i, j, σ, Htsc)
-    plot(real.(σ), (-1/π)*imag.(Gij1 .+ Gij2);
+    plot(real.(σ), (-1 / π) * imag.(Gij1 .+ Gij2);
         xlabel = "Energy [t]",
         ylabel = "Local DOS")
 end

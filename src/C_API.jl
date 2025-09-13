@@ -77,7 +77,8 @@ function spir_sampling_release(obj)
 end
 
 function spir_sampling_clone(src)
-    ccall((:spir_sampling_clone, libsparseir), Ptr{spir_sampling}, (Ptr{spir_sampling},), src)
+    ccall(
+        (:spir_sampling_clone, libsparseir), Ptr{spir_sampling}, (Ptr{spir_sampling},), src)
 end
 
 function spir_sampling_is_assigned(obj)
@@ -85,7 +86,8 @@ function spir_sampling_is_assigned(obj)
 end
 
 function _spir_sampling_get_raw_ptr(obj)
-    ccall((:_spir_sampling_get_raw_ptr, libsparseir), Ptr{Cvoid}, (Ptr{spir_sampling},), obj)
+    ccall(
+        (:_spir_sampling_get_raw_ptr, libsparseir), Ptr{Cvoid}, (Ptr{spir_sampling},), obj)
 end
 
 mutable struct _spir_sve_result end
@@ -97,7 +99,8 @@ function spir_sve_result_release(obj)
 end
 
 function spir_sve_result_clone(src)
-    ccall((:spir_sve_result_clone, libsparseir), Ptr{spir_sve_result}, (Ptr{spir_sve_result},), src)
+    ccall((:spir_sve_result_clone, libsparseir),
+        Ptr{spir_sve_result}, (Ptr{spir_sve_result},), src)
 end
 
 function spir_sve_result_is_assigned(obj)
@@ -105,7 +108,8 @@ function spir_sve_result_is_assigned(obj)
 end
 
 function _spir_sve_result_get_raw_ptr(obj)
-    ccall((:_spir_sve_result_get_raw_ptr, libsparseir), Ptr{Cvoid}, (Ptr{spir_sve_result},), obj)
+    ccall((:_spir_sve_result_get_raw_ptr, libsparseir),
+        Ptr{Cvoid}, (Ptr{spir_sve_result},), obj)
 end
 
 """
@@ -1679,7 +1683,6 @@ const SPARSEIR_VERSION_PATCH = 2
 # exports
 const PREFIXES = ["spir_", "SPIR_"]
 for name in names(@__MODULE__; all=true), prefix in PREFIXES
-
     if startswith(string(name), prefix)
         @eval export $name
     end

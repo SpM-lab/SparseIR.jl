@@ -14,7 +14,7 @@ mutable struct TauSampling{T<:Real,B<:AbstractBasis} <: AbstractSampling{T,Float
     function TauSampling{T,B}(ptr::Ptr{spir_sampling}, sampling_points::Vector{T},
             basis::B) where {T<:Real,B<:AbstractBasis}
         obj = new{T,B}(ptr, sampling_points, basis)
-        finalizer(s->spir_sampling_release(s.ptr), obj)
+        finalizer(s -> spir_sampling_release(s.ptr), obj)
         return obj
     end
 end
@@ -39,7 +39,7 @@ mutable struct MatsubaraSampling{T<:MatsubaraFreq,B<:AbstractBasis} <:
     function MatsubaraSampling{T,B}(ptr::Ptr{spir_sampling}, sampling_points::Vector{T},
             positive_only::Bool, basis::B) where {T<:MatsubaraFreq,B<:AbstractBasis}
         obj = new{T,B}(ptr, sampling_points, positive_only, basis)
-        finalizer(s->spir_sampling_release(s.ptr), obj)
+        finalizer(s -> spir_sampling_release(s.ptr), obj)
         return obj
     end
 end
@@ -78,7 +78,8 @@ function TauSampling(basis::AbstractBasis; sampling_points=nothing, use_positive
     if !_is_column_major_contiguous(sampling_points)
         error("Sampling points must be contiguous")
     end
-    ptr = C_API.spir_tau_sampling_new(_get_ptr(basis), length(sampling_points), sampling_points, status)
+    ptr = C_API.spir_tau_sampling_new(
+        _get_ptr(basis), length(sampling_points), sampling_points, status)
     status[] == C_API.SPIR_COMPUTATION_SUCCESS ||
         error("Failed to create tau sampling: status=$(status[])")
     ptr != C_API.C_NULL || error("Failed to create tau sampling: null pointer returned")
@@ -94,18 +95,21 @@ the default Matsubara sampling points from the basis are used.
 
 If `positive_only=true`, assumes functions are symmetric in Matsubara frequency.
 """
-function MatsubaraSampling(basis::AbstractBasis; positive_only=false, sampling_points=nothing)
+function MatsubaraSampling(
+        basis::AbstractBasis; positive_only=false, sampling_points=nothing)
     if sampling_points === nothing
         # Get default Matsubara sampling points from basis
         status = Ref{Int32}(-100)
         n_points = Ref{Int32}(-1)
 
-        ret = C_API.spir_basis_get_n_default_matsus(_get_ptr(basis), positive_only, n_points)
+        ret = C_API.spir_basis_get_n_default_matsus(
+            _get_ptr(basis), positive_only, n_points)
         ret == C_API.SPIR_COMPUTATION_SUCCESS ||
             error("Failed to get number of default Matsubara points")
 
         points_array = Vector{Int64}(undef, n_points[])
-        ret = C_API.spir_basis_get_default_matsus(_get_ptr(basis), positive_only, points_array)
+        ret = C_API.spir_basis_get_default_matsus(
+            _get_ptr(basis), positive_only, points_array)
         ret == C_API.SPIR_COMPUTATION_SUCCESS ||
             error("Failed to get default Matsubara points")
 
@@ -136,7 +140,8 @@ function MatsubaraSampling(basis::AbstractBasis; positive_only=false, sampling_p
         error("Failed to create Matsubara sampling: status=$(status[])")
     ptr != C_NULL || error("Failed to create Matsubara sampling: null pointer returned")
 
-    return MatsubaraSampling{eltype(sampling_points),typeof(basis)}(ptr, sampling_points, positive_only, basis)
+    return MatsubaraSampling{eltype(sampling_points),typeof(basis)}(
+        ptr, sampling_points, positive_only, basis)
 end
 
 # Common interface functions
@@ -287,7 +292,8 @@ Fit basis coefficients from values at sampling points using the C API.
 
 For multidimensional arrays, `dim` specifies which dimension corresponds to the sampling points.
 """
-function fit(sampling::Union{TauSampling,MatsubaraSampling}, al::Array{T,N}; dim=1) where {
+function fit(
+        sampling::Union{TauSampling,MatsubaraSampling}, al::Array{T,N}; dim=1) where {
         T,N}
     # Determine output dimensions
     output_dims = collect(size(al))
@@ -413,7 +419,11 @@ function fit!(
 end
 
 # Convenience property accessors (similar to SparseIR.jl)
-Base.getproperty(s::TauSampling, p::Symbol) = p === :tau ? sampling_points(s) :
-                                              getfield(s, p)
-Base.getproperty(s::MatsubaraSampling, p::Symbol) = p === :ωn ? sampling_points(s) :
-                                                    getfield(s, p)
+function Base.getproperty(s::TauSampling, p::Symbol)
+    p === :tau ? sampling_points(s) :
+    getfield(s, p)
+end
+function Base.getproperty(s::MatsubaraSampling, p::Symbol)
+    p === :ωn ? sampling_points(s) :
+    getfield(s, p)
+end

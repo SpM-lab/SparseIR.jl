@@ -21,11 +21,13 @@
         return dims
     end
 
-    function generate_random_coeffs(::Type{<:Real}, random_value_real, random_value_imag, pole)
+    function generate_random_coeffs(
+            ::Type{<:Real}, random_value_real, random_value_imag, pole)
         (2 * random_value_real - 1.0) * sqrt(abs(pole))
     end
 
-    function generate_random_coeffs(::Type{<:Complex}, random_value_real, random_value_imag, pole)
+    function generate_random_coeffs(
+            ::Type{<:Complex}, random_value_real, random_value_imag, pole)
         real_part = (2 * random_value_real - 1.0) * sqrt(abs(pole))
         imag_part = (2 * random_value_imag - 1.0) * sqrt(abs(pole))
         return complex(real_part, imag_part)
@@ -296,13 +298,15 @@
         # Matsubara Sampling
         println("Matsubara sampling")
         num_matsubara_points_org_ref = Ref{Cint}(0)
-        status[] = SparseIR.spir_basis_get_n_default_matsus(basis, positive_only, num_matsubara_points_org_ref)
+        status[] = SparseIR.spir_basis_get_n_default_matsus(
+            basis, positive_only, num_matsubara_points_org_ref)
         @test status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
         num_matsubara_points_org = num_matsubara_points_org_ref[]
         @test num_matsubara_points_org > 0
 
         matsubara_points_org = Vector{Int64}(undef, num_matsubara_points_org)
-        status[] = SparseIR.spir_basis_get_default_matsus(basis, positive_only, matsubara_points_org)
+        status[] = SparseIR.spir_basis_get_default_matsus(
+            basis, positive_only, matsubara_points_org)
         @test status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         matsubara_sampling_status = Ref{Cint}(-100)
@@ -319,7 +323,8 @@
         end
 
         num_matsubara_points_ref = Ref{Cint}(0)
-        status[] = SparseIR.spir_sampling_get_npoints(matsubara_sampling, num_matsubara_points_ref)
+        status[] = SparseIR.spir_sampling_get_npoints(
+            matsubara_sampling, num_matsubara_points_ref)
         @test status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
         num_matsubara_points = num_matsubara_points_ref[]
         matsubara_points = Vector{Int64}(undef, num_matsubara_points)
@@ -398,7 +403,8 @@
         # Convert IR coefficients back to DLR coefficients (this should reconstruct the original coeffs)
         # Note: C++ version has a bug here - it creates g_DLR_reconst with basis_size but calls with npoles dims
         # We follow the C++ version exactly to match behavior
-        g_DLR_reconst = Array{T,ndim}(undef, _get_dims(basis_size, extra_dims, target_dim, ndim)...)
+        g_DLR_reconst = Array{T,ndim}(
+            undef, _get_dims(basis_size, extra_dims, target_dim, ndim)...)
         status[] = dlr_from_IR(
             dlr, order, ndim, _get_dims(npoles, extra_dims, target_dim, ndim),
             target_dim, g_IR, g_DLR_reconst)
@@ -483,13 +489,15 @@
 
         gIR = Array{T,ndim}(undef, _get_dims(basis_size, extra_dims, target_dim, ndim)...)
         gIR2 = Array{T,ndim}(undef, _get_dims(basis_size, extra_dims, target_dim, ndim)...)
-        gtau = Array{T,ndim}(undef, _get_dims(num_tau_points, extra_dims, target_dim, ndim)...)
+        gtau = Array{T,ndim}(
+            undef, _get_dims(num_tau_points, extra_dims, target_dim, ndim)...)
         giw_reconst = Array{ComplexF64,ndim}(
             undef, _get_dims(num_matsubara_points, extra_dims, target_dim, ndim)...)
 
         # Matsubara -> IR
         begin
-            gIR_work = Array{ComplexF64,ndim}(undef, _get_dims(basis_size, extra_dims, target_dim, ndim)...)
+            gIR_work = Array{ComplexF64,ndim}(
+                undef, _get_dims(basis_size, extra_dims, target_dim, ndim)...)
             status[] = SparseIR.spir_sampling_fit_zz(
                 matsubara_sampling, order, ndim, dims_matsubara, target_dim, giw_from_DLR, gIR_work
             )
@@ -558,7 +566,8 @@
         begin
             target_dim = 0
             extra_dims = Int[]
-            println("Integration test for bosonic LogisticKernel, ColMajor, target_dim = ", target_dim)
+            println("Integration test for bosonic LogisticKernel, ColMajor, target_dim = ",
+                target_dim)
             integration_test(Float64, beta, wmax, epsilon, extra_dims, target_dim,
                 SparseIR.SPIR_ORDER_COLUMN_MAJOR, tol, positive_only)
             if !positive_only
@@ -571,7 +580,8 @@
         begin
             target_dim = 0
             extra_dims = Int[]
-            println("Integration test for bosonic LogisticKernel, RowMajor, target_dim = ", target_dim)
+            println("Integration test for bosonic LogisticKernel, RowMajor, target_dim = ",
+                target_dim)
             integration_test(Float64, beta, wmax, epsilon, extra_dims, target_dim,
                 SparseIR.SPIR_ORDER_ROW_MAJOR, tol, positive_only)
             if !positive_only
@@ -583,7 +593,8 @@
         # Test 4: Multi-dimensional cases with extra dims = [2,3,4]
         for target_dim in 0:3
             extra_dims = [2, 3, 4]
-            println("Integration test for bosonic LogisticKernel, ColMajor, target_dim = ", target_dim)
+            println("Integration test for bosonic LogisticKernel, ColMajor, target_dim = ",
+                target_dim)
             integration_test(Float64, beta, wmax, epsilon, extra_dims, target_dim,
                 SparseIR.SPIR_ORDER_COLUMN_MAJOR, tol, positive_only)
         end

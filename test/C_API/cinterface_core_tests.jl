@@ -52,7 +52,8 @@ end
     using SparseIR
 
     # Helper function equivalent to C++ _spir_basis_new
-    function _spir_basis_new(statistics::Integer, beta::Float64, omega_max::Float64, epsilon::Float64)
+    function _spir_basis_new(
+            statistics::Integer, beta::Float64, omega_max::Float64, epsilon::Float64)
         status = Ref{Int32}(0)
 
         # Create logistic kernel
@@ -175,7 +176,8 @@ end
     using SparseIR
 
     # Helper function equivalent to C++ _spir_basis_new
-    function _spir_basis_new(statistics::Integer, beta::Float64, omega_max::Float64, epsilon::Float64)
+    function _spir_basis_new(
+            statistics::Integer, beta::Float64, omega_max::Float64, epsilon::Float64)
         status = Ref{Int32}(0)
 
         # Create logistic kernel
