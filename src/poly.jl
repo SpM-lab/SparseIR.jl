@@ -91,7 +91,8 @@ difficulties of the integrand may occur (e.g. singularities, discontinuities).
 """
 function overlap(poly::PiecewiseLegendrePoly, f::F;
         rtol=eps(), return_error=false, maxevals=10^4, points=Float64[]) where {F}
-    int_result, int_error = quadgk(x -> poly(x) * f(x),
+    int_result,
+    int_error = quadgk(x -> poly(x) * f(x),
         unique!(sort!([knots(poly); points]))...;
         rtol, order=10, maxevals)
     if return_error
@@ -106,7 +107,7 @@ end
 
 Get polynomial for the `n`th derivative.
 """
-function deriv(poly::PiecewiseLegendrePoly, ::Val{n}=Val(1)) where {n}
+function deriv(poly::PiecewiseLegendrePoly, (::Val{n})=Val(1)) where {n}
     ddata = legder(poly.data, n)
 
     @views @inbounds for i in axes(ddata, 2)
@@ -382,7 +383,7 @@ Obtain extrema of Fourier-transformed polynomial.
 """
 function find_extrema(û::PiecewiseLegendreFT; part=nothing, grid=DEFAULT_GRID,
         positive_only=false)
-    f  = func_for_part(û, part)
+    f = func_for_part(û, part)
     x₀ = discrete_extrema(f, grid)
     x₀ .= 2x₀ .+ zeta(statistics(û))
     positive_only || symmetrize_matsubara!(x₀)

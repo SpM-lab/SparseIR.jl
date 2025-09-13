@@ -18,8 +18,8 @@ struct Rule{T<:AbstractFloat}
     x_forward  :: Vector{T}
     x_backward :: Vector{T}
 
-    function Rule(x::Vector{T}, w::Vector{T}, a=-one(T), b=one(T),
-                  x_forward=x .- a, x_backward=b .- x) where {T}
+    function Rule(x::Vector{T}, w::Vector{T}, a=(-one(T)), b=one(T),
+            x_forward=x .- a, x_backward=b .- x) where {T}
         a ≤ b || error("a must be ≤ b")
         for xx in x
             a ≤ xx ≤ b || error("all x must be in [a, b], found $xx outside of [$a, $b]")
@@ -92,7 +92,7 @@ end
 
 Gauss-Legendre quadrature with `n` points on [-1, 1].
 """
-legendre(n, ::Type{T}=Float64) where {T} = Rule(gauss(T, n)...)
+legendre(n, (::Type{T})=Float64) where {T} = Rule(gauss(T, n)...)
 
 """
     legendre_collocation(rule, n=length(rule.x))
@@ -108,5 +108,5 @@ end
 
 function Base.convert(::Type{Rule{T}}, rule::Rule) where {T}
     Rule(T.(rule.x), T.(rule.w), T(rule.a), T(rule.b),
-         T.(rule.x_forward), T.(rule.x_backward))
+        T.(rule.x_forward), T.(rule.x_backward))
 end

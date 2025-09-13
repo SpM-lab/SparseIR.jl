@@ -35,7 +35,8 @@ end
 
 function (tp::TauPoles)(τ::Vector{<:Real})
     for τ in τ
-        0 ≤ τ ≤ tp.β || throw(DomainError(τ, "τ must be in [0, β], found $τ outside of [0, $(tp.β)]]"))
+        0 ≤ τ ≤ tp.β ||
+            throw(DomainError(τ, "τ must be in [0, β], found $τ outside of [0, $(tp.β)]]"))
     end
 
     x = reshape(2τ ./ tp.β .- 1, (1, :))
@@ -65,7 +66,7 @@ based on the zeros of the IR basis functions on the real axis, which is a heuris
 expect that difference to matter, but please don't blame the DLR authors if we were wrong :-)
 """
 struct DiscreteLehmannRepresentation{S<:Statistics,B<:AbstractBasis{S},T<:AbstractFloat,
-                                     FMAT<:SVD} <: AbstractBasis{S}
+    FMAT<:SVD} <: AbstractBasis{S}
     basis  :: B
     poles  :: Vector{T}
     u      :: TauPoles{S}
@@ -75,7 +76,7 @@ struct DiscreteLehmannRepresentation{S<:Statistics,B<:AbstractBasis{S},T<:Abstra
 end
 
 function DiscreteLehmannRepresentation(b::AbstractBasis,
-                                       poles=default_omega_sampling_points(b))
+        poles=default_omega_sampling_points(b))
     u = TauPoles(statistics(b), β(b), poles)
     uhat = MatsubaraPoles(statistics(b), β(b), poles)
 
