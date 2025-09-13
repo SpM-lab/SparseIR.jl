@@ -56,13 +56,13 @@ end
 Λ(kernel::RegularizedBoseKernel) = kernel.Λ
 
 struct SVEHintsLogistic{T} <: AbstractSVEHints
-    kernel :: LogisticKernel
-    ε      :: T
+    kernel::LogisticKernel
+    ε::T
 end
 
 struct SVEHintsRegularizedBose{T} <: AbstractSVEHints
-    kernel :: RegularizedBoseKernel
-    ε      :: T
+    kernel::RegularizedBoseKernel
+    ε::T
 end
 
 struct SVEHintsReduced{T<:AbstractSVEHints} <: AbstractSVEHints
@@ -198,7 +198,7 @@ Segments for piecewise polynomials on the ``x`` axis.
 List of segments on the ``x`` axis for the associated piecewise polynomial. Should reflect
 the approximate position of roots of a high-order singular function in ``x``.
 """
-function segments_x(hints::SVEHintsLogistic, ::Type{T}=Float64) where {T}
+function segments_x(hints::SVEHintsLogistic, (::Type{T})=Float64) where {T}
     nzeros = max(round(Int, 15 * log10(hints.kernel.Λ)), 1)
     temp = T(0.143) * range(0; length=nzeros)
     diffs = @. inv(cosh(temp))
@@ -215,13 +215,14 @@ Segments for piecewise polynomials on the ``y`` axis.
 List of segments on the ``y`` axis for the associated piecewise polynomial. Should reflect
 the approximate position of roots of a high-order singular function in ``y``.
 """
-function segments_y(hints::SVEHintsLogistic, ::Type{T}=Float64) where {T}
+function segments_y(hints::SVEHintsLogistic, (::Type{T})=Float64) where {T}
     nzeros = max(round(Int, 20 * log10(hints.kernel.Λ)), 2)
 
     # Zeros around -1 and 1 are distributed asymptotically identically
     diffs = T[0.01523, 0.03314, 0.04848, 0.05987, 0.06703, 0.07028, 0.07030,
-              0.06791, 0.06391, 0.05896, 0.05358, 0.04814, 0.04288, 0.03795,
-              0.03342, 0.02932, 0.02565, 0.02239, 0.01951, 0.01699][1:min(nzeros, 20)]
+        0.06791, 0.06391, 0.05896, 0.05358, 0.04814, 0.04288, 0.03795,
+        0.03342, 0.02932, 0.02565, 0.02239, 0.01951, 0.01699][1:min(
+        nzeros, 20)]
 
     temp = T(0.141) * (20:(nzeros - 1))
     trailing_diffs = [0.25 * exp(-x) for x in temp]
@@ -232,7 +233,7 @@ function segments_y(hints::SVEHintsLogistic, ::Type{T}=Float64) where {T}
     return T[-one(T); zeros; zero(T); -reverse(zeros); one(T)]
 end
 
-function segments_x(hints::SVEHintsRegularizedBose, ::Type{T}=Float64) where {T}
+function segments_x(hints::SVEHintsRegularizedBose, (::Type{T})=Float64) where {T}
     # Somewhat less accurate...
     nzeros = max(round(Int, 15 * log10(hints.kernel.Λ)), 15)
     temp = T(0.18) * range(0; length=nzeros)
@@ -242,7 +243,7 @@ function segments_x(hints::SVEHintsRegularizedBose, ::Type{T}=Float64) where {T}
     return T[-reverse(zeros); zero(T); zeros]
 end
 
-function segments_y(hints::SVEHintsRegularizedBose, ::Type{T}=Float64) where {T}
+function segments_y(hints::SVEHintsRegularizedBose, (::Type{T})=Float64) where {T}
     nzeros = max(round(Int, 20 * log10(hints.kernel.Λ)), 20)
     i = range(0; length=nzeros)
     diffs = @. T(0.12 / exp(0.0337 * i * log(i + 1)))
@@ -267,7 +268,7 @@ function matrix_from_gauss(kernel, gauss_x::Rule{T}, gauss_y::Rule{T})::Matrix{T
     Threads.@threads for i in eachindex(gauss_x.x)
         @inbounds @simd for j in eachindex(gauss_y.x)
             res[i, j] = kernel(gauss_x.x[i], gauss_y.x[j],
-                               gauss_x.x_forward[i], gauss_x.x_backward[i])
+                gauss_x.x_forward[i], gauss_x.x_backward[i])
         end
     end
     res
@@ -351,16 +352,16 @@ The parameters `x₊` and `x₋`, if given, shall contain the values of `x - x�
 cancellation expected.
 """
 function (kernel::AbstractKernel)(x, y,
-                                  x₊=x - first(xrange(kernel)),
-                                  x₋=last(xrange(kernel)) - x)
+        x₊=x - first(xrange(kernel)),
+        x₋=last(xrange(kernel)) - x)
     @boundscheck checkbounds(kernel, x, y)
     u₊, u₋, v = compute_uv(kernel.Λ, x, y, x₊, x₋)
     return compute(kernel, u₊, u₋, v)
 end
 
 function (kernel::LogisticKernelOdd)(x, y,
-                                     x₊=x - first(xrange(kernel)),
-                                     x₋=last(xrange(kernel)) - x)
+        x₊=x - first(xrange(kernel)),
+        x₋=last(xrange(kernel)) - x)
     # For x * y around 0, antisymmetrization introduces cancellation, which
     # reduces the relative precision. To combat this, we replace the
     # values with the explicit form
@@ -375,8 +376,8 @@ function (kernel::LogisticKernelOdd)(x, y,
 end
 
 function (kernel::RegularizedBoseKernelOdd)(x, y,
-                                            x₊=x - first(xrange(kernel)),
-                                            x₋=last(xrange(kernel)) - x)
+        x₊=x - first(xrange(kernel)),
+        x₋=last(xrange(kernel)) - x)
     # For x * y around 0, antisymmetrization introduces cancellation, which
     # reduces the relative precision. To combat this, we replace the
     # values with the explicit form.
@@ -391,10 +392,10 @@ function (kernel::RegularizedBoseKernelOdd)(x, y,
     end
 end
 
-function segments_x(hints::SVEHintsReduced, ::Type{T}=Float64) where {T}
+function segments_x(hints::SVEHintsReduced, (::Type{T})=Float64) where {T}
     symm_segments(segments_x(hints.inner_hints, T))
 end
-function segments_y(hints::SVEHintsReduced, ::Type{T}=Float64) where {T}
+function segments_y(hints::SVEHintsReduced, (::Type{T})=Float64) where {T}
     symm_segments(segments_y(hints.inner_hints, T))
 end
 

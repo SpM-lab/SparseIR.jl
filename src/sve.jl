@@ -35,7 +35,7 @@ struct SamplingSVE{T<:AbstractFloat,K<:AbstractKernel} <: AbstractSVE
     gauss_y :: Rule{T}
 end
 
-function SamplingSVE(kernel, ε, ::Type{T}=Float64; n_gauss=nothing) where {T}
+function SamplingSVE(kernel, ε, (::Type{T})=Float64; n_gauss=nothing) where {T}
     sve_hints_ = sve_hints(kernel, ε)
     n_gauss = something(n_gauss, ngauss(sve_hints_))
     rule = legendre(n_gauss, T)

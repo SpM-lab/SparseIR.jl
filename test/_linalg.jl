@@ -109,7 +109,8 @@ end
         T(0) T(2)]
         @test U * S * Vt ≈ A
 
-        (cu, su), (smax, smin), (cv, sv) = SparseIR._LinAlg.svd2x2(T(1e-100), T(1),
+        (cu, su), (smax, smin),
+        (cv, sv) = SparseIR._LinAlg.svd2x2(T(1e-100), T(1),
             T(1e-100))
         @test cu ≈ 1.0
         @test su ≈ 1e-100
@@ -131,7 +132,8 @@ end
 
 @testitem "svd of 'more lower' 2x2 with T = $T" begin
     for T in (Float64, SparseIR.Float64x2)
-        (cu, su), (smax, smin), (cv, sv) = SparseIR._LinAlg.svd2x2(T(1), T(1e-100),
+        (cu, su), (smax, smin),
+        (cv, sv) = SparseIR._LinAlg.svd2x2(T(1), T(1e-100),
             T(1e100), T(1))
         @test cu ≈ 1e-100
         @test su ≈ 1.0

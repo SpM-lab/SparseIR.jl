@@ -199,7 +199,7 @@ function (aug::TauConst)(n::BosonicFreq)
 end
 (::TauConst)(::FermionicFreq) = error("TauConst is not a Fermionic basis.")
 
-function deriv(aug::TauConst, ::Val{n}=Val(1)) where {n}
+function deriv(aug::TauConst, (::Val{n})=Val(1)) where {n}
     iszero(n) && return aug
     return τ -> zero(β(aug))
 end
@@ -210,8 +210,8 @@ end
 Linear function in imaginary time, antisymmetric around β/2.
 """
 struct TauLinear <: AbstractAugmentation
-    β    :: Float64
-    norm :: Float64
+    β::Float64
+    norm::Float64
     function TauLinear(β)
         β > 0 || throw(DomainError(β, "Temperature must be positive."))
         norm = sqrt(3 / β)
@@ -233,7 +233,7 @@ function (aug::TauLinear)(n::BosonicFreq)
 end
 (::TauLinear)(::FermionicFreq) = error("TauLinear is not a Fermionic basis.")
 
-function deriv(aug::TauLinear, ::Val{n}=Val(1)) where {n}
+function deriv(aug::TauLinear, (::Val{n})=Val(1)) where {n}
     iszero(n) && return aug
     isone(n) && return τ -> aug.norm * 2 / β(aug)
     return τ -> zero(β(aug))
