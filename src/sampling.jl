@@ -1,105 +1,150 @@
-"""
-    TauSampling <: AbstractSampling
-
-Sparse sampling in imaginary time.
-
-Allows the transformation between the IR basis and a set of sampling points
-in (scaled/unscaled) imaginary time.
-"""
-struct TauSampling{T,TMAT,F,B} <: AbstractSampling{T,TMAT,F}
-    sampling_points :: Vector{T}
-    matrix          :: Matrix{TMAT}
-    matrix_svd      :: F
-    basis           :: B
-end
 
 """
-    TauSampling(basis; sampling_points=default_tau_sampling_points(basis), factorize=true)
+TauSampling{T,B} <: AbstractSampling
 
-Construct a `TauSampling` object. If not given, the `sampling_points` are chosen
-as the extrema of the highest-order basis function in imaginary time. This turns
-out to be close to optimal with respect to conditioning for this size (within a
-few percent). `factorize` controls whether the SVD decomposition is computed.
+Sparse sampling in imaginary time using the C API.
+
+Allows transformation between IR basis coefficients and sampling points in imaginary time.
 """
-function TauSampling(basis::AbstractBasis;
-        sampling_points=default_tau_sampling_points(basis), factorize=true)
-    matrix = eval_matrix(TauSampling, basis, sampling_points)
-    matrix_svd = factorize ? svd(matrix) : nothing
-    sampling = TauSampling(sampling_points, matrix, matrix_svd, basis)
-    if factorize && iswellconditioned(basis) && cond(sampling) > 1e8
-        @warn "Sampling matrix is poorly conditioned (cond = $(cond(sampling)))."
+mutable struct TauSampling{T<:Real,B<:AbstractBasis} <: AbstractSampling{T,Float64,Nothing}
+    ptr::Ptr{spir_sampling}
+    sampling_points::Vector{T}
+    basis::B
+
+    function TauSampling{T,B}(ptr::Ptr{spir_sampling}, sampling_points::Vector{T},
+            basis::B) where {T<:Real,B<:AbstractBasis}
+        obj = new{T,B}(ptr, sampling_points, basis)
+        finalizer(s -> spir_sampling_release(s.ptr), obj)
+        return obj
     end
-    return sampling
 end
 
-Base.getproperty(s::TauSampling, p::Symbol) = p === :τ ? sampling_points(s) : getfield(s, p)
+const TauSampling64F = TauSampling{Float64,FiniteTempBasis{Fermionic,LogisticKernel}}
+const TauSampling64B = TauSampling{Float64,FiniteTempBasis{Bosonic,LogisticKernel}}
 
 """
-    MatsubaraSampling <: AbstractSampling
+MatsubaraSampling{T,B} <: AbstractSampling
 
-Sparse sampling in Matsubara frequencies.
+Sparse sampling in Matsubara frequencies using the C API.
 
-Allows the transformation between the IR basis and a set of sampling points
-in (scaled/unscaled) imaginary frequencies.
+Allows transformation between IR basis coefficients and sampling points in Matsubara frequencies.
 """
-struct MatsubaraSampling{T<:MatsubaraFreq,TMAT,F,B<:AbstractBasis} <:
-       AbstractSampling{T,TMAT,F}
-    sampling_points :: Vector{T}
-    matrix          :: Matrix{TMAT}
-    matrix_svd      :: F
-    positive_only   :: Bool
-    basis           :: B
+mutable struct MatsubaraSampling{T<:MatsubaraFreq,B<:AbstractBasis} <:
+               AbstractSampling{T,ComplexF64,Nothing}
+    ptr::Ptr{spir_sampling}
+    sampling_points::Vector{T}
+    positive_only::Bool
+    basis::B
+
+    function MatsubaraSampling{T,B}(ptr::Ptr{spir_sampling}, sampling_points::Vector{T},
+            positive_only::Bool, basis::B) where {T<:MatsubaraFreq,B<:AbstractBasis}
+        obj = new{T,B}(ptr, sampling_points, positive_only, basis)
+        finalizer(s -> spir_sampling_release(s.ptr), obj)
+        return obj
+    end
+end
+
+const MatsubaraSampling64F = MatsubaraSampling{
+    FermionicFreq,FiniteTempBasis{Fermionic,LogisticKernel}}
+const MatsubaraSampling64B = MatsubaraSampling{
+    BosonicFreq,FiniteTempBasis{Bosonic,LogisticKernel}}
+
+# Convenience constructors
+
+"""
+    TauSampling(basis::AbstractBasis; sampling_points=nothing, use_positive_taus=false)
+
+Construct a `TauSampling` object from a basis. If `sampling_points` is not provided,
+the default tau sampling points from the basis are used.
+
+If `use_positive_taus=false` (default), the sampling points are in the range [-β/2, β/2].
+
+If `use_positive_taus=true`, the sampling points are folded to the positive tau domain [0, β).
+This was the default behavior in SparseIR.jl of versions 1.x.x.
+"""
+function TauSampling(basis::AbstractBasis; sampling_points=nothing, use_positive_taus=false)
+    @show use_positive_taus
+    if sampling_points === nothing
+        points = default_tau_sampling_points(basis)
+        if use_positive_taus
+            points = mod.(points, β(basis))
+            sort!(points)
+        end
+        sampling_points = points
+    end
+
+    # Create sampling object with C_API
+    status = Ref{Int32}(-100)
+    if !_is_column_major_contiguous(sampling_points)
+        error("Sampling points must be contiguous")
+    end
+    ptr = C_API.spir_tau_sampling_new(
+        _get_ptr(basis), length(sampling_points), sampling_points, status)
+    status[] == C_API.SPIR_COMPUTATION_SUCCESS ||
+        error("Failed to create tau sampling: status=$(status[])")
+    ptr != C_API.C_NULL || error("Failed to create tau sampling: null pointer returned")
+
+    return TauSampling{Float64,typeof(basis)}(ptr, sampling_points, basis)
 end
 
 """
-    MatsubaraSampling(basis; positive_only=false,
-                      sampling_points=default_matsubara_sampling_points(basis; positive_only),
-                      factorize=true)
+    MatsubaraSampling(basis::AbstractBasis; positive_only=false, sampling_points=nothing, factorize=true)
 
-Construct a `MatsubaraSampling` object. If not given, the `sampling_points` are chosen as
-the (discrete) extrema of the highest-order basis function in Matsubara. This turns out
-to be close to optimal with respect to conditioning for this size (within a few percent).
+Construct a `MatsubaraSampling` object from a basis. If `sampling_points` is not provided,
+the default Matsubara sampling points from the basis are used.
 
-By setting `positive_only=true`, one assumes that functions to be fitted are symmetric in
-Matsubara frequency, i.e.:
-
-```math
-    Ĝ(iν) = conj(Ĝ(-iν))
-```
-
-or equivalently, that they are purely real in imaginary time. In this case, sparse sampling
-is performed over non-negative frequencies only, cutting away half of the necessary sampling
-space. `factorize` controls whether the SVD decomposition is computed.
+If `positive_only=true`, assumes functions are symmetric in Matsubara frequency.
 """
-function MatsubaraSampling(basis::AbstractBasis; positive_only=false,
-        sampling_points=default_matsubara_sampling_points(basis;
-            positive_only), factorize=true)
-    sampling_points = if sampling_points isa AbstractRange
-        collect(sampling_points)
+function MatsubaraSampling(
+        basis::AbstractBasis; positive_only=false, sampling_points=nothing)
+    if sampling_points === nothing
+        # Get default Matsubara sampling points from basis
+        status = Ref{Int32}(-100)
+        n_points = Ref{Int32}(-1)
+
+        ret = C_API.spir_basis_get_n_default_matsus(
+            _get_ptr(basis), positive_only, n_points)
+        ret == C_API.SPIR_COMPUTATION_SUCCESS ||
+            error("Failed to get number of default Matsubara points")
+
+        points_array = Vector{Int64}(undef, n_points[])
+        ret = C_API.spir_basis_get_default_matsus(
+            _get_ptr(basis), positive_only, points_array)
+        ret == C_API.SPIR_COMPUTATION_SUCCESS ||
+            error("Failed to get default Matsubara points")
+
+        # Convert to MatsubaraFreq objects based on statistics
+        if statistics(basis) isa Fermionic
+            sampling_points = [FermionicFreq(n) for n in points_array]
+        else
+            sampling_points = [BosonicFreq(n) for n in points_array]
+        end
     else
-        sampling_points
+        # Convert input to appropriate MatsubaraFreq type
+        if statistics(basis) isa Fermionic
+            sampling_points = [p isa FermionicFreq ? p : FermionicFreq(Int(p))
+                               for p in sampling_points]
+        else
+            sampling_points = [p isa BosonicFreq ? p : BosonicFreq(Int(p))
+                               for p in sampling_points]
+        end
     end
-    issorted(sampling_points) || sort!(sampling_points)
-    if positive_only
-        Int(first(sampling_points)) ≥ 0 || error("invalid negative sampling frequencies")
-    end
-    matrix = eval_matrix(MatsubaraSampling, basis, sampling_points)
-    has_zero = iszero(first(sampling_points))
-    if factorize
-        svd_matrix = positive_only ? SplitSVD(matrix; has_zero) : svd(matrix)
-    else
-        svd_matrix = nothing
-    end
-    sampling = MatsubaraSampling(sampling_points, matrix, svd_matrix, positive_only, basis)
-    if factorize && iswellconditioned(basis) && cond(sampling) > 1e8
-        @warn "Sampling matrix is poorly conditioned (cond = $(cond(sampling)))."
-    end
-    return sampling
+
+    # Extract indices for C API
+    indices = [Int64(Int(p)) for p in sampling_points]
+
+    status = Ref{Int32}(-100)
+    ptr = C_API.spir_matsu_sampling_new(
+        _get_ptr(basis), positive_only, length(indices), indices, status)
+    status[] == C_API.SPIR_COMPUTATION_SUCCESS ||
+        error("Failed to create Matsubara sampling: status=$(status[])")
+    ptr != C_NULL || error("Failed to create Matsubara sampling: null pointer returned")
+
+    return MatsubaraSampling{eltype(sampling_points),typeof(basis)}(
+        ptr, sampling_points, positive_only, basis)
 end
 
-function Base.getproperty(s::MatsubaraSampling, p::Symbol)
-    p === :ωn ? sampling_points(s) : getfield(s, p)
-end
+# Common interface functions
 
 """
     eval_matrix(T, basis, x)
@@ -111,279 +156,274 @@ eval_matrix(::Type{TauSampling}, basis, x)       = permutedims(basis.u(x))
 eval_matrix(::Type{MatsubaraSampling}, basis, x) = permutedims(basis.uhat(x))
 
 """
-    evaluate(sampling, al; dim=1)
+    npoints(sampling::AbstractSampling)
 
-Evaluate the basis coefficients `al` at the sparse sampling points.
+Get the number of sampling points.
 """
-function evaluate(smpl::AbstractSampling{S,Tmat}, al::AbstractArray{T,N};
-        dim=1) where {S,Tmat,T,N}
-    if size(smpl.matrix, 2) ≠ size(al, dim)
-        msg = "Number of columns (got $(size(smpl.matrix, 2))) has to match al's size in dim (got $(size(al, dim)))."
-        throw(DimensionMismatch(msg))
+function npoints(sampling::Union{TauSampling,MatsubaraSampling})
+    n_points = Ref{Int32}(-1)
+    ret = C_API.spir_sampling_get_npoints(sampling.ptr, n_points)
+    ret == C_API.SPIR_COMPUTATION_SUCCESS ||
+        error("Failed to get number of sampling points")
+    return Int(n_points[])
+end
+
+# Evaluation and fitting functions
+
+"""
+    evaluate(sampling::AbstractSampling, al::Array; dim=1)
+
+Evaluate basis coefficients at the sampling points using the C API.
+
+For multidimensional arrays, `dim` specifies which dimension corresponds to the basis coefficients.
+"""
+function evaluate(
+        sampling::Union{TauSampling,MatsubaraSampling}, al::Array{
+            T,N}; dim=1) where {T,N}
+    # Determine output dimensions
+    output_dims = collect(size(al))
+    output_dims[dim] = npoints(sampling)
+
+    # Determine output type based on sampling type
+    if sampling isa TauSampling
+        # For complex input, TauSampling should produce complex output
+        output_type = T
+        output = Array{output_type,N}(undef, output_dims...)
+        evaluate!(output, sampling, al; dim=dim)
+    else # MatsubaraSampling
+        output_type = T <: Real ? ComplexF64 : promote_type(ComplexF64, T)
+        output = Array{output_type,N}(undef, output_dims...)
+        evaluate!(output, sampling, al; dim=dim)
     end
-    bufsize = ntuple(N) do d
-        d === dim ? size(smpl.matrix, 1) : size(al, d)
+
+    return output
+end
+
+"""
+    evaluate!(output::Array, sampling::AbstractSampling, al::Array; dim=1)
+
+In-place version of [`evaluate`](@ref). Write results to the pre-allocated `output` array.
+"""
+function evaluate!(
+        output::Array{Tout,N}, sampling::TauSampling, al::Array{
+            Tin,N}; dim=1) where {Tout,Tin,N}
+    # Check dimensions
+    expected_dims = collect(size(al))
+    expected_dims[dim] = npoints(sampling)
+    size(output) == tuple(expected_dims...) ||
+        throw(DimensionMismatch("Output array has wrong dimensions"))
+
+    # Prepare arguments for C API
+    ndim = N
+    input_dims = Int32[size(al)...]
+    target_dim = Int32(dim - 1)  # C uses 0-based indexing
+    order = C_API.SPIR_ORDER_COLUMN_MAJOR
+
+    if !_is_column_major_contiguous(al)
+        error("Input array must be contiguous")
     end
-    buffer = Array{promote_type(Tmat, T),N}(undef, bufsize)
-    return evaluate!(buffer, smpl, al; dim)
-end
-
-"""
-    evaluate!(buffer::AbstractArray{T,N}, sampling, al; dim=1) where {T,N}
-
-Like [`evaluate`](@ref), but write the result to `buffer`.
-Please use dim = 1 or N to avoid allocating large temporary arrays internally.
-"""
-function evaluate!(buffer::AbstractArray{T,N}, smpl::AbstractSampling,
-        al::AbstractArray{S,N}; dim=1) where {S,T,N}
-    resultsize = ntuple(j -> j == dim ? size(smpl.matrix, 1) : size(al, j), N)
-    if size(buffer) ≠ resultsize
-        msg = "Buffer has the wrong size (got $(size(buffer)), expected $resultsize)."
-        throw(DimensionMismatch(msg))
+    if !_is_column_major_contiguous(output)
+        error("Output array must be contiguous")
     end
-    return matop_along_dim!(buffer, smpl.matrix, al, dim, mul!)
-end
 
-"""
-    fit(sampling, al::AbstractArray{T,N}; dim=1)
-
-Fit basis coefficients from the sparse sampling points
-Please use dim = 1 or N to avoid allocating large temporary arrays internally.
-"""
-function fit(smpl::AbstractSampling{S,Tmat}, al::AbstractArray{T,N};
-        dim=1) where {S,Tmat,T,N}
-    if size(smpl.matrix, 1) ≠ size(al, dim)
-        msg = "Number of rows (got $(size(smpl.matrix, 1))) "
-        "has to match al's size in dim (got $(size(al, dim)))."
-        throw(DimensionMismatch(msg))
-    end
-    bufsize = ntuple(N) do d
-        d === dim ? size(smpl.matrix, 2) : size(al, d)
-    end
-    buffer = Array{promote_type(Tmat, T),N}(undef, bufsize)
-    return fit!(buffer, smpl, al; dim)
-end
-
-"""
-    workarrlength(smpl::AbstractSampling, al; dim=1)
-
-Return length of workarr for `fit!`.
-"""
-function workarrlength(smpl::AbstractSampling, al::AbstractArray; dim=1)
-    length(smpl.matrix_svd.S) * (length(al) ÷ size(al, dim))
-end
-
-"""
-    fit!(buffer::Array{S,N}, smpl::AbstractSampling, al::Array{T,N}; 
-        dim=1, workarr::Vector{S}) where {S,T,N}
-
-Like [`fit`](@ref), but write the result to `buffer`.
-Use `dim = 1` or `dim = N` to avoid allocating large temporary arrays internally.
-The length of `workarr` cannot be smaller than [`SparseIR.workarrlength`](@ref)`(smpl, al)`.
-"""
-function fit!(buffer::Array{S,N}, smpl::AbstractSampling, al::Array{T,N}; dim=1,
-        workarr::Vector{S}=Vector{S}(undef, workarrlength(smpl, al; dim))) where {S,T,N}
-    resultsize = ntuple(j -> j == dim ? size(smpl.matrix, 2) : size(al, j), N)
-    if size(buffer) ≠ resultsize
-        msg = "Buffer has the wrong size (got $(size(buffer)), expected $resultsize)."
-        throw(DimensionMismatch(msg))
-    end
-    length(workarr) ≥ workarrlength(smpl, al; dim) ||
-        throw(ArgumentError("workarr too small"))
-    return div_noalloc!(buffer, smpl.matrix_svd, al, workarr, dim)
-end
-
-"""
-    movedim(arr::AbstractArray, src => dst)
-
-Move `arr`'s dimension at `src` to `dst` while keeping the order of the remaining
-dimensions unchanged.
-"""
-function movedim(arr::AbstractArray{T,N}, dims::Pair) where {T,N}
-    src, dst = dims
-    src == dst && return arr
-    return permutedims(arr, getperm(N, dims))
-end
-
-function getperm(N, dims::Pair)
-    src, dst = dims
-    perm = collect(1:N)
-    deleteat!(perm, src)
-    insert!(perm, dst, src)
-    return perm
-end
-
-"""
-    matop_along_dim!(buffer, mat, arr::AbstractArray, dim::Integer, op)
-
-Apply the operator `op` to the matrix `mat` and to the array `arr` along the dimension
-`dim`, writing the result to `buffer`.
-"""
-function matop_along_dim!(buffer, mat, arr::AbstractArray{T,N}, dim, op) where {T,N}
-    1 ≤ dim ≤ N || throw(DomainError(dim, "Dimension must be in [1, $N]"))
-
-    if dim == 1
-        matop!(buffer, mat, arr, op, 1)
-    elseif dim != N
-        # Move the target dim to the first position
-        perm        = getperm(N, dim => 1)
-        arr_perm    = permutedims(arr, perm)
-        buffer_perm = permutedims(buffer, perm)
-        matop!(buffer_perm, mat, arr_perm, op, 1)
-        permutedims!(buffer, buffer_perm, getperm(N, 1 => dim))
+    # Call appropriate C function based on input/output types
+    if Tin <: Real && Tout <: Real
+        ret = C_API.spir_sampling_eval_dd(
+            sampling.ptr, order, ndim, input_dims, target_dim, al, output)
+    elseif Tin <: Complex && Tout <: Complex
+        ret = C_API.spir_sampling_eval_zz(
+            sampling.ptr, order, ndim, input_dims, target_dim, al, output)
     else
-        # Apply the operator to the last dimension
-        matop!(buffer, mat, arr, op, N)
+        error("Type combination not yet supported for TauSampling: input=$Tin, output=$Tout")
     end
-    return buffer
+
+    ret in [
+        C_API.SPIR_INPUT_DIMENSION_MISMATCH,
+        C_API.SPIR_OUTPUT_DIMENSION_MISMATCH,
+        C_API.SPIR_INVALID_DIMENSION
+    ] && throw(DimensionMismatch("Failed to evaluate sampling: status=$ret"))
+    return output
+end
+
+function evaluate!(output::Array{Tout,N}, sampling::MatsubaraSampling,
+        al::Array{Tin,N}; dim=1) where {Tout,Tin,N}
+    # Check dimensions
+    expected_dims = collect(size(al))
+    expected_dims[dim] = npoints(sampling)
+    size(output) == tuple(expected_dims...) ||
+        throw(DimensionMismatch("Output array has wrong dimensions"))
+
+    # Prepare arguments for C API
+    ndim = N
+    input_dims = Int32[size(al)...]
+    target_dim = Int32(dim - 1)  # C uses 0-based indexing
+    order = C_API.SPIR_ORDER_COLUMN_MAJOR
+
+    if !_is_column_major_contiguous(al)
+        error("Input array must be contiguous")
+    end
+    if !_is_column_major_contiguous(output)
+        error("Output array must be contiguous")
+    end
+
+    # Call appropriate C function based on input/output types
+    if Tin <: Real && Tout <: Complex
+        ret = C_API.spir_sampling_eval_dz(
+            sampling.ptr, order, ndim, input_dims, target_dim, al, output)
+    elseif Tin <: Complex && Tout <: Complex
+        ret = C_API.spir_sampling_eval_zz(
+            sampling.ptr, order, ndim, input_dims, target_dim, al, output)
+    else
+        error("Type combination not supported for MatsubaraSampling: input=$Tin, output=$Tout")
+    end
+
+    ret in [
+        C_API.SPIR_INPUT_DIMENSION_MISMATCH,
+        C_API.SPIR_OUTPUT_DIMENSION_MISMATCH,
+        C_API.SPIR_INVALID_DIMENSION
+    ] && throw(DimensionMismatch("Failed to evaluate sampling: status=$ret"))
+    return output
 end
 
 """
-    matop!(buffer, mat, arr::AbstractArray, op, dim)
+    fit(sampling::AbstractSampling, al::Array; dim=1)
 
-Apply the operator `op` to the matrix `mat` and to the array `arr` along the first
-dimension (dim=1) or the last dimension (dim=N).
+Fit basis coefficients from values at sampling points using the C API.
+
+For multidimensional arrays, `dim` specifies which dimension corresponds to the sampling points.
 """
-function matop!(buffer::AbstractArray{S,N}, mat, arr::AbstractArray{T,N}, op,
-        dim) where {S,T,N}
-    if dim == 1
-        flatarr    = reshape(arr, (size(arr, 1), :))
-        flatbuffer = reshape(buffer, (size(buffer, 1), :))
-        op(flatbuffer, mat, flatarr)
-    elseif dim == N
-        flatarr    = reshape(arr, (:, size(arr, N)))
-        flatbuffer = reshape(buffer, (:, size(buffer, N)))
-        op(flatbuffer, flatarr, transpose(mat))
+function fit(
+        sampling::Union{TauSampling,MatsubaraSampling}, al::Array{T,N}; dim=1) where {
+        T,N}
+    # Determine output dimensions
+    output_dims = collect(size(al))
+    output_dims[dim] = length(sampling.basis)
+
+    # Determine output type - typically real for coefficients
+    if sampling isa TauSampling
+        # For complex input, we need complex output
+        output_type = T
+    else # MatsubaraSampling
+        # For Matsubara sampling, we need to be careful about type matching
+        # The C API might expect complex output even for real input
+        output_type = T <: Complex ? T : ComplexF64
+    end
+
+    output = Array{output_type,N}(undef, output_dims...)
+    fit!(output, sampling, al; dim=dim)
+
+    # For MatsubaraSampling, if we want real coefficients, extract real part
+    if sampling isa MatsubaraSampling && T <: Complex && output_type <: Complex
+        # The fitted coefficients should be real for physical reasons
+        # Extract real part and return as real array
+        real_output = Array{real(output_type),N}(undef, output_dims...)
+        real_output .= real.(output)
+        return real_output
+    end
+
+    return output
+end
+
+"""
+    fit!(output::Array, sampling::AbstractSampling, al::Array; dim=1)
+
+In-place version of [`fit`](@ref). Write results to the pre-allocated `output` array.
+"""
+function fit!(
+        output::Array{Tout,N}, sampling::TauSampling, al::Array{
+            Tin,N}; dim=1) where {Tout,Tin,N}
+    # Check dimensions
+    expected_dims = collect(size(al))
+    expected_dims[dim] = length(sampling.basis)
+    size(output) == tuple(expected_dims...) ||
+        throw(DimensionMismatch("Output array has wrong dimensions"))
+
+    # Prepare arguments for C API
+    ndim = N
+    input_dims = Int32[size(al)...]
+    target_dim = Int32(dim - 1)  # C uses 0-based indexing
+    order = C_API.SPIR_ORDER_COLUMN_MAJOR
+
+    if !_is_column_major_contiguous(al)
+        error("Input array must be contiguous")
+    end
+    if !_is_column_major_contiguous(output)
+        error("Output array must be contiguous")
+    end
+
+    # Call appropriate C function
+    if Tin <: Real && Tout <: Real
+        ret = C_API.spir_sampling_fit_dd(
+            sampling.ptr, order, ndim, input_dims, target_dim, al, output)
+    elseif Tin <: Complex && Tout <: Complex
+        ret = C_API.spir_sampling_fit_zz(
+            sampling.ptr, order, ndim, input_dims, target_dim, al, output)
     else
-        throw(DomainError(dim, "Dimension must be 1 or $N."))
+        ArgumentError("Type combination not yet supported for TauSampling fit: input=$Tin, output=$Tout")
     end
-    return buffer
+
+    ret in [
+        C_API.SPIR_INPUT_DIMENSION_MISMATCH,
+        C_API.SPIR_OUTPUT_DIMENSION_MISMATCH,
+        C_API.SPIR_INVALID_DIMENSION
+    ] && throw(DimensionMismatch("Failed to fit sampling: status=$ret"))
+    return output
 end
 
-function div_noalloc!(buffer::AbstractArray{S,N}, mat, arr::AbstractArray{T,N}, workarr,
-        dim) where {S,T,N}
-    1 ≤ dim ≤ N || throw(DomainError(dim, "Dimension must be in [1, $N]"))
+function fit!(
+        output::Array{Tout,N}, sampling::MatsubaraSampling, al::Array{
+            Tin,N}; dim=1) where {Tout,Tin,N}
+    # Check dimensions
+    expected_dims = collect(size(al))
+    expected_dims[dim] = length(sampling.basis)
+    size(output) == tuple(expected_dims...) ||
+        throw(DimensionMismatch("Output array has wrong dimensions"))
 
-    if dim == 1
-        flatarr    = reshape(arr, (size(arr, 1), :))
-        flatbuffer = reshape(buffer, (size(buffer, 1), :))
-        ldiv_noalloc!(flatbuffer, mat, flatarr, workarr)
-    elseif dim != N
-        # Move the target dim to the first position
-        arr_perm    = movedim(arr, dim => 1)
-        buffer_perm = movedim(buffer, dim => 1)
-        flatarr     = reshape(arr_perm, (size(arr_perm, 1), :))
-        flatbuffer  = reshape(buffer_perm, (size(buffer_perm, 1), :))
-        ldiv_noalloc!(flatbuffer, mat, flatarr, workarr)
-        buffer .= movedim(buffer_perm, 1 => dim)
+    # Prepare arguments for C API
+    ndim = N
+    input_dims = Int32[size(al)...]
+    target_dim = Int32(dim - 1)  # C uses 0-based indexing
+    order = C_API.SPIR_ORDER_COLUMN_MAJOR
+
+    if !_is_column_major_contiguous(al)
+        error("Input array must be contiguous")
+    end
+    if !_is_column_major_contiguous(output)
+        error("Output array must be contiguous")
+    end
+
+    # Call appropriate C function based on input/output types
+    if Tin <: Complex && Tout <: Complex
+        # Use complex-to-complex API and then extract real part if needed
+        ret = C_API.spir_sampling_fit_zz(
+            sampling.ptr, order, ndim, input_dims, target_dim, al, output)
+    elseif Tin <: Complex && Tout <: Real
+        # Create temporary complex output, then extract real part
+        temp_output = Array{ComplexF64,N}(undef, size(output)...)
+        ret = C_API.spir_sampling_fit_zz(
+            sampling.ptr, order, ndim, input_dims, target_dim, al, temp_output)
+        ret == C_API.SPIR_COMPUTATION_SUCCESS ||
+            error("Failed to fit sampling: status=$ret")
+        output .= real.(temp_output)
+        return output
     else
-        flatarr    = reshape(arr, (:, size(arr, N)))
-        flatbuffer = reshape(buffer, (:, size(buffer, N)))
-        rdiv_noalloc!(flatbuffer, flatarr, mat, workarr)
+        error("Type combination not supported for MatsubaraSampling fit: input=$Tin, output=$Tout")
     end
-    return buffer
+
+    ret in [
+        C_API.SPIR_INPUT_DIMENSION_MISMATCH,
+        C_API.SPIR_OUTPUT_DIMENSION_MISMATCH,
+        C_API.SPIR_INVALID_DIMENSION
+    ] && throw(DimensionMismatch("Failed to fit sampling: status=$ret"))
+    return output
 end
 
-function ldiv_noalloc!(Y::AbstractMatrix, A::SVD, B::AbstractMatrix, workarr)
-    # Setup work space
-    worksize = (size(A.U, 2), size(B, 2))
-    worklength = prod(worksize)
-    length(workarr) ≥ worklength ||
-        throw(DimensionMismatch("size(workarr)=$(size(workarr)), min worksize=$worklength"))
-    workarr_view = reshape(view(workarr, 1:worklength), worksize)
-
-    mul!(workarr_view, A.U', B)
-    workarr_view ./= A.S
-    return mul!(Y, A.V, workarr_view)
+# Convenience property accessors (similar to SparseIR.jl)
+function Base.getproperty(s::TauSampling, p::Symbol)
+    p === :tau ? sampling_points(s) :
+    getfield(s, p)
 end
-
-function rdiv_noalloc!(Y::AbstractMatrix, A::AbstractMatrix, B::SVD, workarr)
-    # Setup work space
-    worksize = (size(A, 1), size(B.U, 2))
-    worklength = prod(worksize)
-    length(workarr) ≥ worklength ||
-        throw(DimensionMismatch("size(workarr)=$(size(workarr)), min worksize=$worklength"))
-    workarr_view = reshape(view(workarr, 1:worklength), worksize)
-
-    # Note: conj creates a temporary matrix
-    mul!(workarr_view, A, conj(B.U))
-    workarr_view ./= reshape(B.S, 1, :)
-    return mul!(Y, workarr_view, conj(B.Vt))
-end
-
-struct SplitSVD{T}
-    A::Matrix{Complex{T}}
-    UrealT::Matrix{T}
-    UimagT::Matrix{T}
-    S::Vector{T}
-    V::Matrix{T}
-end
-
-function SplitSVD(a::Matrix{<:Complex},
-        (u, s,
-            v)::Tuple{AbstractMatrix{<:Complex},
-            AbstractVector{<:Real},
-            AbstractMatrix{<:Real}})
-    if any(iszero, s)
-        nonzero = findall(!iszero, s)
-        u, s, v = u[:, nonzero], s[nonzero], v[nonzero, :]
-    end
-    ut = transpose(u)
-    SplitSVD(a, real(ut), imag(ut), s, copy(v))
-end
-
-SplitSVD(a::Matrix{<:Complex}; has_zero=false) = SplitSVD(a, split_complex(a; has_zero))
-
-function ldiv_noalloc!(Y::AbstractMatrix, A::SplitSVD, B::AbstractMatrix, workarr)
-    # Setup work space
-    worksize = (size(A.UrealT, 1), size(B, 2))
-    worklength = prod(worksize)
-    length(workarr) ≥ worklength ||
-        throw(DimensionMismatch("size(workarr)=$(size(workarr)), min worksize=$worklength"))
-    workarr_view = reshape(view(workarr, 1:worklength), worksize)
-
-    mul!(workarr_view, A.UrealT, real(B))
-    mul!(workarr_view, A.UimagT, imag(B), true, true)
-    workarr_view ./= A.S
-    return mul!(Y, A.V, workarr_view)
-end
-
-function rdiv_noalloc!(Y::AbstractMatrix, A::AbstractMatrix, B::SplitSVD, workarr)
-    error("not yet implemented")
-end
-
-function split_complex(mat::Matrix{<:Complex}; has_zero=false, svd_algo=svd)
-    # split real and imaginary part into separate matrices
-    offset_imag = has_zero ? 2 : 1
-    rmat = [real(mat)
-            imag(mat)[offset_imag:end, :]]
-
-    # perform real-valued SVD
-    ur, s, v = svd_algo(rmat)
-
-    # undo the split of the resulting ur matrix
-    n = size(mat, 1)
-    u = complex(ur[1:n, :])
-    u[offset_imag:end, :] .+= im .* ur[(n + 1):end, :]
-    return u, s, v
-end
-
-const MatsubaraSampling64F = @static if VERSION ≥ v"1.8-"
-    MatsubaraSampling{FermionicFreq,ComplexF64,
-        SVD{ComplexF64,Float64,Matrix{ComplexF64},Vector{Float64}}}
-else
-    MatsubaraSampling{FermionicFreq,ComplexF64,SVD{ComplexF64,Float64,Matrix{ComplexF64}}}
-end
-
-const MatsubaraSampling64B = @static if VERSION ≥ v"1.8-"
-    MatsubaraSampling{BosonicFreq,ComplexF64,
-        SVD{ComplexF64,Float64,Matrix{ComplexF64},Vector{Float64}}}
-else
-    MatsubaraSampling{BosonicFreq,ComplexF64,SVD{ComplexF64,Float64,Matrix{ComplexF64}}}
-end
-
-const TauSampling64 = @static if VERSION ≥ v"1.8-"
-    TauSampling{Float64,Float64,SVD{Float64,Float64,Matrix{Float64},Vector{Float64}}}
-else
-    TauSampling{Float64,Float64,SVD{Float64,Float64,Matrix{Float64}}}
+function Base.getproperty(s::MatsubaraSampling, p::Symbol)
+    p === :ωn ? sampling_points(s) :
+    getfield(s, p)
 end
