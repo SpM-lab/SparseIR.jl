@@ -15,8 +15,6 @@ function Statistics(zeta::Integer)
     end
 end
 
-Base.broadcastable(s::Statistics) = Ref(s)
-
 """
 Fermionic statistics.
 """
@@ -27,16 +25,10 @@ Bosonic statistics.
 """
 struct Bosonic <: Statistics end
 
-zeta(::Fermionic) = 1
-zeta(::Bosonic)   = 0
-
-allowed(::Type{Fermionic}, a::Integer) = isodd(a)
-allowed(::Type{Bosonic}, a::Integer)   = iseven(a)
-
-Base.:+(::Fermionic, ::Bosonic)   = Fermionic()
-Base.:+(::Bosonic, ::Fermionic)   = Fermionic()
-Base.:+(::Fermionic, ::Fermionic) = Bosonic()
-Base.:+(::Bosonic, ::Bosonic)     = Bosonic()
+# Convert Julia statistics to C API constants
+_statistics_to_c(::Type{Fermionic}) = SPIR_STATISTICS_FERMIONIC
+_statistics_to_c(::Type{Bosonic}) = SPIR_STATISTICS_BOSONIC
+_statistics_from_c(s::Cint) = s == SPIR_STATISTICS_FERMIONIC ? Fermionic() : Bosonic()
 
 """
     MatsubaraFreq(n)
@@ -78,6 +70,18 @@ const BosonicFreq   = MatsubaraFreq{Bosonic}
 const FermionicFreq = MatsubaraFreq{Fermionic}
 
 MatsubaraFreq(n::Integer) = MatsubaraFreq(Statistics(mod(n, 2)), n)
+
+Base.broadcastable(s::Statistics) = Ref(s)
+zeta(::Fermionic) = 1
+zeta(::Bosonic) = 0
+
+allowed(::Type{Fermionic}, a::Integer) = isodd(a)
+allowed(::Type{Bosonic}, a::Integer)   = iseven(a)
+
+Base.:+(::Fermionic, ::Bosonic)   = Fermionic()
+Base.:+(::Bosonic, ::Fermionic)   = Fermionic()
+Base.:+(::Fermionic, ::Fermionic) = Bosonic()
+Base.:+(::Bosonic, ::Bosonic)     = Bosonic()
 
 statistics(::MatsubaraFreq{S}) where {S} = S()
 
