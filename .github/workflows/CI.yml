@@ -6,6 +6,9 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
+  schedule:
+    - cron: 0 0 * * 1
 concurrency:
   # Skip intermediate builds: always.
   # Cancel intermediate builds: only if it is a pull request build.
