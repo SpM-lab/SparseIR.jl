@@ -11,7 +11,7 @@
         ε = 1e-12
 
         basis = FiniteTempBasis(Fermionic(), β, ωmax, ε)
-        #dlr = DiscreteLehmannRepresentation(basis)
+        dlr = DiscreteLehmannRepresentation(basis)
 
         #==
         @test dlr isa DiscreteLehmannRepresentation

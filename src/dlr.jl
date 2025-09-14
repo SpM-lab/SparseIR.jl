@@ -37,7 +37,7 @@ Construct a DLR basis from an IR basis.
 If `poles` is not provided, uses the default omega sampling points from the IR basis.
 """
 function DiscreteLehmannRepresentation(
-        basis::AbstractBasis, poles=default_omega_sampling_points(basis))
+        basis::AbstractBasis, poles::Vector{Float64}=default_omega_sampling_points(basis))
     status = Ref{Int32}(-100)
     dlr_ptr = C_API.spir_dlr_new_with_poles(basis.ptr, length(poles), poles, status)
     status[] == C_API.SPIR_COMPUTATION_SUCCESS ||
