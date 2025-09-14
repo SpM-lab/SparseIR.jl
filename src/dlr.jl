@@ -38,6 +38,14 @@ If `poles` is not provided, uses the default omega sampling points from the IR b
 """
 function DiscreteLehmannRepresentation(
         basis::AbstractBasis, poles::Vector{Float64}=default_omega_sampling_points(basis))
+    # Safety checks
+    if !_is_column_major_contiguous(poles)
+        error("Poles array must be contiguous")
+    end
+    if length(poles) == 0
+        error("Poles array cannot be empty")
+    end
+    
     status = Ref{Int32}(-100)
     dlr_ptr = C_API.spir_dlr_new_with_poles(basis.ptr, length(poles), poles, status)
     status[] == C_API.SPIR_COMPUTATION_SUCCESS ||
@@ -75,6 +83,19 @@ function from_IR(dlr::DiscreteLehmannRepresentation, gl::Array{T,N}, dims=1) whe
     output_type = T
     output = Array{output_type,N}(undef, output_dims...)
 
+    # Safety checks
+    if !_is_column_major_contiguous(gl)
+        error("Input array must be contiguous")
+    end
+    if !_is_column_major_contiguous(output)
+        error("Output array must be contiguous")
+    end
+    
+    # Validate target dimension
+    if dims < 1 || dims > N
+        error("Invalid target dimension: $dims. Must be in range [1, $N]")
+    end
+    
     # Call appropriate C function
     ndim = N
     input_dims = Int32[size(gl)...]
@@ -121,6 +142,20 @@ function to_IR(dlr::DiscreteLehmannRepresentation, g_dlr::Array{T,N}, dims=1) wh
     # Determine output type
     output_type = T
     output = Array{output_type,N}(undef, output_dims...)
+
+    # Safety checks
+    if !_is_column_major_contiguous(g_dlr)
+        error("Input array must be contiguous")
+    end
+    if !_is_column_major_contiguous(output)
+        error("Output array must be contiguous")
+    end
+    
+    # Validate target dimension
+    if dims < 1 || dims > N
+        error("Invalid target dimension: $dims. Must be in range [1, $N]")
+    end
+    
 
     # Call appropriate C function
     ndim = N

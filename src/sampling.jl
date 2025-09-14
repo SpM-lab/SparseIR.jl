@@ -78,6 +78,9 @@ function TauSampling(basis::AbstractBasis; sampling_points=nothing, use_positive
     if !_is_column_major_contiguous(sampling_points)
         error("Sampling points must be contiguous")
     end
+    if length(sampling_points) == 0
+        error("Sampling points cannot be empty")
+    end
     ptr = C_API.spir_tau_sampling_new(
         _get_ptr(basis), length(sampling_points), sampling_points, status)
     status[] == C_API.SPIR_COMPUTATION_SUCCESS ||
@@ -132,6 +135,11 @@ function MatsubaraSampling(
 
     # Extract indices for C API
     indices = [Int64(Int(p)) for p in sampling_points]
+    
+    # Safety checks
+    if length(indices) == 0
+        error("Sampling points cannot be empty")
+    end
 
     status = Ref{Int32}(-100)
     ptr = C_API.spir_matsu_sampling_new(
@@ -181,6 +189,9 @@ function evaluate(
         sampling::Union{TauSampling,MatsubaraSampling}, al::Array{
             T,N}; dim=1) where {T,N}
     # Determine output dimensions
+    if dim < 1 || dim > N
+        error("dim $(dim) is invalid!")
+    end
     output_dims = collect(size(al))
     output_dims[dim] = npoints(sampling)
 
@@ -208,6 +219,9 @@ function evaluate!(
         output::Array{Tout,N}, sampling::TauSampling, al::Array{
             Tin,N}; dim=1) where {Tout,Tin,N}
     # Check dimensions
+    if dim < 1 || dim > N
+        error("dim $(dim) is invalid!")
+    end
     expected_dims = collect(size(al))
     expected_dims[dim] = npoints(sampling)
     size(output) == tuple(expected_dims...) ||
@@ -227,10 +241,10 @@ function evaluate!(
     end
 
     # Call appropriate C function based on input/output types
-    if Tin <: Real && Tout <: Real
+    if Tin == Float64 && Tout == Float64
         ret = C_API.spir_sampling_eval_dd(
             sampling.ptr, order, ndim, input_dims, target_dim, al, output)
-    elseif Tin <: Complex && Tout <: Complex
+    elseif Tin == ComplexF64 && Tout == ComplexF64
         ret = C_API.spir_sampling_eval_zz(
             sampling.ptr, order, ndim, input_dims, target_dim, al, output)
     else
@@ -267,10 +281,10 @@ function evaluate!(output::Array{Tout,N}, sampling::MatsubaraSampling,
     end
 
     # Call appropriate C function based on input/output types
-    if Tin <: Real && Tout <: Complex
+    if Tin == Float64 && Tout == ComplexF64
         ret = C_API.spir_sampling_eval_dz(
             sampling.ptr, order, ndim, input_dims, target_dim, al, output)
-    elseif Tin <: Complex && Tout <: Complex
+    elseif Tin == ComplexF64 && Tout == ComplexF64
         ret = C_API.spir_sampling_eval_zz(
             sampling.ptr, order, ndim, input_dims, target_dim, al, output)
     else
@@ -295,18 +309,20 @@ For multidimensional arrays, `dim` specifies which dimension corresponds to the 
 function fit(
         sampling::Union{TauSampling,MatsubaraSampling}, al::Array{T,N}; dim=1) where {
         T,N}
+    if !(T ∈ [Float64, ComplexF64])
+        error("Type combination not supported for fit: input=$T")
+    end
     # Determine output dimensions
     output_dims = collect(size(al))
     output_dims[dim] = length(sampling.basis)
 
-    # Determine output type - typically real for coefficients
+    # Determine output type
     if sampling isa TauSampling
-        # For complex input, we need complex output
         output_type = T
     else # MatsubaraSampling
         # For Matsubara sampling, we need to be careful about type matching
         # The C API might expect complex output even for real input
-        output_type = T <: Complex ? T : ComplexF64
+        output_type = ComplexF64
     end
 
     output = Array{output_type,N}(undef, output_dims...)
@@ -333,6 +349,15 @@ function fit!(
         output::Array{Tout,N}, sampling::TauSampling, al::Array{
             Tin,N}; dim=1) where {Tout,Tin,N}
     # Check dimensions
+    if dim < 1 || dim > N
+        error("dim $(dim) is invalid!")
+    end
+    if !(Tin ∈ [Float64, ComplexF64])
+        error("Type combination not supported for TauSampling fit: input=$Tin")
+    end
+    if !(Tout ∈ [Float64, ComplexF64])
+        error("Type combination not supported for TauSampling fit: output=$Tout")
+    end
     expected_dims = collect(size(al))
     expected_dims[dim] = length(sampling.basis)
     size(output) == tuple(expected_dims...) ||
@@ -352,10 +377,10 @@ function fit!(
     end
 
     # Call appropriate C function
-    if Tin <: Real && Tout <: Real
+    if Tin == Float64 && Tout == Float64
         ret = C_API.spir_sampling_fit_dd(
             sampling.ptr, order, ndim, input_dims, target_dim, al, output)
-    elseif Tin <: Complex && Tout <: Complex
+    elseif Tin == ComplexF64 && Tout == ComplexF64
         ret = C_API.spir_sampling_fit_zz(
             sampling.ptr, order, ndim, input_dims, target_dim, al, output)
     else
@@ -393,12 +418,12 @@ function fit!(
     end
 
     # Call appropriate C function based on input/output types
-    if Tin <: Complex && Tout <: Complex
-        # Use complex-to-complex API and then extract real part if needed
+    if Tin == ComplexF64 && Tout == ComplexF64
         ret = C_API.spir_sampling_fit_zz(
             sampling.ptr, order, ndim, input_dims, target_dim, al, output)
-    elseif Tin <: Complex && Tout <: Real
+    elseif Tin == ComplexF64 && Tout == Float64
         # Create temporary complex output, then extract real part
+        # TODO: Optimize for positive_only = True
         temp_output = Array{ComplexF64,N}(undef, size(output)...)
         ret = C_API.spir_sampling_fit_zz(
             sampling.ptr, order, ndim, input_dims, target_dim, al, temp_output)
