@@ -12,8 +12,3 @@ Private = true
 Public = false
 ```
 
-```@autodocs
-Modules = [SparseIR._LinAlg]
-Private = true
-Public = true
-```
