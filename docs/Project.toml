@@ -5,5 +5,5 @@ SparseIR = "4fe2279e-80f0-4adb-8463-ee114ff56b7d"
 
 [compat]
 Documenter = "1"
-SparseIR = "1"
+SparseIR = "2"
 julia = "1.6"
