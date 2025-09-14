@@ -166,3 +166,7 @@ MINIMAX isometry method (Merzuk Kaltak and Georg Kresse,
 [aqua-url]: https://github.com/JuliaTesting/Aqua.jl
 
 [issues-url]: https://github.com/SpM-lab/SparseIR.jl/issues
+
+Development
+-----------
+See [development.md](development.md) for more information on how to contribute to the project.
