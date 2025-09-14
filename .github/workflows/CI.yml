@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - main
+      - debug0915
   pull_request:
     branches:
       - main
@@ -27,18 +28,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - version: 'lts'
-            os: ubuntu-latest
-            arch: x64
-          - version: '1'
-            os: ubuntu-latest
-            arch: x64
-          - version: 'lts'
-            os: macOS-latest
-            arch: arm64
-          - version: '1'
-            os: macOS-latest
-            arch: arm64
           # libsparseir is not yet tested on Windows
           - version: 'lts'
             os: windows-latest
