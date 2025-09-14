@@ -3,9 +3,11 @@ on:
   push:
     branches:
       - main
+      - crush_fix
   pull_request:
     branches:
       - main
+      - crush_fix
   workflow_dispatch:
   schedule:
     - cron: 0 0 * * 1
