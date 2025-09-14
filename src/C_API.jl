@@ -1,11 +1,9 @@
 module C_API
 
 using CEnum: CEnum, @cenum
+using libsparseir_jll
 
-using Libdl: dlext
-
-libsparseir = expanduser("~/opt/libsparseir/lib/libsparseir.$(dlext)")
-
+const libsparseir = libsparseir_jll.libsparseir
 const c_complex = ComplexF64
 
 mutable struct _spir_kernel end
