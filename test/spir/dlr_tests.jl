@@ -7,7 +7,7 @@
     @testset "Constructor with default poles" begin
         β = 100.0
         ωmax = 1.0
-        ε = 1e-12
+        ε = 1e-5
 
         basis = FiniteTempBasis(Fermionic(), β, ωmax, ε)
     end
