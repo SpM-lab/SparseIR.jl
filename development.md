@@ -80,15 +80,16 @@ julia --project=. --target=test -e "using Pkg; Pkg.test()"
 
 ### Code Generation
 
-The project uses Clang.jl for generating C API bindings. To regenerate the C API:
+The project uses Clang.jl for generating C API bindings.
 
 ```julia
 # Activate development environment
-julia --project=. --target=dev
-
-# Run the build script
-include("deps/build.jl")
+cd utils
+julia --project=@. -e "import Pkg; Pkg.instantiate()"
+julia --project=@. generate_C_API.jl
 ```
+
+Then, `src/C_API.jl` is generated.
 
 ### Building Documentation
 
