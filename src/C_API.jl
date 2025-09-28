@@ -1,23 +1,26 @@
 module C_API
 
 using CEnum: CEnum, @cenum
-
-using libsparseir_jll
+using Libdl
 
 function get_libsparseir()
     # Use debug library if SPARSEIR_LIB_PATH environment variable is set
     if haskey(ENV, "SPARSEIR_LIB_PATH")
         debug_path = ENV["SPARSEIR_LIB_PATH"]
-        if isfile(debug_path)
-            @info "Using debug library: $debug_path"
-            return debug_path
-        else
-            @warn "Debug library not found at $debug_path, falling back to JLL"
+        print("SPARSEIR_LIB_PATH is set to: $debug_path")
+        if !isfile(debug_path)
+            error("Debug library not found at $debug_path")
         end
+        try
+            return Libdl.LazyLibrary(debug_path)
+        catch e
+            error("Failed to load debug library: $e")
+        end
+    else
+        # Production: use JLL package - load dynamically
+        @eval using libsparseir_jll
+        return libsparseir_jll.libsparseir
     end
-    
-    # Production: use JLL package
-    return libsparseir_jll.libsparseir
 end
 
 const libsparseir = get_libsparseir()
@@ -431,38 +434,38 @@ function spir_funcs_batch_eval_matsu(funcs, order, num_freqs, matsubara_freq_ind
 end
 
 """
-    spir_funcs_get_n_roots(funcs, n_roots)
+    spir_funcs_get_n_knots(funcs, n_knots)
 
-Gets the number of roots of a funcs object.
+Gets the number of knots of the underlying piecewise Legendre polynomial.
 
-This function returns the number of roots of the specified funcs object. This function is only available for continuous functions.
+This function returns the number of knots of the underlying piecewise Legendre polynomial. Duplicate knots are counted as one. This function is only available for continuous functions.
 
 # Arguments
 * `funcs`: Pointer to the funcs object
-* `n_roots`: Pointer to store the number of roots
+* `n_knots`: Pointer to store the number of knots
 # Returns
 An integer status code:
 """
-function spir_funcs_get_n_roots(funcs, n_roots)
-    ccall((:spir_funcs_get_n_roots, libsparseir), Cint, (Ptr{spir_funcs}, Ptr{Cint}), funcs, n_roots)
+function spir_funcs_get_n_knots(funcs, n_knots)
+    ccall((:spir_funcs_get_n_knots, libsparseir), Cint, (Ptr{spir_funcs}, Ptr{Cint}), funcs, n_knots)
 end
 
 """
-    spir_funcs_get_roots(funcs, roots)
+    spir_funcs_get_knots(funcs, knots)
 
-Gets the roots of a funcs object.
+Gets the knots of the underlying piecewise Legendre polynomial.
 
-This function returns the roots of the specified funcs object in the non-ascending order. If the size of the funcs object is greater than 1, the roots for all the functions are returned. This function is only available for continuous functions.
+This function returns the knots of the specified funcs object in the non-decreasing order. Duplicate knots are counted as one. The knots are returned in the non-decreasing order.
 
 # Arguments
 * `funcs`: Pointer to the funcs object
-* `n_roots`: Pointer to store the number of roots
+* `n_knots`: Pointer to store the number of knots
 * `roots`: Pointer to store the roots
 # Returns
 An integer status code:
 """
-function spir_funcs_get_roots(funcs, roots)
-    ccall((:spir_funcs_get_roots, libsparseir), Cint, (Ptr{spir_funcs}, Ptr{Cdouble}), funcs, roots)
+function spir_funcs_get_knots(funcs, knots)
+    ccall((:spir_funcs_get_knots, libsparseir), Cint, (Ptr{spir_funcs}, Ptr{Cdouble}), funcs, knots)
 end
 
 """

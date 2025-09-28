@@ -61,7 +61,8 @@ mutable struct FiniteTempBasis{S,K} <: AbstractBasis{S}
         # Create basis
         status = Ref{Int32}(-100)
         basis = SparseIR.spir_basis_new(
-            _statistics_to_c(S), β, ωmax, kernel.ptr, sve_result.ptr, max_size, status)
+            _statistics_to_c(S), β, ωmax, ε,
+            kernel.ptr, sve_result.ptr, max_size, status)
         status[] == SparseIR.SPIR_COMPUTATION_SUCCESS ||
             error("Failed to create FiniteTempBasis $S $K $β $ωmax $ε $max_size $status[]")
 
@@ -86,8 +87,8 @@ mutable struct FiniteTempBasis{S,K} <: AbstractBasis{S}
         result = new{S,K}(
             basis, kernel, sve_result, Float64(β), Float64(ωmax), Float64(ε),
             s,
-            PiecewiseLegendrePolyVector(u, 0.0, β),
-            PiecewiseLegendrePolyVector(v, -ωmax, ωmax),
+            PiecewiseLegendrePolyVector(u, 0.0, β, β),
+            PiecewiseLegendrePolyVector(v, -ωmax, ωmax, 0.0),
             PiecewiseLegendreFTVector(uhat)
         )
         finalizer(b -> spir_basis_release(b.ptr), result)

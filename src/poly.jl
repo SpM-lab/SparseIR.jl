@@ -11,12 +11,16 @@ mutable struct PiecewiseLegendrePoly
     ptr::Ptr{spir_funcs}
     xmin::Float64
     xmax::Float64
-    function PiecewiseLegendrePoly(funcs::Ptr{spir_funcs}, xmin::Float64, xmax::Float64)
-        result = new(funcs, xmin, xmax)
+    period::Float64 # 0.0 for a non-periodic function, the period for a periodic function
+    function PiecewiseLegendrePoly(
+        funcs::Ptr{spir_funcs}, xmin::Float64, xmax::Float64, period::Float64)
+        result = new(funcs, xmin, xmax, period)
         finalizer(r -> spir_funcs_release(r.ptr), result)
         return result
     end
 end
+
+Base.size(polys::PiecewiseLegendrePoly) = ()
 
 """
     PiecewiseLegendrePolyVector
@@ -27,13 +31,23 @@ mutable struct PiecewiseLegendrePolyVector
     ptr::Ptr{spir_funcs}
     xmin::Float64
     xmax::Float64
+    period::Float64 # 0.0 for a non-periodic function, the period for a periodic function
     function PiecewiseLegendrePolyVector(
-            funcs::Ptr{spir_funcs}, xmin::Float64, xmax::Float64)
-        result = new(funcs, xmin, xmax)
+            funcs::Ptr{spir_funcs}, xmin::Float64, xmax::Float64, period::Float64)
+        result = new(funcs, xmin, xmax, period)
         finalizer(r -> spir_funcs_release(r.ptr), result)
         return result
     end
 end
+
+function Base.size(ptr::Ptr{spir_funcs})
+    sz = Ref{Int32}(-1)
+    spir_funcs_get_size(ptr, sz) == SPIR_COMPUTATION_SUCCESS ||
+        error("Failed to get funcs size")
+    return Int(sz[])
+end
+
+Base.size(polys::PiecewiseLegendrePolyVector) = size(polys.ptr)
 
 """
     PiecewiseLegendreFTVector
@@ -47,13 +61,9 @@ function is defined as:
 """
 mutable struct PiecewiseLegendreFTVector
     ptr::Ptr{spir_funcs}
-    xmin::Float64
-    xmax::Float64
 
     function PiecewiseLegendreFTVector(funcs::Ptr{spir_funcs})
-        xmin = -1.0
-        xmax = 1.0
-        result = new(funcs, xmin, xmax)
+        result = new(funcs)
         finalizer(r -> spir_funcs_release(r.ptr), result)
         return result
     end
@@ -94,6 +104,8 @@ function (polys::PiecewiseLegendreFTVector)(freq::MatsubaraFreq)
     return ret
 end
 
+Base.size(polys::PiecewiseLegendreFTVector) = size(polys.ptr)
+
 function (polys::PiecewiseLegendreFTVector)(x::AbstractVector)
     hcat(polys.(x)...)
 end
@@ -108,15 +120,35 @@ function Base.getindex(funcs::Ptr{spir_funcs}, i::Int)
     return ret
 end
 
-function Base.getindex(polys::PiecewiseLegendrePolyVector, i::Int)
-    return PiecewiseLegendrePoly(polys.ptr[i], polys.xmin, polys.xmax)
+
+function Base.getindex(funcs::Ptr{spir_funcs}, indices::Vector{Int})
+    all(indices .>= 1 ) || error("Indices must be at least 1")
+    all(indices .<= size(funcs)) || error("Indices must be less than or equal to the size of the functions")
+    status = Ref{Int32}(-100)
+    indices_i32 = Vector{Int32}(undef, length(indices))
+    indices_i32 .= indices .- 1 # Julia indices are 1-based, C indices are 0-based
+    ret = spir_funcs_get_slice(funcs, length(indices), indices_i32, status)
+    status[] == SPIR_COMPUTATION_SUCCESS ||
+        error("Failed to get basis function for index $indices: $(status[])")
+    return ret
 end
 
-# Base.getindex(funcs::Ptr{spir_funcs}, I) = [funcs[i] for i in I]
-function Base.getindex(polys::PiecewiseLegendrePolyVector, I)
-    PiecewiseLegendrePoly[polys[i]
-                          for i in I]
+function Base.getindex(polys::PiecewiseLegendrePolyVector, i::Int)
+    return PiecewiseLegendrePoly(polys.ptr[i], polys.xmin, polys.xmax, polys.period)
 end
+
+
+function Base.getindex(polys::PiecewiseLegendrePolyVector, I)::Union{PiecewiseLegendrePoly, PiecewiseLegendrePolyVector}
+    indices = collect(1:size(polys))[I]
+    if indices isa Int
+        return PiecewiseLegendrePoly(polys.ptr[indices], polys.xmin, polys.xmax, polys.period)
+    elseif length(indices) == 1
+        return PiecewiseLegendrePoly(polys.ptr[indices[1]], polys.xmin, polys.xmax, polys.period)
+    else
+        return PiecewiseLegendrePolyVector(polys.ptr[indices], polys.xmin, polys.xmax, polys.period)
+    end
+end
+
 
 function Base.length(funcs::Ptr{spir_funcs})
     sz = Ref{Int32}(-1)
@@ -135,55 +167,131 @@ Base.lastindex(funcs::Ptr{spir_funcs}) = length(funcs)
 Base.firstindex(polys::PiecewiseLegendrePolyVector) = firstindex(polys.ptr)
 Base.lastindex(polys::PiecewiseLegendrePolyVector) = lastindex(polys.ptr)
 
-function roots(poly::PiecewiseLegendrePoly)
-    nroots_ref = Ref{Int32}(-1)
-    spir_funcs_get_n_roots(poly.ptr, nroots_ref)
-    nroots = nroots_ref[]
+function knots(poly::PiecewiseLegendrePoly)
+    nknots_ref = Ref{Int32}(-1)
+    spir_funcs_get_n_knots(poly.ptr, nknots_ref)
+    nknots = nknots_ref[]
 
-    out = Vector{Float64}(undef, nroots)
+    out = Vector{Float64}(undef, nknots)
 
-    SparseIR.C_API.spir_funcs_get_roots(
+    SparseIR.C_API.spir_funcs_get_knots(
         poly.ptr, out
     )
     return out
 end
 
-function roots(poly::PiecewiseLegendrePolyVector)
-    nroots_ref = Ref{Int32}(-1)
-    spir_funcs_get_n_roots(poly.ptr, nroots_ref)
-    nroots = nroots_ref[]
+function knots(poly::PiecewiseLegendrePolyVector)
+    nknots_ref = Ref{Int32}(-1)
+    spir_funcs_get_n_knots(poly.ptr, nknots_ref)
+    nknots = nknots_ref[]
 
-    out = Vector{Float64}(undef, nroots)
+    out = Vector{Float64}(undef, nknots)
 
-    SparseIR.C_API.spir_funcs_get_roots(
+    SparseIR.C_API.spir_funcs_get_knots(
         poly.ptr, out
     )
     return out
 end
 
-function overlap(poly::PiecewiseLegendrePolyVector, f::F) where {F}
-    xmin = poly.xmin
-    xmax = poly.xmax
-    pts = filter(x -> xmin ≤ x ≤ xmax, roots(poly))
-    q,
-    _ = quadgk(
-        x -> poly(x) * f(x),
-        unique!(sort!(vcat(pts, [xmin, xmax])));
-        rtol=eps(), order=10, maxevals=10^4)
-    q
+
+"""
+    cover_domain(knots::Vector{Float64}, xmin::Float64, xmax::Float64, period::Float64, poly_xmin::Float64, poly_xmax::Float64)
+
+Generate knots that cover the integration domain, handling periodic functions.
+
+This function extends the basic knots to cover the entire integration domain,
+taking into account periodicity if applicable.
+"""
+function cover_domain(knots::Vector{Float64}, xmin::Float64, xmax::Float64, period::Float64, poly_xmin::Float64, poly_xmax::Float64)
+    if xmin > xmax
+        error("xmin must be less than xmax")
+    end
+    
+    # Add integration boundaries
+    knots_vec = unique(vcat(knots, [xmin, xmax]))
+    
+    # Handle periodic functions
+    if period != 0.0
+        extended_knots = collect(knots_vec)
+        
+        # Extend in positive direction
+        i = 1
+        while true
+            offset = i * period
+            new_knots = knots_vec .+ offset
+            if any(new_knots .> poly_xmax)
+                break
+            end
+            append!(extended_knots, new_knots)
+            i += 1
+        end
+        
+        # Extend in negative direction
+        i = 1
+        while true
+            offset = -i * period
+            new_knots = knots_vec .+ offset
+            if any(new_knots .< poly_xmin)
+                break
+            end
+            append!(extended_knots, new_knots)
+            i += 1
+        end
+        
+        knots_vec = unique(extended_knots)
+    end
+    
+    # Trim knots to the integration interval
+    knots_vec = knots_vec[(knots_vec .>= xmin) .& (knots_vec .<= xmax)]
+    knots_vec = sort(knots_vec)
+    
+    return knots_vec
 end
 
-function overlap(poly::PiecewiseLegendrePoly, f::F) where {F}
-    xmin = poly.xmin
-    xmax = poly.xmax
-    pts = filter(x -> xmin ≤ x ≤ xmax, roots(poly))
-    q,
-    _ = quadgk(
-        x -> poly(x) * f(x),
-        unique!(sort!(vcat(pts, [xmin, xmax])));
-        rtol=eps(), order=10, maxevals=10^4)
-    return q
+"""
+    overlap(poly::PiecewiseLegendrePoly, f, xmin::Float64, xmax::Float64; 
+        rtol=eps(), return_error=false, maxevals=10^4, points=Float64[])
+
+Evaluate overlap integral of `poly` with arbitrary function `f`.
+
+Given the function `f`, evaluate the integral
+
+    ∫ dx f(x) poly(x)
+
+using adaptive Gauss-Legendre quadrature.
+
+`points` is a sequence of break points in the integration interval where local
+difficulties of the integrand may occur (e.g. singularities, discontinuities).
+"""
+function overlap(
+        poly::PiecewiseLegendrePoly, f::F, xmin::Float64, xmax::Float64;
+        rtol=eps(), return_error=false, maxevals=10^4, points=Float64[]
+    ) where {F}
+    if xmin > xmax
+        error("xmin must be less than xmax")
+    end
+    knots_ = sort([xmin, xmax, points..., knots(poly)...])
+    knots_ = cover_domain(knots_, xmin, xmax, poly.period, poly.xmin, poly.xmax)
+
+    int_result, int_error = quadgk(x -> poly(x) * f(x), knots_...;
+        rtol, order=10, maxevals)
+    if return_error
+        return int_result, int_error
+    else
+        return int_result
+    end
 end
+
+
+function overlap(
+    polys::PiecewiseLegendrePolyVector, f::F, xmin::Float64, xmax::Float64;
+    rtol=eps(), return_error=false, maxevals=10^4, points=Float64[]
+) where {F}
+    result_ = [overlap(polys[i], f, xmin, xmax; rtol, return_error, maxevals, points) for i in 1:size(polys)]
+    result_shape = (size(polys), first(size(result_))...)
+    return reshape(vcat(result_...), result_shape)
+end
+
 
 function xmin(poly::PiecewiseLegendrePoly)
     return poly.xmin
@@ -208,3 +316,8 @@ end
 function xmax(poly::PiecewiseLegendreFTVector)
     return poly.xmax
 end
+
+#function overlap(polys::PiecewiseLegendrePolyVector, f::F; rtol=eps(),
+    #return_error=false) where {F}
+   #return overlap.(polys, f; rtol, return_error)
+#end
