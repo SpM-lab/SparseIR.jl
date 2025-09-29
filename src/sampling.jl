@@ -63,7 +63,6 @@ If `use_positive_taus=true`, the sampling points are folded to the positive tau 
 This was the default behavior in SparseIR.jl of versions 1.x.x.
 """
 function TauSampling(basis::AbstractBasis; sampling_points=nothing, use_positive_taus=false)
-    @show use_positive_taus
     if sampling_points === nothing
         points = default_tau_sampling_points(basis)
         if use_positive_taus

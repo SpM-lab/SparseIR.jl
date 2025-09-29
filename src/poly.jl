@@ -288,7 +288,7 @@ function overlap(
     rtol=eps(), return_error=false, maxevals=10^4, points=Float64[]
 ) where {F}
     result_ = [overlap(polys[i], f, xmin, xmax; rtol, return_error, maxevals, points) for i in 1:size(polys)]
-    result_shape = (size(polys), first(size(result_))...)
+    result_shape = (size(polys), size(first(result_))...)
     return reshape(vcat(result_...), result_shape)
 end
 
