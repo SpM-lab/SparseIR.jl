@@ -45,7 +45,7 @@ function DiscreteLehmannRepresentation(
     if length(poles) == 0
         error("Poles array cannot be empty")
     end
-    
+
     status = Ref{Int32}(-100)
     dlr_ptr = C_API.spir_dlr_new_with_poles(basis.ptr, length(poles), poles, status)
     status[] == C_API.SPIR_COMPUTATION_SUCCESS ||
@@ -90,12 +90,12 @@ function from_IR(dlr::DiscreteLehmannRepresentation, gl::Array{T,N}, dims=1) whe
     if !_is_column_major_contiguous(output)
         error("Output array must be contiguous")
     end
-    
+
     # Validate target dimension
     if dims < 1 || dims > N
         error("Invalid target dimension: $dims. Must be in range [1, $N]")
     end
-    
+
     # Call appropriate C function
     ndim = N
     input_dims = Int32[size(gl)...]
@@ -150,12 +150,11 @@ function to_IR(dlr::DiscreteLehmannRepresentation, g_dlr::Array{T,N}, dims=1) wh
     if !_is_column_major_contiguous(output)
         error("Output array must be contiguous")
     end
-    
+
     # Validate target dimension
     if dims < 1 || dims > N
         error("Invalid target dimension: $dims. Must be in range [1, $N]")
     end
-    
 
     # Call appropriate C function
     ndim = N

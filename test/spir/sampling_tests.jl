@@ -88,7 +88,6 @@
     @testset "iω noise with stat = $stat, Λ = $Λ" for stat in (Bosonic(), Fermionic()),
         Λ in (10, 42),
         positive_only in (false, true)
-
         sve_logistic = SparseIR.SVEResult(LogisticKernel(Λ), 1e-10)
         basis = FiniteTempBasis(stat, 1, Λ, 1e-10; sve_result=sve_logistic)
         smpl = MatsubaraSampling(basis; positive_only)

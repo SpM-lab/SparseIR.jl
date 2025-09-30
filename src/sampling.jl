@@ -134,7 +134,7 @@ function MatsubaraSampling(
 
     # Extract indices for C API
     indices = [Int64(Int(p)) for p in sampling_points]
-    
+
     # Safety checks
     if length(indices) == 0
         error("Sampling points cannot be empty")
