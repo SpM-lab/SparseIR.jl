@@ -6,6 +6,7 @@ on:
   pull_request:
     branches:
       - main
+      - develop_v2xx
   workflow_dispatch:
   schedule:
     - cron: 0 0 * * 1
@@ -25,16 +26,26 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version:
-          - 'lts'
-          - '1'
-          - 'nightly'
-        os:
-          - ubuntu-latest
-          - macOS-latest
-          - windows-latest
-        arch:
-          - x64
+        include:
+          - version: 'lts'
+            os: ubuntu-latest
+            arch: x64
+          - version: '1'
+            os: ubuntu-latest
+            arch: x64
+          - version: 'lts'
+            os: macOS-latest
+            arch: arm64
+          - version: '1'
+            os: macOS-latest
+            arch: arm64
+          # libsparseir is not yet tested on Windows
+          #- version: 'lts'
+            #os: windows-latest
+            #arch: x64
+          #- version: '1'
+            #os: windows-latest
+            #arch: x64
     steps:
       - uses: actions/checkout@v5
       - uses: julia-actions/setup-julia@v2
@@ -44,7 +55,6 @@ jobs:
       - uses: julia-actions/cache@v2
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
-        continue-on-error: ${{ matrix.version == 'nightly' }}
       - uses: julia-actions/julia-processcoverage@v1
       - uses: codecov/codecov-action@v5
   docs:

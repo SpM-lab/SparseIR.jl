@@ -59,6 +59,49 @@ struct AugmentedBasis{S<:Statistics,B<:FiniteTempBasis{S},A<:AugmentationTuple,F
     uhat          :: FHAT
 end
 
+function TauSampling(basis::AugmentedBasis{S};
+        sampling_points=default_tau_sampling_points(basis)) where {S}
+    matrix = eval_matrix(TauSampling, basis, sampling_points)
+    status = Ref{Int32}(-100)
+    ptr = C_API.spir_tau_sampling_new_with_matrix(
+        C_API.SPIR_ORDER_COLUMN_MAJOR, _statistics_to_c(S), length(basis),
+        length(sampling_points), sampling_points, matrix, status)
+    status[] == C_API.SPIR_COMPUTATION_SUCCESS ||
+        error("Failed to create tau sampling: status=$(status[])")
+    ptr != C_NULL || error("Failed to create tau sampling: null pointer returned")
+
+    return TauSampling{Float64,typeof(basis)}(ptr, sampling_points, basis)
+end
+
+function MatsubaraSampling(
+        basis::AugmentedBasis{S};
+        positive_only=false,
+        sampling_points=default_matsubara_sampling_points(basis; positive_only)
+) where {S}
+    pts = MatsubaraFreq.(sampling_points)
+    matrix = eval_matrix(MatsubaraSampling, basis, pts)
+    status = Ref{Int32}(-100)
+    ptr = C_API.spir_matsu_sampling_new_with_matrix(
+        C_API.SPIR_ORDER_COLUMN_MAJOR,
+        _statistics_to_c(S),
+        length(basis),
+        positive_only,
+        length(sampling_points),
+        sampling_points,
+        matrix,
+        status
+    )
+    status[] == C_API.SPIR_COMPUTATION_SUCCESS ||
+        error("Failed to create Matsubara sampling: status=$(status[])")
+    ptr != C_NULL || error("Failed to create Matsubara sampling: null pointer returned")
+
+    return MatsubaraSampling{eltype(pts),typeof(basis)}(ptr, pts, positive_only, basis)
+end
+
+function _get_ptr(basis::AugmentedBasis)
+    _get_ptr(basis.basis)
+end
+
 function AugmentedBasis(basis::AbstractBasis, augmentations...)
     augs = create.(augmentations, basis)
     u = AugmentedTauFunction(basis.u, augs)
@@ -84,11 +127,29 @@ accuracy(basis::AugmentedBasis) = accuracy(basis.basis)
 significance(basis::AugmentedBasis) = vcat(ones(naug(basis)), significance(basis.basis))
 
 function default_tau_sampling_points(basis::AugmentedBasis)
-    x = default_sampling_points(basis.basis.sve_result.u, length(basis))
-    β(basis) / 2 * (x .+ 1)
+    points = Vector{Float64}(undef, length(basis))
+    n_points_returned = Ref{Cint}(0)
+    status = spir_basis_get_default_taus_ext(
+        _get_ptr(basis.basis), length(basis), points, n_points_returned)
+    status == SPIR_COMPUTATION_SUCCESS || error("Failed to get default tau sampling points")
+    return points
 end
+
 function default_matsubara_sampling_points(basis::AugmentedBasis; positive_only=false)
-    default_matsubara_sampling_points(basis.basis.uhat_full, length(basis); positive_only)
+    n_points = Ref{Cint}(0)
+    status = spir_basis_get_n_default_matsus_ext(
+        _get_ptr(basis.basis), positive_only, length(basis), n_points)
+    status == SPIR_COMPUTATION_SUCCESS ||
+        error("Failed to get number of default Matsubara sampling points")
+    points = Vector{Int64}(undef, n_points[])
+    n_points_returned = Ref{Cint}(0)
+    status = spir_basis_get_default_matsus_ext(
+        _get_ptr(basis.basis), positive_only, length(basis), points, n_points_returned)
+    status == SPIR_COMPUTATION_SUCCESS ||
+        error("Failed to get default Matsubara sampling points")
+    n_points_returned[] == n_points[] ||
+        error("n_points_returned=$(n_points_returned[]) != n_points=$(n_points[])")
+    return points
 end
 
 function iswellconditioned(basis::AugmentedBasis)
@@ -122,6 +183,7 @@ function (a::AbstractAugmentedFunction)(x)
     faug_x = [faug_l(x) for faug_l in faug(a)]
     return vcat(faug_x, fbasis_x)
 end
+
 function (a::AbstractAugmentedFunction)(x::AbstractArray)
     fbasis_x = fbasis(a)(x)
     faug_x = reduce(vcat, faug_l.(reshape(x, (1, :))) for faug_l in faug(a))
@@ -147,8 +209,9 @@ augmentedfunction(aτ::AugmentedTauFunction) = aτ.a
 
 AugmentedTauFunction(fbasis, faug) = AugmentedTauFunction(AugmentedFunction(fbasis, faug))
 
-xmin(aτ::AugmentedTauFunction) = xmin(fbasis(aτ))
-xmax(aτ::AugmentedTauFunction) = xmax(fbasis(aτ))
+# Not supported yet
+#xmin(aτ::AugmentedTauFunction) = xmin(fbasis(aτ))
+#xmax(aτ::AugmentedTauFunction) = xmax(fbasis(aτ))
 
 function deriv(aτ::AugmentedTauFunction, n=Val(1))
     dbasis = PiecewiseLegendrePolyVector(deriv.(fbasis(aτ), n))
@@ -190,7 +253,10 @@ end
 create(::Type{TauConst}, basis::AbstractBasis{Bosonic}) = TauConst(β(basis))
 
 function (aug::TauConst)(τ)
-    0 ≤ τ ≤ β(aug) || throw(DomainError(τ, "τ must be in [0, β]."))
+    #0 ≤ τ ≤ β(aug) || throw(DomainError(τ, "τ must be in [0, β]."))
+    -β(aug) / 2 ≤ τ ≤ β(aug) / 2 ||
+        throw(DomainError(τ, "τ must be in [-β(aug)/2, β(aug)/2]."))
+
     return 1 / sqrt(β(aug))
 end
 function (aug::TauConst)(n::BosonicFreq)
@@ -222,7 +288,9 @@ end
 create(::Type{TauLinear}, basis::AbstractBasis{Bosonic}) = TauLinear(β(basis))
 
 function (aug::TauLinear)(τ)
-    0 ≤ τ ≤ β(aug) || throw(DomainError(τ, "τ must be in [0, β]."))
+    # 0 ≤ τ ≤ β(aug) || throw(DomainError(τ, "τ must be in [0, β]."))
+    -β(aug) / 2 ≤ τ ≤ β(aug) / 2 ||
+        throw(DomainError(τ, "τ must be in [-β(aug)/2, β(aug)/2]."))
     x = 2 / β(aug) * τ - 1
     return aug.norm * x
 end
@@ -255,9 +323,11 @@ end
 create(::Type{MatsubaraConst}, basis::AbstractBasis) = MatsubaraConst(β(basis))
 
 function (aug::MatsubaraConst)(τ)
-    0 ≤ τ ≤ β(aug) || throw(DomainError(τ, "τ must be in [0, β]."))
+    -β(aug) / 2 ≤ τ ≤ β(aug) / 2 ||
+        throw(DomainError(τ, "τ must be in [-β(aug)/2, β(aug)/2]."))
     return NaN
 end
+
 function (aug::MatsubaraConst)(::MatsubaraFreq)
     return one(β(aug))
 end

@@ -18,6 +18,8 @@ intermediate representation of correlation functions. It provides:
 > Refer also to the accompanying paper:<br>
 > **[sparse-ir: Optimal compression and sparse sampling of many-body propagators](https://doi.org/10.1016/j.softx.2022.101266)**
 
+This is a Julia wrapper for the [libsparseir](https://github.com/SpM-lab/libsparseir) C library.
+
 Installation
 ------------
 SparseIR can be installed with the Julia package manager. Simply run the following from the command line:
@@ -37,6 +39,13 @@ julia -e 'import Pkg; Pkg.develop(url="https://github.com/SpM-lab/SparseIR.jl")'
 > **Warning**
 > This is recommended only for developers - you won't get automatic updates!
 
+You can also control debug output at runtime using the `SPARSEIR_DEBUG` environment variable:
+
+```bash
+export SPARSEIR_DEBUG=1
+julia
+```
+
 Documentation and tutorial
 --------------------------
 Check out our [comprehensive tutorial], where self-contained
@@ -46,8 +55,8 @@ Lichtenstein formula, FLEX, ... - are presented.
 Refer to the [API documentation] for more details on how to work
 with the Julia library.
 
-There is also a [Python library] and (currently somewhat restricted)
-[Fortran library] available for the IR basis and sparse sampling.
+This library is built upon the [libsparseir C library](https://github.com/SpM-lab/libsparseir) with Fortran bindings.
+There is also a [Python library].
 
 [comprehensive tutorial]: https://spm-lab.github.io/sparse-ir-tutorial
 [API documentation]: https://spm-lab.github.io/SparseIR.jl/stable/
@@ -157,3 +166,7 @@ MINIMAX isometry method (Merzuk Kaltak and Georg Kresse,
 [aqua-url]: https://github.com/JuliaTesting/Aqua.jl
 
 [issues-url]: https://github.com/SpM-lab/SparseIR.jl/issues
+
+Development
+-----------
+See [development.md](development.md) for more information on how to contribute to the project.

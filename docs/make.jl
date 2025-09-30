@@ -10,8 +10,9 @@ bib = CitationBibliography(
 )
 
 makedocs(; modules=[SparseIR],
-    authors="Samuel Badr <samuel.badr@gmail.com> and contributors",
-    #  repo="https://github.com/SpM-lab/SparseIR.jl/blob/{commit}{path}#{line}",
+    checkdocs=:none,
+    authors="SatoshiTerasaki <terasakisatoshi.math@gmail.com>, Samuel Badr <samuel.badr@gmail.com>, Hiroshi Shinaoka <h.shinaoka@gmail.com>, Markus Wallerberger <markus.wallerberger@tuwien.ac.at>",
+    repo="https://github.com/SpM-lab/SparseIR.jl/blob/{commit}{path}#{line}",
     sitename="SparseIR.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
