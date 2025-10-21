@@ -52,17 +52,16 @@ const MatsubaraSampling64B = MatsubaraSampling{
 # Convenience constructors
 
 """
-    TauSampling(basis::AbstractBasis; sampling_points=nothing, use_positive_taus=false)
+    TauSampling(basis::AbstractBasis; sampling_points=nothing, use_positive_taus=true)
 
 Construct a `TauSampling` object from a basis. If `sampling_points` is not provided,
 the default tau sampling points from the basis are used.
 
-If `use_positive_taus=false` (default), the sampling points are in the range [-β/2, β/2].
+If `use_positive_taus=true`, the sampling points are folded to the positive tau domain [0, β) [default].
 
-If `use_positive_taus=true`, the sampling points are folded to the positive tau domain [0, β).
-This was the default behavior in SparseIR.jl of versions 1.x.x.
+If `use_positive_taus=false`, the sampling points are in the range [-β/2, β/2].
 """
-function TauSampling(basis::AbstractBasis; sampling_points=nothing, use_positive_taus=false)
+function TauSampling(basis::AbstractBasis; sampling_points=nothing, use_positive_taus=true)
     if sampling_points === nothing
         points = default_tau_sampling_points(basis)
         if use_positive_taus

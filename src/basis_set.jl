@@ -39,12 +39,12 @@ struct FiniteTempBasisSet
     Fermion and bosonic bases are constructed by SVE of the logistic kernel.
     """
     function FiniteTempBasisSet(β::Real, ωmax::Real, ε::Real;
-            sve_result=SVEResult(LogisticKernel(β * ωmax), ε))
+            sve_result=SVEResult(LogisticKernel(β * ωmax), ε), use_positive_taus=true)
         basis_f = FiniteTempBasis{Fermionic}(β, ωmax, ε; sve_result)
         basis_b = FiniteTempBasis{Bosonic}(β, ωmax, ε; sve_result)
 
-        tau_sampling_f = TauSampling(basis_f)
-        tau_sampling_b = TauSampling(basis_b)
+        tau_sampling_f = TauSampling(basis_f, use_positive_taus=use_positive_taus)
+        tau_sampling_b = TauSampling(basis_b, use_positive_taus=use_positive_taus)
         matsubara_sampling_f = MatsubaraSampling(basis_f)
         matsubara_sampling_b = MatsubaraSampling(basis_b)
 
