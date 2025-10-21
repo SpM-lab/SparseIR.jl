@@ -2,6 +2,7 @@ module C_API
 
 using CEnum: CEnum, @cenum
 using Libdl
+import libsparseir_jll
 
 function get_libsparseir()
     # Use debug library if SPARSEIR_LIB_PATH environment variable is set
@@ -17,8 +18,7 @@ function get_libsparseir()
             error("Failed to load debug library: $e")
         end
     else
-        # Production: use JLL package - load dynamically
-        @eval using libsparseir_jll
+        # Production: use JLL package
         return libsparseir_jll.libsparseir
     end
 end

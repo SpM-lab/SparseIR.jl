@@ -44,12 +44,12 @@
 
         # Create SVE result
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, sve_status)
+        sve = SparseIR.spir_sve_result_new(kernel, epsilon, NaN, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
         @test sve != C_NULL
 
         # Create basis
-        basis = SparseIR.spir_basis_new(statistics, beta, omega_max, kernel, sve, status)
+        basis = SparseIR.spir_basis_new(statistics, beta, omega_max, epsilon, kernel, sve, -1, status)
         @test status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
         @test basis != C_NULL
 

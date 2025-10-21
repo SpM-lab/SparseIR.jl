@@ -18,7 +18,7 @@
 
         # Create SVE result
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, sve_status)
+        sve = SparseIR.spir_sve_result_new(kernel, epsilon, NaN, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         if sve_status[] != SparseIR.SPIR_COMPUTATION_SUCCESS || sve == C_NULL
             SparseIR.spir_kernel_release(kernel)
             return C_NULL, sve_status[]
@@ -27,7 +27,7 @@
         # Create basis
         basis_status = Ref{Int32}(0)
         basis = SparseIR.spir_basis_new(
-            statistics, beta, omega_max, kernel, sve, basis_status)
+            statistics, beta, omega_max, epsilon, kernel, sve, -1, basis_status)
         if basis_status[] != SparseIR.SPIR_COMPUTATION_SUCCESS || basis == C_NULL
             SparseIR.spir_sve_result_release(sve)
             SparseIR.spir_kernel_release(kernel)
