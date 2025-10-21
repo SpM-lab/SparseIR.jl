@@ -36,11 +36,11 @@
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, sve_status)
+        sve = SparseIR.spir_sve_result_new(kernel, epsilon, NaN, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         basis_status = Ref{Int32}(0)
-        basis = SparseIR.spir_basis_new(statistics, beta, wmax, kernel, sve, basis_status)
+        basis = SparseIR.spir_basis_new(statistics, beta, wmax, epsilon, kernel, sve, -1, basis_status)
         @test basis_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
         @test basis != C_NULL
 
@@ -103,11 +103,11 @@
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, sve_status)
+        sve = SparseIR.spir_sve_result_new(kernel, epsilon, NaN, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         basis_status = Ref{Int32}(0)
-        basis = SparseIR.spir_basis_new(statistics, beta, wmax, kernel, sve, basis_status)
+        basis = SparseIR.spir_basis_new(statistics, beta, wmax, epsilon, kernel, sve, -1, basis_status)
         @test basis_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         # Create sampling
@@ -170,11 +170,11 @@
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, sve_status)
+        sve = SparseIR.spir_sve_result_new(kernel, epsilon, NaN, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         basis_status = Ref{Int32}(0)
-        basis = SparseIR.spir_basis_new(statistics, beta, wmax, kernel, sve, basis_status)
+        basis = SparseIR.spir_basis_new(statistics, beta, wmax, epsilon, kernel, sve, -1, basis_status)
         @test basis_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         # Create sampling
@@ -258,11 +258,11 @@
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, sve_status)
+        sve = SparseIR.spir_sve_result_new(kernel, epsilon, NaN, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         basis_status = Ref{Int32}(0)
-        basis = SparseIR.spir_basis_new(statistics, beta, wmax, kernel, sve, basis_status)
+        basis = SparseIR.spir_basis_new(statistics, beta, wmax, epsilon, kernel, sve, -1, basis_status)
         @test basis_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         # Create sampling
@@ -346,11 +346,11 @@
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, sve_status)
+        sve = SparseIR.spir_sve_result_new(kernel, epsilon, NaN, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         basis_status = Ref{Int32}(0)
-        basis = SparseIR.spir_basis_new(statistics, beta, wmax, kernel, sve, basis_status)
+        basis = SparseIR.spir_basis_new(statistics, beta, wmax, epsilon, kernel, sve, -1, basis_status)
         @test basis_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         # Create sampling
@@ -437,11 +437,11 @@
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, sve_status)
+        sve = SparseIR.spir_sve_result_new(kernel, epsilon, NaN, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         basis_status = Ref{Int32}(0)
-        basis = SparseIR.spir_basis_new(statistics, beta, wmax, kernel, sve, basis_status)
+        basis = SparseIR.spir_basis_new(statistics, beta, wmax, epsilon, kernel, sve, -1, basis_status)
         @test basis_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         # Create sampling
@@ -528,11 +528,11 @@
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, sve_status)
+        sve = SparseIR.spir_sve_result_new(kernel, epsilon, NaN, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         basis_status = Ref{Int32}(0)
-        basis = SparseIR.spir_basis_new(statistics, beta, wmax, kernel, sve, basis_status)
+        basis = SparseIR.spir_basis_new(statistics, beta, wmax, epsilon, kernel, sve, -1, basis_status)
         @test basis_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         # Create sampling
@@ -658,11 +658,11 @@ end
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, sve_status)
+        sve = SparseIR.spir_sve_result_new(kernel, epsilon, NaN, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         basis_status = Ref{Int32}(0)
-        basis = SparseIR.spir_basis_new(statistics, beta, wmax, kernel, sve, basis_status)
+        basis = SparseIR.spir_basis_new(statistics, beta, wmax, epsilon, kernel, sve, -1, basis_status)
         @test basis_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         # Test with positive_only = false
