@@ -11,7 +11,7 @@
     ρ₀(ω) = 2 / π * √(1 - clamp(ω, -1, +1)^2)
 
     @testset "u" begin
-        @test SparseIR.xmin(basis.u) == 0.0
+        @test SparseIR.xmin(basis.u) == -β
         @test SparseIR.xmax(basis.u) == β
         @test basis.u.period == β
 
