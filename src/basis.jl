@@ -87,8 +87,8 @@ mutable struct FiniteTempBasis{S,K} <: AbstractBasis{S}
         result = new{S,K}(
             basis, kernel, sve_result, Float64(β), Float64(ωmax), Float64(ε),
             s,
-            PiecewiseLegendrePolyVector(u, 0.0, β, β),
-            PiecewiseLegendrePolyVector(v, -ωmax, ωmax, 0.0),
+            PiecewiseLegendrePolyVector(u, -β, β, β, (0.0, β)),  # u uses [0, β] as default overlap range
+            PiecewiseLegendrePolyVector(v, -ωmax, ωmax, 0.0),     # v uses default range (xmin, xmax)
             PiecewiseLegendreFTVector(uhat)
         )
         finalizer(b -> spir_basis_release(b.ptr), result)

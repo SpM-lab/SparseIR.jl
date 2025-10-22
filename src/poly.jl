@@ -12,9 +12,12 @@ mutable struct PiecewiseLegendrePoly
     xmin::Float64
     xmax::Float64
     period::Float64 # 0.0 for a non-periodic function, the period for a periodic function
+    default_overlap_range::Tuple{Float64, Float64} # Default range for overlap calculations
     function PiecewiseLegendrePoly(
-            funcs::Ptr{spir_funcs}, xmin::Float64, xmax::Float64, period::Float64)
-        result = new(funcs, xmin, xmax, period)
+            funcs::Ptr{spir_funcs}, xmin::Float64, xmax::Float64, period::Float64,
+            default_overlap_range::Union{Tuple{Float64, Float64}, Nothing}=nothing)
+        default_range = default_overlap_range === nothing ? (xmin, xmax) : default_overlap_range
+        result = new(funcs, xmin, xmax, period, default_range)
         finalizer(r -> spir_funcs_release(r.ptr), result)
         return result
     end
@@ -32,9 +35,12 @@ mutable struct PiecewiseLegendrePolyVector
     xmin::Float64
     xmax::Float64
     period::Float64 # 0.0 for a non-periodic function, the period for a periodic function
+    default_overlap_range::Tuple{Float64, Float64} # Default range for overlap calculations
     function PiecewiseLegendrePolyVector(
-            funcs::Ptr{spir_funcs}, xmin::Float64, xmax::Float64, period::Float64)
-        result = new(funcs, xmin, xmax, period)
+            funcs::Ptr{spir_funcs}, xmin::Float64, xmax::Float64, period::Float64,
+            default_overlap_range::Union{Tuple{Float64, Float64}, Nothing}=nothing)
+        default_range = default_overlap_range === nothing ? (xmin, xmax) : default_overlap_range
+        result = new(funcs, xmin, xmax, period, default_range)
         finalizer(r -> spir_funcs_release(r.ptr), result)
         return result
     end
@@ -134,18 +140,18 @@ function Base.getindex(funcs::Ptr{spir_funcs}, indices::Vector{Int})
 end
 
 function Base.getindex(polys::PiecewiseLegendrePolyVector, i::Int)
-    return PiecewiseLegendrePoly(polys.ptr[i], polys.xmin, polys.xmax, polys.period)
+    return PiecewiseLegendrePoly(polys.ptr[i], polys.xmin, polys.xmax, polys.period, polys.default_overlap_range)
 end
 
 function Base.getindex(polys::PiecewiseLegendrePolyVector,
         I)::Union{PiecewiseLegendrePoly,PiecewiseLegendrePolyVector}
     indices = collect(1:size(polys))[I]
     if indices isa Int
-        return PiecewiseLegendrePoly(polys.ptr[indices], polys.xmin, polys.xmax, polys.period)
+        return PiecewiseLegendrePoly(polys.ptr[indices], polys.xmin, polys.xmax, polys.period, polys.default_overlap_range)
     elseif length(indices) == 1
-        return PiecewiseLegendrePoly(polys.ptr[indices[1]], polys.xmin, polys.xmax, polys.period)
+        return PiecewiseLegendrePoly(polys.ptr[indices[1]], polys.xmin, polys.xmax, polys.period, polys.default_overlap_range)
     else
-        return PiecewiseLegendrePolyVector(polys.ptr[indices], polys.xmin, polys.xmax, polys.period)
+        return PiecewiseLegendrePolyVector(polys.ptr[indices], polys.xmin, polys.xmax, polys.period, polys.default_overlap_range)
     end
 end
 
@@ -248,6 +254,29 @@ function cover_domain(knots::Vector{Float64}, xmin::Float64, xmax::Float64,
 end
 
 """
+    overlap(poly::PiecewiseLegendrePoly, f; 
+        rtol=eps(), return_error=false, maxevals=10^4, points=Float64[])
+
+Evaluate overlap integral of `poly` with arbitrary function `f` using default range.
+
+Given the function `f`, evaluate the integral
+
+    ∫ dx f(x) poly(x)
+
+using adaptive Gauss-Legendre quadrature with the default integration range.
+
+`points` is a sequence of break points in the integration interval where local
+difficulties of the integrand may occur (e.g. singularities, discontinuities).
+"""
+function overlap(
+        poly::PiecewiseLegendrePoly, f::F;
+        rtol=eps(), return_error=false, maxevals=10^4, points=Float64[]
+) where {F}
+    xmin, xmax = poly.default_overlap_range
+    return overlap(poly, f, xmin, xmax; rtol, return_error, maxevals, points)
+end
+
+"""
     overlap(poly::PiecewiseLegendrePoly, f, xmin::Float64, xmax::Float64; 
         rtol=eps(), return_error=false, maxevals=10^4, points=Float64[])
 
@@ -269,6 +298,15 @@ function overlap(
     if xmin > xmax
         error("xmin must be less than xmax")
     end
+    
+    # Check bounds for all functions (both periodic and non-periodic)
+    if xmin < poly.xmin
+        error("xmin ($xmin) must be greater than or equal to the lower bound of the polynomial domain ($(poly.xmin))")
+    end
+    if xmax > poly.xmax
+        error("xmax ($xmax) must be less than or equal to the upper bound of the polynomial domain ($(poly.xmax))")
+    end
+    
     knots_ = sort([xmin, xmax, points..., knots(poly)...])
     knots_ = cover_domain(knots_, xmin, xmax, poly.period, poly.xmin, poly.xmax)
 
@@ -279,6 +317,26 @@ function overlap(
     else
         return int_result
     end
+end
+
+"""
+    overlap(polys::PiecewiseLegendrePolyVector, f; 
+        rtol=eps(), return_error=false, maxevals=10^4, points=Float64[])
+
+Evaluate overlap integral of `polys` with arbitrary function `f` using default range.
+
+Given the function `f`, evaluate the integral
+
+    ∫ dx f(x) polys[i](x)
+
+for each polynomial in the vector using adaptive Gauss-Legendre quadrature with the default integration range.
+"""
+function overlap(
+        polys::PiecewiseLegendrePolyVector, f::F;
+        rtol=eps(), return_error=false, maxevals=10^4, points=Float64[]
+) where {F}
+    xmin, xmax = polys.default_overlap_range
+    return overlap(polys, f, xmin, xmax; rtol, return_error, maxevals, points)
 end
 
 function overlap(
