@@ -70,3 +70,74 @@ end
 
 iscentrosymmetric(::LogisticKernel) = true
 iscentrosymmetric(::RegularizedBoseKernel) = true
+
+function xrange(kernel::LogisticKernel)
+    xmin = Ref{Float64}(0.0)
+    xmax = Ref{Float64}(0.0)
+    ymin = Ref{Float64}(0.0)
+    ymax = Ref{Float64}(0.0)
+    status = spir_kernel_domain(_get_ptr(kernel), xmin, xmax, ymin, ymax)
+    status == SPIR_COMPUTATION_SUCCESS || error("Failed to get kernel domain")
+    return (xmin[], xmax[])
+end
+
+function yrange(kernel::LogisticKernel)
+    xmin = Ref{Float64}(0.0)
+    xmax = Ref{Float64}(0.0)
+    ymin = Ref{Float64}(0.0)
+    ymax = Ref{Float64}(0.0)
+    status = spir_kernel_domain(_get_ptr(kernel), xmin, xmax, ymin, ymax)
+    status == SPIR_COMPUTATION_SUCCESS || error("Failed to get kernel domain")
+    return (ymin[], ymax[])
+end
+
+function xrange(kernel::RegularizedBoseKernel)
+    xmin = Ref{Float64}(0.0)
+    xmax = Ref{Float64}(0.0)
+    ymin = Ref{Float64}(0.0)
+    ymax = Ref{Float64}(0.0)
+    status = spir_kernel_domain(_get_ptr(kernel), xmin, xmax, ymin, ymax)
+    status == SPIR_COMPUTATION_SUCCESS || error("Failed to get kernel domain")
+    return (xmin[], xmax[])
+end
+
+function yrange(kernel::RegularizedBoseKernel)
+    xmin = Ref{Float64}(0.0)
+    xmax = Ref{Float64}(0.0)
+    ymin = Ref{Float64}(0.0)
+    ymax = Ref{Float64}(0.0)
+    status = spir_kernel_domain(_get_ptr(kernel), xmin, xmax, ymin, ymax)
+    status == SPIR_COMPUTATION_SUCCESS || error("Failed to get kernel domain")
+    return (ymin[], ymax[])
+end
+
+"""
+    weight_func(kernel::LogisticKernel, statistics::Statistics)
+
+Return the weight function for LogisticKernel.
+
+For fermionic statistics, returns the identity function (weight = 1).
+For bosonic statistics, returns w(y) = 1 / tanh(Λ y / 2) where y = βω/Λ.
+"""
+function weight_func(kernel::LogisticKernel, statistics::Statistics)
+    if statistics == Fermionic()
+        return y -> ones(eltype(y), size(y))
+    else  # Bosonic
+        return y -> 1 ./ tanh.(0.5 * kernel.Λ * y)
+    end
+end
+
+"""
+    weight_func(kernel::RegularizedBoseKernel, statistics::Statistics)
+
+Return the weight function for RegularizedBoseKernel.
+
+Only supports bosonic statistics. Returns w(y) = 1 / y where y = βω/Λ.
+"""
+function weight_func(kernel::RegularizedBoseKernel, statistics::Statistics)
+    if statistics == Fermionic()
+        error("RegularizedBoseKernel does not support fermionic functions")
+    else  # Bosonic
+        return y -> 1 ./ y
+    end
+end

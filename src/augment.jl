@@ -149,7 +149,14 @@ function default_matsubara_sampling_points(basis::AugmentedBasis; positive_only=
         error("Failed to get default Matsubara sampling points")
     n_points_returned[] == n_points[] ||
         error("n_points_returned=$(n_points_returned[]) != n_points=$(n_points[])")
-    return points
+    
+    # Convert to appropriate MatsubaraFreq type based on statistics
+    S = statistics(basis)
+    if S isa Fermionic
+        return [FermionicFreq(n) for n in points]
+    else
+        return [BosonicFreq(n) for n in points]
+    end
 end
 
 function iswellconditioned(basis::AugmentedBasis)

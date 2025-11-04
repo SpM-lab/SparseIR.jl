@@ -208,7 +208,97 @@ expansion by a factor of 4.
 """
 iscentrosymmetric(::AbstractKernel) = false
 
+"""
+    xrange(kernel::AbstractKernel)
+
+Return the x-domain range `(xmin, xmax)` of the kernel.
+"""
+function xrange end
+
+"""
+    yrange(kernel::AbstractKernel)
+
+Return the y-domain range `(ymin, ymax)` of the kernel.
+"""
+function yrange end
+
+"""
+    conv_radius(kernel::AbstractKernel)
+
+Convergence radius of the Matsubara basis asymptotic model.
+
+For improved relative numerical accuracy, the IR basis functions on the Matsubara axis
+can be evaluated from an asymptotic expression for abs(n) > conv_radius. If conv_radius
+is infinity, then the asymptotics are unused (the default).
+"""
+conv_radius(::AbstractKernel) = Inf
+
+"""
+    weight_func(kernel::AbstractKernel, stat::Statistics)
+
+Return the weight function for given statistics.
+
+Returns a function `(beta, omega) -> weight` that scales the spectral function.
+"""
+function weight_func end
+
+"""
+    sve_hints(kernel::AbstractKernel, epsilon::Real)
+
+Return discretization hints for singular value expansion of a given kernel.
+"""
+function sve_hints end
+
+"""
+    segments_x(hints::AbstractSVEHints, ::Type{T}=Float64)
+
+Return the x-segments for the SVE discretization.
+"""
+function segments_x end
+
+"""
+    segments_y(hints::AbstractSVEHints, ::Type{T}=Float64)
+
+Return the y-segments for the SVE discretization.
+"""
+function segments_y end
+
+"""
+    nsvals(hints::AbstractSVEHints)
+
+Return the number of singular values for the SVE discretization.
+"""
+function nsvals end
+
+"""
+    ngauss(hints::AbstractSVEHints)
+
+Return the number of Gauss points for the SVE discretization.
+"""
+function ngauss end
+
 Base.broadcastable(kernel::AbstractKernel) = Ref(kernel)
+
+"""
+    _get_ptr(kernel::AbstractKernel)
+
+Get the underlying C pointer from a kernel. 
+
+For kernels that wrap another kernel (like HoleKernel with `inner` field),
+automatically delegates to the inner kernel's ptr. This allows custom kernels
+to work without modification.
+"""
+function _get_ptr(kernel::AbstractKernel)
+    # Check if kernel has an 'inner' field
+    # Use introspection to check at runtime
+    kernel_type = typeof(kernel)
+    if hasfield(kernel_type, :inner)
+        inner_kernel = getfield(kernel, :inner)
+        return _get_ptr(inner_kernel)
+    end
+    # Fallback to direct ptr access for standard kernels
+    return kernel.ptr
+end
 
 Base.broadcastable(sampling::AbstractSampling) = Ref(sampling)
 

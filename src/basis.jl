@@ -62,7 +62,7 @@ mutable struct FiniteTempBasis{S,K} <: AbstractBasis{S}
         status = Ref{Int32}(-100)
         basis = SparseIR.spir_basis_new(
             _statistics_to_c(S), β, ωmax, ε,
-            kernel.ptr, sve_result.ptr, max_size, status)
+            _get_ptr(kernel), sve_result.ptr, max_size, status)
         status[] == SparseIR.SPIR_COMPUTATION_SUCCESS ||
             error("Failed to create FiniteTempBasis $S $K $β $ωmax $ε $max_size $status[]")
 
@@ -139,6 +139,17 @@ function FiniteTempBasis(
     FiniteTempBasis{typeof(stat)}(β, ωmax, ε; kernel, sve_result, max_size)
 end
 
+# Backward compatibility: allow omitting ε (defaults to machine epsilon)
+function FiniteTempBasis(
+        stat::S, β::Real, ωmax::Real; kernel=LogisticKernel(β * ωmax),
+        sve_result=nothing, max_size=-1) where {S<:Statistics}
+    ε = eps(Float64)
+    if sve_result === nothing
+        sve_result = SVEResult(kernel, ε)
+    end
+    FiniteTempBasis{typeof(stat)}(β, ωmax, ε; kernel, sve_result, max_size)
+end
+
 function default_tau_sampling_points(basis::FiniteTempBasis)
     n_points = Ref{Int32}(-1)
     ret = spir_basis_get_n_default_taus(basis.ptr, n_points)
@@ -158,7 +169,14 @@ function default_matsubara_sampling_points(basis::FiniteTempBasis; positive_only
     points_array = Vector{Int64}(undef, n_points[])
     ret = spir_basis_get_default_matsus(basis.ptr, positive_only, points_array)
     ret == SPIR_COMPUTATION_SUCCESS || error("Failed to get default matsubara points")
-    return points_array
+    
+    # Convert to appropriate MatsubaraFreq type based on statistics
+    S = statistics(basis)
+    if S isa Fermionic
+        return [FermionicFreq(n) for n in points_array]
+    else
+        return [BosonicFreq(n) for n in points_array]
+    end
 end
 
 function default_omega_sampling_points(basis::FiniteTempBasis)

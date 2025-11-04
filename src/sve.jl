@@ -61,10 +61,28 @@ mutable struct SVEResult{K<:AbstractKernel}
 
         status = Ref{Int32}(-100)
         sve_result = spir_sve_result_new(
-            kernel.ptr, ε, cutoff, lmax, n_gauss, Twork, status)
+            _get_ptr(kernel), ε, cutoff, lmax, n_gauss, Twork, status)
         status[] == 0 || error("Failed to create SVEResult")
         result = new{K}(sve_result, kernel)
         finalizer(r -> spir_sve_result_release(r.ptr), result)
         return result
     end
 end
+
+"""
+    s(sve_result::SVEResult)
+
+Get the singular values from an SVEResult.
+"""
+function s(sve_result::SVEResult)
+    size_ref = Ref{Int32}(-1)
+    status = spir_sve_result_get_size(sve_result.ptr, size_ref)
+    status == SPIR_COMPUTATION_SUCCESS || error("Failed to get SVE result size")
+    svals = Vector{Float64}(undef, Int(size_ref[]))
+    status = spir_sve_result_get_svals(sve_result.ptr, svals)
+    status == SPIR_COMPUTATION_SUCCESS || error("Failed to get singular values")
+    return svals
+end
+
+# Allow accessing s as a property for backward compatibility
+Base.getproperty(sve_result::SVEResult, name::Symbol) = name === :s ? s(sve_result) : getfield(sve_result, name)
