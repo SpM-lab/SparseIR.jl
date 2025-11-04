@@ -159,16 +159,22 @@ function default_tau_sampling_points(basis::FiniteTempBasis)
     return points_array
 end
 
-function default_matsubara_sampling_points(basis::FiniteTempBasis; positive_only=false)
+function default_matsubara_sampling_points(basis::FiniteTempBasis; positive_only=false, mitigate=false)
     n_points = Ref{Int32}(0)
     ret = spir_basis_get_n_default_matsus(basis.ptr, positive_only, n_points)
     ret == SPIR_COMPUTATION_SUCCESS ||
         error("Failed to get number of default matsubara points")
     n_points[] > 0 || error("No default matsubara points found")
 
-    points_array = Vector{Int64}(undef, n_points[])
-    ret = spir_basis_get_default_matsus(basis.ptr, positive_only, points_array)
+    # Allocate enough space (may be larger if mitigate is true)
+    points_array = Vector{Int64}(undef, max(n_points[], length(basis) + 10))
+    n_points_returned = Ref{Int32}(0)
+    # Use the ext version for mitigate support
+    ret = spir_basis_get_default_matsus_ext(
+        basis.ptr, positive_only, mitigate, length(basis), points_array, n_points_returned)
     ret == SPIR_COMPUTATION_SUCCESS || error("Failed to get default matsubara points")
+    # Resize to actual returned points
+    resize!(points_array, n_points_returned[])
     
     # Convert to appropriate MatsubaraFreq type based on statistics
     S = statistics(basis)
@@ -176,6 +182,33 @@ function default_matsubara_sampling_points(basis::FiniteTempBasis; positive_only
         return [FermionicFreq(n) for n in points_array]
     else
         return [BosonicFreq(n) for n in points_array]
+    end
+end
+
+# Overload for uhat + L (for OvercompleteIR.jl compatibility)
+function default_matsubara_sampling_points(
+        uhat::PiecewiseLegendreFTVector, L::Int, stat::Statistics;
+        positive_only=false, mitigate=true)
+    # Get statistics constant
+    stat_c = _statistics_to_c(typeof(stat))
+    
+    # Allocate enough space (may be larger if mitigate is true)
+    points = Vector{Int64}(undef, max(L, L + 10))
+    n_points_returned = Ref{Cint}(0)
+    
+    status = spir_uhat_get_default_matsus(
+        uhat.ptr, L, stat_c, positive_only, mitigate, points, n_points_returned)
+    status == SPIR_COMPUTATION_SUCCESS ||
+        error("Failed to get default Matsubara sampling points from uhat: status=$status")
+    
+    # Resize to actual returned points
+    resize!(points, n_points_returned[])
+    
+    # Convert to appropriate MatsubaraFreq type
+    if stat isa Fermionic
+        return [FermionicFreq(n) for n in points]
+    else
+        return [BosonicFreq(n) for n in points]
     end
 end
 

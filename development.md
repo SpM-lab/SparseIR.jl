@@ -102,6 +102,49 @@ julia --project=. -e "using Pkg; Pkg.instantiate()"
 julia --project=. docs/make.jl
 ```
 
+### Using Custom libsparseir Library
+
+For development and debugging purposes, you can use a custom `libsparseir.so` (or `.dylib` on macOS, `.dll` on Windows) instead of the one provided by the `libsparseir_jll` package.
+
+Set the `SPARSEIR_LIB_PATH` environment variable to the path of your custom library:
+
+```bash
+# Linux/macOS
+export SPARSEIR_LIB_PATH=/path/to/your/libsparseir.so
+# or on macOS
+export SPARSEIR_LIB_PATH=/path/to/your/libsparseir.dylib
+
+# Windows
+set SPARSEIR_LIB_PATH=C:\path\to\your\libsparseir.dll
+```
+
+Then start Julia:
+
+```bash
+julia --project=.
+```
+
+When `SPARSEIR_LIB_PATH` is set, SparseIR.jl will:
+1. Print the path being used
+2. Verify that the file exists
+3. Load the custom library instead of the JLL-provided one
+
+**Note**: Make sure your custom library is compatible with the C API version expected by SparseIR.jl. Incompatible libraries may cause runtime errors.
+
+**Example**:
+
+```bash
+# Build a debug version of libsparseir
+cd ../libsparseir
+cmake -DCMAKE_BUILD_TYPE=Debug ..
+make
+
+# Use it with SparseIR.jl
+export SPARSEIR_LIB_PATH=$PWD/build/libsparseir.so
+cd ../SparseIR.jl
+julia --project=.
+```
+
 ## Project Structure
 
 - `src/` - Main source code

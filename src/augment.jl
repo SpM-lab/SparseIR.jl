@@ -135,20 +135,21 @@ function default_tau_sampling_points(basis::AugmentedBasis)
     return points
 end
 
-function default_matsubara_sampling_points(basis::AugmentedBasis; positive_only=false)
+function default_matsubara_sampling_points(basis::AugmentedBasis; positive_only=false, mitigate=false)
     n_points = Ref{Cint}(0)
     status = spir_basis_get_n_default_matsus_ext(
         _get_ptr(basis.basis), positive_only, length(basis), n_points)
     status == SPIR_COMPUTATION_SUCCESS ||
         error("Failed to get number of default Matsubara sampling points")
-    points = Vector{Int64}(undef, n_points[])
+    # Allocate enough space (may be larger if mitigate is true)
+    points = Vector{Int64}(undef, max(n_points[], length(basis) + 10))
     n_points_returned = Ref{Cint}(0)
     status = spir_basis_get_default_matsus_ext(
-        _get_ptr(basis.basis), positive_only, length(basis), points, n_points_returned)
+        _get_ptr(basis.basis), positive_only, mitigate, length(basis), points, n_points_returned)
     status == SPIR_COMPUTATION_SUCCESS ||
         error("Failed to get default Matsubara sampling points")
-    n_points_returned[] == n_points[] ||
-        error("n_points_returned=$(n_points_returned[]) != n_points=$(n_points[])")
+    # Resize to actual returned points
+    resize!(points, n_points_returned[])
     
     # Convert to appropriate MatsubaraFreq type based on statistics
     S = statistics(basis)
