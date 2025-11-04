@@ -197,6 +197,17 @@ iswellconditioned(::AbstractBasis) = true
 
 ###############################################################################
 
+"""
+    iscentrosymmetric(kernel::AbstractKernel)
+
+Return whether the kernel satisfies `K(x, y) == K(-x, -y)` for all values of x and y.
+Defaults to `false`.
+
+A centrosymmetric kernel can be block-diagonalized, speeding up the singular value
+expansion by a factor of 4.
+"""
+iscentrosymmetric(::AbstractKernel) = false
+
 Base.broadcastable(kernel::AbstractKernel) = Ref(kernel)
 
 Base.broadcastable(sampling::AbstractSampling) = Ref(sampling)

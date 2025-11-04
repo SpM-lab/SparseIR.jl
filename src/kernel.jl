@@ -67,3 +67,6 @@ end
 
 Λ(kernel::LogisticKernel) = kernel.Λ
 Λ(kernel::RegularizedBoseKernel) = kernel.Λ
+
+iscentrosymmetric(::LogisticKernel) = true
+iscentrosymmetric(::RegularizedBoseKernel) = true

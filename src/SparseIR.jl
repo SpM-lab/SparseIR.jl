@@ -13,6 +13,7 @@ export FiniteTempBasis, FiniteTempBasisSet
 export DiscreteLehmannRepresentation
 export overlap
 export LogisticKernel, RegularizedBoseKernel
+export iscentrosymmetric
 export AugmentedBasis, TauConst, TauLinear, MatsubaraConst
 export TauSampling, MatsubaraSampling, evaluate, fit, evaluate!, fit!,
        sampling_points, npoints
