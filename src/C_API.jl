@@ -187,6 +187,146 @@ function spir_reg_bose_kernel_new(lambda, status)
     ccall((:spir_reg_bose_kernel_new, libsparseir), Ptr{spir_kernel}, (Cdouble, Ptr{Cint}), lambda, status)
 end
 
+# typedef double ( * spir_kernel_func_ptr ) ( double x , double y , void * user_data )
+"""
+Function pointer type for kernel evaluation (double precision).
+
+# Arguments
+* `x`: The x coordinate.
+* `y`: The y coordinate.
+* `user_data`: User-provided data pointer.
+# Returns
+The kernel value at (x, y).
+"""
+const spir_kernel_func_ptr = Ptr{Cvoid}
+
+# typedef void ( * spir_kernel_func_ptr_ddouble ) ( double x_high , double x_low , double y_high , double y_low , double * result_high , double * result_low , void * user_data )
+"""
+Function pointer type for kernel evaluation (extended precision double-double).
+
+# Arguments
+* `x_high`: High part of x coordinate.
+* `x_low`: Low part of x coordinate.
+* `y_high`: High part of y coordinate.
+* `y_low`: Low part of y coordinate.
+* `result_high`: Pointer to store high part of result.
+* `result_low`: Pointer to store low part of result.
+* `user_data`: User-provided data pointer.
+"""
+const spir_kernel_func_ptr_ddouble = Ptr{Cvoid}
+
+# typedef void ( * spir_kernel_batch_func_ptr ) ( const double * xs , const double * ys , int n , double * out , void * user_data )
+"""
+Function pointer type for batch kernel evaluation (double precision).
+
+Evaluates K(xs[i], ys[i]) for i=0..n-1 and writes results to out[i].
+
+# Arguments
+* `xs`: Array of x coordinates (length n).
+* `ys`: Array of y coordinates (length n).
+* `n`: Number of pairs to evaluate.
+* `out`: [OUT] Array to store results (length n). Must be pre-allocated.
+* `user_data`: User-provided data pointer.
+"""
+const spir_kernel_batch_func_ptr = Ptr{Cvoid}
+
+# typedef void ( * spir_kernel_batch_func_ptr_ddouble ) ( const double * xs_hi , const double * xs_lo , const double * ys_hi , const double * ys_lo , int n , double * out_hi , double * out_lo , void * user_data )
+"""
+Function pointer type for batch kernel evaluation (extended precision double-double).
+
+Evaluates K(xs[i], ys[i]) for i=0..n-1 and writes results to out_hi[i] and out_lo[i].
+
+# Arguments
+* `xs_hi`: Array of x coordinates high parts (length n).
+* `xs_lo`: Array of x coordinates low parts (length n).
+* `ys_hi`: Array of y coordinates high parts (length n).
+* `ys_lo`: Array of y coordinates low parts (length n).
+* `n`: Number of pairs to evaluate.
+* `out_hi`: [OUT] Array to store result high parts (length n). Must be pre-allocated.
+* `out_lo`: [OUT] Array to store result low parts (length n). Must be pre-allocated.
+* `user_data`: User-provided data pointer.
+"""
+const spir_kernel_batch_func_ptr_ddouble = Ptr{Cvoid}
+
+# typedef void ( * spir_segments_x_func_ptr ) ( double epsilon , double * segments , int * n_segments , void * user_data )
+"""
+Function pointer types for SVE hints.
+
+!!! note
+
+    The function should be called twice: 1. First call with segments=NULL: set n\\_segments to the required array size. 2. Second call with segments allocated: fill segments[0..n\\_segments-1] with values.
+
+# Arguments
+* `epsilon`: Accuracy target for the basis.
+* `segments`: [OUT] Pointer to store segments array. If NULL, only n\\_segments is set.
+* `n_segments`: [IN/OUT] Input: ignored when segments is NULL. Output: number of segments.
+* `user_data`: User-provided data pointer.
+"""
+const spir_segments_x_func_ptr = Ptr{Cvoid}
+
+# typedef void ( * spir_segments_y_func_ptr ) ( double epsilon , double * segments , int * n_segments , void * user_data )
+const spir_segments_y_func_ptr = Ptr{Cvoid}
+
+# typedef int ( * spir_nsvals_func_ptr ) ( double epsilon , void * user_data )
+const spir_nsvals_func_ptr = Ptr{Cvoid}
+
+# typedef int ( * spir_ngauss_func_ptr ) ( double epsilon , void * user_data )
+const spir_ngauss_func_ptr = Ptr{Cvoid}
+
+# typedef double ( * spir_weight_func_ptr ) ( double beta , double omega , void * user_data )
+"""
+Function pointer type for weight function.
+
+# Arguments
+* `beta`: Inverse temperature.
+* `omega`: Frequency.
+* `user_data`: User-provided data pointer.
+# Returns
+The weight value.
+"""
+const spir_weight_func_ptr = Ptr{Cvoid}
+
+"""
+    spir_function_kernel_new(lambda, batch_func, batch_func_dd, xmin, xmax, ymin, ymax, is_centrosymmetric, segments_x_func, segments_y_func, nsvals_func, ngauss_func, weight_func_fermionic, weight_func_bosonic, user_data, status)
+
+Creates a new custom kernel from function pointers.
+
+This function allows creating a kernel from C function pointers, enabling custom kernel implementations in languages that bind to the C-API.
+
+!!! note
+
+    The function pointers must remain valid for the lifetime of the kernel object.
+
+!!! note
+
+    The segments\\_x and segments\\_y functions should follow this pattern: - First call with segments=NULL: set n\\_segments to the required size. - Second call with segments allocated: fill segments with the actual values.
+
+# Arguments
+* `lambda`: The kernel cutoff Λ (must be non-negative).
+* `batch_func`: Function pointer for batch kernel evaluation (double precision). Must not be NULL.
+                Evaluates K(xs[i], ys[i]) for i=0..n-1 and writes to out[i].
+* `batch_func_dd`: Function pointer for batch kernel evaluation (extended precision). Can be NULL.
+                   If NULL, double precision batch_func will be used with precision loss.
+* `xmin`: Minimum x value.
+* `xmax`: Maximum x value.
+* `ymin`: Minimum y value.
+* `ymax`: Maximum y value.
+* `is_centrosymmetric`: Whether the kernel is centrosymmetric (0 = false, 1 = true).
+* `segments_x_func`: Function pointer for segments\\_x SVE hint. Must not be NULL.
+* `segments_y_func`: Function pointer for segments\\_y SVE hint. Must not be NULL.
+* `nsvals_func`: Function pointer for nsvals SVE hint. Must not be NULL.
+* `ngauss_func`: Function pointer for ngauss SVE hint. Must not be NULL.
+* `weight_func_fermionic`: Function pointer for fermionic weight function. Can be NULL (defaults to 1.0).
+* `weight_func_bosonic`: Function pointer for bosonic weight function. Can be NULL (defaults to 1.0).
+* `user_data`: User-provided data pointer that will be passed to all function pointers.
+* `status`: Pointer to store the status code.
+# Returns
+Pointer to the newly created kernel object, or NULL if creation fails.
+"""
+function spir_function_kernel_new(lambda, batch_func, batch_func_dd, xmin, xmax, ymin, ymax, is_centrosymmetric, segments_x_func, segments_y_func, nsvals_func, ngauss_func, weight_func_fermionic, weight_func_bosonic, user_data, status)
+    ccall((:spir_function_kernel_new, libsparseir), Ptr{spir_kernel}, (Cdouble, spir_kernel_batch_func_ptr, spir_kernel_batch_func_ptr_ddouble, Cdouble, Cdouble, Cdouble, Cdouble, Cint, spir_segments_x_func_ptr, spir_segments_y_func_ptr, spir_nsvals_func_ptr, spir_ngauss_func_ptr, spir_weight_func_ptr, spir_weight_func_ptr, Ptr{Cvoid}, Ptr{Cint}), lambda, batch_func, batch_func_dd, xmin, xmax, ymin, ymax, is_centrosymmetric, segments_x_func, segments_y_func, nsvals_func, ngauss_func, weight_func_fermionic, weight_func_bosonic, user_data, status)
+end
+
 """
     spir_kernel_domain(k, xmin, xmax, ymin, ymax)
 
@@ -212,7 +352,110 @@ function spir_kernel_domain(k, xmin, xmax, ymin, ymax)
 end
 
 """
-    spir_sve_result_new(k, epsilon, cutoff, lmax, n_gauss, Twork, status)
+    spir_kernel_is_centrosymmetric(k, is_centrosymmetric)
+
+Checks if a kernel is centrosymmetric.
+
+A kernel is centrosymmetric if K(x, y) == K(-x, -y) for all values of x and y. This property allows the kernel to be block-diagonalized, speeding up the singular value expansion by a factor of 4.
+
+# Arguments
+* `k`: Pointer to the kernel object to check.
+* `is_centrosymmetric`: Pointer to store the result (1 if centrosymmetric, 0 otherwise).
+# Returns
+An integer status code: - 0 ([`SPIR_COMPUTATION_SUCCESS`](@ref)) on success - A non-zero error code on failure
+"""
+function spir_kernel_is_centrosymmetric(k, is_centrosymmetric)
+    ccall((:spir_kernel_is_centrosymmetric, libsparseir), Cint, (Ptr{spir_kernel}, Ptr{Cint}), k, is_centrosymmetric)
+end
+
+"""
+    spir_kernel_get_sve_hints_segments_x(k, epsilon, segments, n_segments)
+
+Get x-segments for SVE discretization hints from a kernel.
+
+Retrieves the x-segments (discretization points) for singular value expansion of the specified kernel. This function is useful for custom kernels that wrap standard kernels (like LogisticKernel or RegularizedBoseKernel) and need to delegate SVE hints to the wrapped kernel.
+
+!!! note
+
+    The function should be called twice:
+    1. First call with segments=NULL: set n_segments to the required array size.
+    2. Second call with segments allocated: fill segments[0..n_segments-1] with values.
+
+# Arguments
+* `k`: Pointer to the kernel object.
+* `epsilon`: Accuracy target for the basis.
+* `segments`: Pointer to store segments array. If NULL, only n_segments is set.
+* `n_segments`: [IN/OUT] Input: ignored when segments is NULL. Output: number of segments.
+# Returns
+An integer status code: - 0 ([`SPIR_COMPUTATION_SUCCESS`](@ref)) on success - A non-zero error code on failure
+"""
+function spir_kernel_get_sve_hints_segments_x(k, epsilon, segments, n_segments)
+    ccall((:spir_kernel_get_sve_hints_segments_x, libsparseir), Cint, (Ptr{spir_kernel}, Cdouble, Ptr{Cdouble}, Ptr{Cint}), k, epsilon, segments, n_segments)
+end
+
+"""
+    spir_kernel_get_sve_hints_segments_y(k, epsilon, segments, n_segments)
+
+Get y-segments for SVE discretization hints from a kernel.
+
+Retrieves the y-segments (discretization points) for singular value expansion of the specified kernel. This function is useful for custom kernels that wrap standard kernels (like LogisticKernel or RegularizedBoseKernel) and need to delegate SVE hints to the wrapped kernel.
+
+!!! note
+
+    The function should be called twice:
+    1. First call with segments=NULL: set n_segments to the required array size.
+    2. Second call with segments allocated: fill segments[0..n_segments-1] with values.
+
+# Arguments
+* `k`: Pointer to the kernel object.
+* `epsilon`: Accuracy target for the basis.
+* `segments`: Pointer to store segments array. If NULL, only n_segments is set.
+* `n_segments`: [IN/OUT] Input: ignored when segments is NULL. Output: number of segments.
+# Returns
+An integer status code: - 0 ([`SPIR_COMPUTATION_SUCCESS`](@ref)) on success - A non-zero error code on failure
+"""
+function spir_kernel_get_sve_hints_segments_y(k, epsilon, segments, n_segments)
+    ccall((:spir_kernel_get_sve_hints_segments_y, libsparseir), Cint, (Ptr{spir_kernel}, Cdouble, Ptr{Cdouble}, Ptr{Cint}), k, epsilon, segments, n_segments)
+end
+
+"""
+    spir_kernel_get_sve_hints_nsvals(k, epsilon, nsvals)
+
+Get the number of singular values hint from a kernel.
+
+Retrieves the suggested number of singular values for singular value expansion of the specified kernel. This function is useful for custom kernels that wrap standard kernels (like LogisticKernel or RegularizedBoseKernel) and need to delegate SVE hints to the wrapped kernel.
+
+# Arguments
+* `k`: Pointer to the kernel object.
+* `epsilon`: Accuracy target for the basis.
+* `nsvals`: Pointer to store the number of singular values.
+# Returns
+An integer status code: - 0 ([`SPIR_COMPUTATION_SUCCESS`](@ref)) on success - A non-zero error code on failure
+"""
+function spir_kernel_get_sve_hints_nsvals(k, epsilon, nsvals)
+    ccall((:spir_kernel_get_sve_hints_nsvals, libsparseir), Cint, (Ptr{spir_kernel}, Cdouble, Ptr{Cint}), k, epsilon, nsvals)
+end
+
+"""
+    spir_kernel_get_sve_hints_ngauss(k, epsilon, ngauss)
+
+Get the number of Gauss points hint from a kernel.
+
+Retrieves the suggested number of Gauss points for numerical integration in singular value expansion of the specified kernel. This function is useful for custom kernels that wrap standard kernels (like LogisticKernel or RegularizedBoseKernel) and need to delegate SVE hints to the wrapped kernel.
+
+# Arguments
+* `k`: Pointer to the kernel object.
+* `epsilon`: Accuracy target for the basis.
+* `ngauss`: Pointer to store the number of Gauss points.
+# Returns
+An integer status code: - 0 ([`SPIR_COMPUTATION_SUCCESS`](@ref)) on success - A non-zero error code on failure
+"""
+function spir_kernel_get_sve_hints_ngauss(k, epsilon, ngauss)
+    ccall((:spir_kernel_get_sve_hints_ngauss, libsparseir), Cint, (Ptr{spir_kernel}, Cdouble, Ptr{Cint}), k, epsilon, ngauss)
+end
+
+"""
+    spir_sve_result_new(k, epsilon, n_sv, n_gauss, Twork, status)
 
 Perform truncated singular value expansion (SVE) of a kernel.
 
@@ -226,6 +469,10 @@ The SVE is computed by mapping it onto a singular value decomposition (SVD) of a
 
 !!! note
 
+    The relative cutoff for singular values is internally fixed to 2 * ε, where ε is the machine epsilon of the working type. Only singular values s[l] satisfying s[l] >= (2 * ε) * s[0] are retained, where s[0] is the largest singular value.
+
+!!! note
+
     The computation automatically uses optimized strategies: - For centrosymmetric kernels, specialized algorithms are employed - If Twork is [`SPIR_TWORK_AUTO`](@ref), the working precision is automatically adjusted to meet accuracy requirements based on epsilon - If epsilon is below √ε (where ε is machine epsilon), a warning is issued and higher precision arithmetic is used if possible.
 
 !!! note
@@ -234,10 +481,9 @@ The SVE is computed by mapping it onto a singular value decomposition (SVD) of a
 
 # Arguments
 * `k`: Pointer to the kernel object for which to compute SVE
-* `epsilon`: Accuracy target for the basis. Determines: - The relative magnitude for truncation of singular values - The accuracy of computed singular values and vectors
-* `cutoff`: Cutoff value for singular values. Set to -1 to use default value, i.e., 2 * √ε, where ε is the machine epsilon of the working type.
-* `lmax`: Maximum number of Legendre polynomials to use
-* `n_gauss`: Number of Gauss points for numerical integration
+* `epsilon`: Accuracy target for the basis. Determines: - The relative magnitude for truncation of singular values - The accuracy of computed singular values and vectors If negative or zero, defaults to machine epsilon (≈ 2.22e-16 for double precision). Default value: machine epsilon of double precision (std::numeric\\_limits<double>::epsilon()).
+* `n_sv`: Maximum number of singular values to retain. If negative or set to the maximum integer value, all singular values meeting the cutoff criterion are retained.
+* `n_gauss`: Number of Gauss points for numerical integration. If negative, the value is automatically determined based on the kernel's hints for the given epsilon.
 * `Twork`: Working data type for computations (sve). Must be one of: - [`SPIR_TWORK_FLOAT64`](@ref) (0): Use double precision (64-bit) - [`SPIR_TWORK_FLOAT64X2`](@ref) (1): Use extended precision (128-bit) - [`SPIR_TWORK_AUTO`](@ref) (-1): Automatically choose precision based on epsilon
 * `status`: Pointer to store the status code
 # Returns
@@ -245,8 +491,8 @@ Pointer to the newly created SVE result, or NULL if creation fails
 # See also
 spir\\_release\\_sve\\_result
 """
-function spir_sve_result_new(k, epsilon, cutoff, lmax, n_gauss, Twork, status)
-    ccall((:spir_sve_result_new, libsparseir), Ptr{spir_sve_result}, (Ptr{spir_kernel}, Cdouble, Cdouble, Cint, Cint, Cint, Ptr{Cint}), k, epsilon, cutoff, lmax, n_gauss, Twork, status)
+function spir_sve_result_new(k, epsilon, n_sv, n_gauss, Twork, status)
+    ccall((:spir_sve_result_new, libsparseir), Ptr{spir_sve_result}, (Ptr{spir_kernel}, Cdouble, Cint, Cint, Cint, Ptr{Cint}), k, epsilon, n_sv, n_gauss, Twork, status)
 end
 
 """
@@ -656,6 +902,37 @@ function spir_basis_get_uhat(b, status)
 end
 
 """
+    spir_basis_get_uhat_full(b, status)
+
+Gets the full (untruncated) basis functions in Matsubara frequency domain.
+
+This function returns an object representing the full (untruncated) basis functions in the Matsubara-frequency domain. Unlike [`spir_basis_get_uhat`](@ref), which returns only the truncated basis functions (up to `basis.size()`), this function returns all basis functions from the SVE result.
+
+!!! note
+
+    The returned object must be freed using [`spir_funcs_release`](@ref) when no longer needed
+
+!!! note
+
+    This function is only available for IR basis objects (not DLR)
+
+!!! note
+
+    The size of uhat\\_full is >= the size of uhat
+
+# Arguments
+* `b`: Pointer to the finite temperature basis object (must be an IR basis)
+* `status`: Pointer to store the status code
+# Returns
+Pointer to the basis functions object, or NULL if creation fails
+# See also
+[`spir_basis_get_uhat`](@ref), [`spir_funcs_release`](@ref)
+"""
+function spir_basis_get_uhat_full(b, status)
+    ccall((:spir_basis_get_uhat_full, libsparseir), Ptr{spir_funcs}, (Ptr{spir_basis}, Ptr{Cint}), b, status)
+end
+
+"""
     spir_basis_get_n_default_taus(b, num_points)
 
 Gets the number of default tau sampling points for an IR basis.
@@ -906,15 +1183,19 @@ This function fills the provided array with the default sampling points in Matsu
 
 !!! note
 
+    When positive\\_only=true, n\\_points represents the total number of frequencies, and the returned number of points will be approximately n\\_points/2
+
+!!! note
+
     The default sampling points are chosen to provide near-optimal conditioning for the given basis size
 
 # Arguments
 * `b`: Pointer to a finite temperature basis object (must be an IR basis)
 * `positive_only`: If true, only positive frequencies are used
 * `mitigate`: If true, enable mitigation (fencing) to improve conditioning by adding oversampling points
-* `n_points`: Number of requested sampling points.
+* `n_points`: Number of requested sampling points (default: basis\\_size). When positive\\_only=true, this represents the total number of frequencies (both positive and negative), and the returned number of points will be approximately n\\_points/2 (positive frequencies only).
 * `points`: Pre-allocated array to store the sampling points. The size of the array must be sufficient for the returned points (may exceed n\\_points if mitigate is true).
-* `n_points_returned`: Pointer to store the number of sampling points returned (may exceed n\\_points if mitigate is true).
+* `n_points_returned`: Pointer to store the number of sampling points returned (may exceed n\\_points if mitigate is true, or approximately n\\_points/2 when positive\\_only=true).
 # Returns
 An integer status code: - 0 ([`SPIR_COMPUTATION_SUCCESS`](@ref)) on success - A non-zero error code on failure
 """
@@ -923,11 +1204,13 @@ function spir_basis_get_default_matsus_ext(b, positive_only, mitigate, n_points,
 end
 
 """
-    spir_uhat_get_default_matsus(uhat, L, statistics, positive_only, mitigate, points, n_points_returned)
+    spir_uhat_get_default_matsus(uhat, L, positive_only, mitigate, points, n_points_returned)
 
 Gets default Matsubara sampling points from uhat functions and length.
 
 This function computes default sampling points directly from a Matsubara functions object (uhat) without requiring a full basis object. This is useful for computing sampling points for augmented bases or when only uhat is available.
+
+The statistics (Fermionic/Bosonic) are automatically detected from the uhat object type.
 
 !!! note
 
@@ -937,19 +1220,22 @@ This function computes default sampling points directly from a Matsubara functio
 
     When mitigate is true, the returned number of points may exceed L
 
+!!! note
+
+    When positive\\_only=true, L represents the total number of frequencies, and the returned number of points will be approximately L/2
+
 # Arguments
 * `uhat`: Pointer to the Matsubara functions object (must be PiecewiseLegendreFTVector)
-* `L`: Requested number of sampling points (basis size)
-* `statistics`: Statistics type ([`SPIR_STATISTICS_FERMIONIC`](@ref) or [`SPIR_STATISTICS_BOSONIC`](@ref))
+* `L`: Requested number of sampling points (default: basis\\_size). When positive\\_only=true, this represents the total number of frequencies (both positive and negative), and the returned number of points will be approximately L/2 (positive frequencies only).
 * `positive_only`: If true, only positive frequencies are used
 * `mitigate`: If true, enable mitigation (fencing) to improve conditioning
 * `points`: Pre-allocated array to store the Matsubara frequency indices (must be large enough for returned points)
-* `n_points_returned`: Pointer to store the number of points returned (may exceed L if mitigate is true)
+* `n_points_returned`: Pointer to store the number of points returned (may exceed L if mitigate is true, or approximately L/2 when positive\\_only=true)
 # Returns
 Status code: - 0 ([`SPIR_COMPUTATION_SUCCESS`](@ref)) on success - [`SPIR_NOT_SUPPORTED`](@ref) if uhat is not a PiecewiseLegendreFTVector - Other error codes on failure
 """
-function spir_uhat_get_default_matsus(uhat, L, statistics, positive_only, mitigate, points, n_points_returned)
-    ccall((:spir_uhat_get_default_matsus, libsparseir), Cint, (Ptr{spir_funcs}, Cint, Cint, Bool, Bool, Ptr{Int64}, Ptr{Cint}), uhat, L, statistics, positive_only, mitigate, points, n_points_returned)
+function spir_uhat_get_default_matsus(uhat, L, positive_only, mitigate, points, n_points_returned)
+    ccall((:spir_uhat_get_default_matsus, libsparseir), Cint, (Ptr{spir_funcs}, Cint, Bool, Bool, Ptr{Int64}, Ptr{Cint}), uhat, L, positive_only, mitigate, points, n_points_returned)
 end
 
 """

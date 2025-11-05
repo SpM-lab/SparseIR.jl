@@ -112,6 +112,65 @@ using Profile
 Profile.print()
 ```
 
+## ローカル libsparseir をテストで使う
+
+`SparseIR.jl/src/C_API.jl` は環境変数 `SPARSEIR_LIB_PATH` が設定されている場合、そのパスのライブラリを優先してロードします。JLL の古いビルドでは未定義のシンボルがあることがあるため、ローカルビルドを使ってテストしたい場合は以下を実行してください。
+
+### 重要な注意事項
+
+**Juliaのプリコンパイルキャッシュの問題**: `C_API.jl` の `const libsparseir = get_libsparseir()` はモジュールロード時に一度だけ評価され、その結果がプリコンパイルキャッシュに保存されます。環境変数を設定しても、既にプリコンパイルされたキャッシュが存在する場合、古いライブラリパスが使われてしまいます。
+
+**解決方法**: 環境変数を設定する前に、プリコンパイルキャッシュをクリアする必要があります。
+
+### 手順
+
+1) ライブラリのビルド（C++ 側）
+
+```bash
+cd libsparseir/backend/cxx/build
+make -j
+```
+
+2) プリコンパイルキャッシュをクリア（重要）
+
+```bash
+# Juliaのバージョンに応じたキャッシュディレクトリを削除
+rm -rf ~/.julia/compiled/v1.11/SparseIR
+# または Julia のバージョンが異なる場合
+julia --version  # バージョンを確認
+rm -rf ~/.julia/compiled/v1.X/SparseIR  # v1.X を実際のバージョンに置き換え
+```
+
+3) 環境変数を設定してテスト実行
+
+- macOS 例（.dylib）:
+
+```bash
+export SPARSEIR_LIB_PATH="$(pwd)/libsparseir/backend/cxx/build/libsparseir.dylib"
+cd SparseIR.jl
+julia --project -e 'using Pkg; Pkg.test()'
+```
+
+- Linux 例（.so）:
+
+```bash
+export SPARSEIR_LIB_PATH="$(pwd)/libsparseir/backend/cxx/build/libsparseir.so"
+cd SparseIR.jl
+julia --project -e 'using Pkg; Pkg.test()'
+```
+
+4) 使用中のライブラリ確認（任意）
+
+```julia
+julia --project -e "using SparseIR; using SparseIR.C_API; println(C_API.libsparseir)"
+```
+
+### 追加の注意事項
+
+- `SPARSEIR_LIB_PATH` はパッケージ読込前（`using SparseIR` 前）に設定すること。
+- ビルド生成物のファイル名は環境により `libsparseir.dylib`/`libsparseir.0.dylib`/`libsparseir.0.X.Y.dylib`（macOS）や `libsparseir.so`（Linux）などに変わるため、存在するパスを指定してください。
+- プリコンパイルキャッシュをクリアしないと、環境変数の変更が反映されません。
+
 ## C APIとの連携
 
 - C APIの関数は`C_API.jl`で定義

@@ -1,6 +1,6 @@
 """
     SVEResult(kernel::AbstractKernel;
-        Twork=nothing, ε=nothing, lmax=typemax(Int),
+        Twork=nothing, ε=nothing, n_sv=typemax(Int),
         n_gauss=nothing, svd_strat=:auto,
         sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE
     )
@@ -25,13 +25,11 @@ using a collocation).
 
   - `K::AbstractKernel`: Integral kernel to take SVE from.
 
-  - `ϵ::Real`: Relative cutoff for the singular values. Only singular values
-    with relative magnitude ≥ `cutoff` are kept. Defaults to `eps(Float64)` (≈ 2.22e-16).
-  - `cutoff::Real`: Accuracy target for the basis. Controls the precision to which
-    singular values and singular vectors are computed. Defaults to `NaN` (uses internal default).
-  - `lmax::Integer`: Maximum basis size. If given, only at most the `lmax` most
-    significant singular values and associated singular functions are returned.
-  - `n_gauss (int): Order of Legendre polynomials. Defaults to kernel hinted value.
+  - `ϵ::Real`: Accuracy target for the basis. Determines the relative magnitude for truncation of singular values
+    and the accuracy of computed singular values and vectors. Defaults to `eps(Float64)` (≈ 2.22e-16).
+  - `n_sv::Integer`: Maximum number of singular values to retain. If given, only at most the `n_sv` most
+    significant singular values and associated singular functions are returned. Defaults to `typemax(Int32)` (all singular values meeting the cutoff criterion).
+  - `n_gauss::Integer`: Order of Legendre polynomials. Defaults to kernel hinted value.
   - `Twork::Integer`: Working data type. Defaults to `SPIR_TWORK_AUTO` which automatically selects the appropriate precision based on the accuracy requirements.
     Available options:
 
@@ -51,7 +49,7 @@ mutable struct SVEResult{K<:AbstractKernel}
     ptr::Ptr{spir_sve_result}
     kernel::K
     function SVEResult(
-            kernel::K, ε::Real=eps(Float64); cutoff::Real=NaN, lmax::Integer=typemax(Int32),
+            kernel::K, ε::Real=eps(Float64); n_sv::Integer=typemax(Int32),
             n_gauss::Integer=-1, Twork::Integer=SPIR_TWORK_AUTO) where {K<:AbstractKernel}
 
         # check Twork
@@ -61,8 +59,10 @@ mutable struct SVEResult{K<:AbstractKernel}
 
         status = Ref{Int32}(-100)
         sve_result = spir_sve_result_new(
-            _get_ptr(kernel), ε, cutoff, lmax, n_gauss, Twork, status)
-        status[] == 0 || error("Failed to create SVEResult")
+            _get_ptr(kernel), ε, n_sv, n_gauss, Twork, status)
+        if status[] != 0
+            error("Failed to create SVEResult: status=$(status[])")
+        end
         result = new{K}(sve_result, kernel)
         finalizer(r -> spir_sve_result_release(r.ptr), result)
         return result

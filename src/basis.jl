@@ -51,6 +51,7 @@ mutable struct FiniteTempBasis{S,K} <: AbstractBasis{S}
     u::PiecewiseLegendrePolyVector
     v::PiecewiseLegendrePolyVector
     uhat::PiecewiseLegendreFTVector
+    uhat_full::PiecewiseLegendreFTVector
     function FiniteTempBasis{S}(kernel::K, sve_result::SVEResult{K}, β::Real, ωmax::Real,
             ε::Real, max_size::Int) where {S<:Statistics,K<:AbstractKernel}
         # Validate kernel/statistics compatibility
@@ -84,12 +85,17 @@ mutable struct FiniteTempBasis{S,K} <: AbstractBasis{S}
         uhat = spir_basis_get_uhat(basis, uhat_status)
         uhat_status[] == SPIR_COMPUTATION_SUCCESS ||
             error("Failed to get basis functions uhat $uhat_status[]")
+        uhat_full_status = Ref{Int32}(-100)
+        uhat_full = spir_basis_get_uhat_full(basis, uhat_full_status)
+        uhat_full_status[] == SPIR_COMPUTATION_SUCCESS ||
+            error("Failed to get basis functions uhat_full $uhat_full_status[]")
         result = new{S,K}(
             basis, kernel, sve_result, Float64(β), Float64(ωmax), Float64(ε),
             s,
             PiecewiseLegendrePolyVector(u, -β, β, β, (0.0, β)),  # u uses [0, β] as default overlap range
             PiecewiseLegendrePolyVector(v, -ωmax, ωmax, 0.0),     # v uses default range (xmin, xmax)
-            PiecewiseLegendreFTVector(uhat)
+            PiecewiseLegendreFTVector(uhat),
+            PiecewiseLegendreFTVector(uhat_full)
         )
         finalizer(b -> spir_basis_release(b.ptr), result)
         return result
@@ -197,7 +203,7 @@ function default_matsubara_sampling_points(
     n_points_returned = Ref{Cint}(0)
     
     status = spir_uhat_get_default_matsus(
-        uhat.ptr, L, stat_c, positive_only, mitigate, points, n_points_returned)
+        uhat.ptr, L, positive_only, mitigate, points, n_points_returned)
     status == SPIR_COMPUTATION_SUCCESS ||
         error("Failed to get default Matsubara sampling points from uhat: status=$status")
     
@@ -208,6 +214,42 @@ function default_matsubara_sampling_points(
     if stat isa Fermionic
         return [FermionicFreq(n) for n in points]
     else
+        return [BosonicFreq(n) for n in points]
+    end
+end
+
+# Overload for uhat + L without explicit statistics (for OvercompleteIR.jl compatibility)
+# Statistics are automatically detected from uhat object type in C-API
+function default_matsubara_sampling_points(
+        uhat::PiecewiseLegendreFTVector, L::Int;
+        positive_only=false, mitigate=true)
+    # Allocate enough space (may be larger if mitigate is true)
+    points = Vector{Int64}(undef, max(L, L + 10))
+    n_points_returned = Ref{Cint}(0)
+    
+    status = spir_uhat_get_default_matsus(
+        uhat.ptr, L, positive_only, mitigate, points, n_points_returned)
+    status == SPIR_COMPUTATION_SUCCESS ||
+        error("Failed to get default Matsubara sampling points from uhat: status=$status")
+    
+    # Resize to actual returned points
+    resize!(points, n_points_returned[])
+    
+    # Determine statistics from the returned points (Fermionic: odd, Bosonic: even)
+    # Check the first non-zero point to determine statistics
+    first_nonzero_idx = findfirst(x -> x != 0, points)
+    if first_nonzero_idx === nothing
+        # All zeros? Try to infer from context or default to Fermionic
+        # In practice, this shouldn't happen, but we need a fallback
+        return [FermionicFreq(n) for n in points]
+    end
+    
+    first_point = points[first_nonzero_idx]
+    if abs(first_point) % 2 == 1
+        # Odd number -> Fermionic
+        return [FermionicFreq(n) for n in points]
+    else
+        # Even number -> Bosonic
         return [BosonicFreq(n) for n in points]
     end
 end

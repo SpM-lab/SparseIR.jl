@@ -85,7 +85,7 @@
         else
             @assert num_matsubara_points >= basis_size
         end
-        @assert Int.(matsubara_sampling.sampling_points) == matsubara_points
+        @assert Int.(matsubara_sampling.sampling_points) == Int.(matsubara_points)
 
         # DLR
         @info "DLR"

@@ -45,6 +45,27 @@ abstract type AbstractKernel end
 
 abstract type AbstractReducedKernel <: AbstractKernel end
 
+"""
+    Base.checkbounds(kernel::AbstractKernel, x, y)
+
+Check if `(x, y)` is within the domain of `kernel`.
+
+This method uses `xrange` and `yrange` to determine if the point is valid.
+"""
+function Base.checkbounds(kernel::AbstractKernel, x, y)
+    try
+        xmin, xmax = xrange(kernel)
+        ymin, ymax = yrange(kernel)
+        xmin ≤ x ≤ xmax || return false
+        ymin ≤ y ≤ ymax || return false
+        return true
+    catch e
+        # If xrange or yrange fails, allow the call to proceed
+        # The kernel's compute method will handle domain errors
+        return true
+    end
+end
+
 ###############################################################################
 
 """
@@ -279,25 +300,38 @@ function ngauss end
 
 Base.broadcastable(kernel::AbstractKernel) = Ref(kernel)
 
+# Global cache to store custom kernel pointers for Julia kernel objects
+# This allows us to cache the C-API custom kernel objects created from Julia kernels
+# The cache is used to manage the lifetime of the FunctionKernel objects
+const _custom_kernel_cache = Dict{Any, Ptr{spir_kernel}}()
+
 """
     _get_ptr(kernel::AbstractKernel)
 
 Get the underlying C pointer from a kernel. 
 
-For kernels that wrap another kernel (like HoleKernel with `inner` field),
-automatically delegates to the inner kernel's ptr. This allows custom kernels
-to work without modification.
+For custom kernels (not LogisticKernel or RegularizedBoseKernel), automatically
+creates a C-API custom kernel object using spir_function_kernel_new if not already created.
+The result is cached to manage the lifetime of the FunctionKernel object.
 """
 function _get_ptr(kernel::AbstractKernel)
-    # Check if kernel has an 'inner' field
-    # Use introspection to check at runtime
-    kernel_type = typeof(kernel)
-    if hasfield(kernel_type, :inner)
-        inner_kernel = getfield(kernel, :inner)
-        return _get_ptr(inner_kernel)
+    # Check if this is a standard kernel (LogisticKernel or RegularizedBoseKernel)
+    if kernel isa LogisticKernel || kernel isa RegularizedBoseKernel
+        return kernel.ptr
     end
-    # Fallback to direct ptr access for standard kernels
-    return kernel.ptr
+    
+    # For custom kernels, check cache first
+    if haskey(_custom_kernel_cache, kernel)
+        return _custom_kernel_cache[kernel]
+    end
+    
+    # Not in cache, create custom kernel
+    custom_ptr = _create_custom_kernel(kernel)
+    
+    # Store in cache to manage lifetime
+    _custom_kernel_cache[kernel] = custom_ptr
+    
+    return custom_ptr
 end
 
 Base.broadcastable(sampling::AbstractSampling) = Ref(sampling)

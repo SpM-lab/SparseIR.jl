@@ -37,8 +37,8 @@ end
 
 # Get libsparseir directory from command line or use default
 if libsparseir_dir === nothing
-    # Default path
-    libsparseir_dir = normpath(joinpath(@__DIR__, "../../libsparseir"))
+    # Default path: point to backend/cxx where the actual include directory is
+    libsparseir_dir = normpath(joinpath(@__DIR__, "../../libsparseir/backend/cxx"))
 else
     # Convert to absolute path
     libsparseir_dir = normpath(abspath(libsparseir_dir))

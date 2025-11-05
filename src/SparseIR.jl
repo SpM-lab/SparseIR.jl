@@ -31,6 +31,7 @@ end
 include("freq.jl")
 include("abstract.jl")
 include("kernel.jl")
+include("custom_kernel.jl")
 include("sve.jl")
 include("poly.jl")
 include("basis.jl")
