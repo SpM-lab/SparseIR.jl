@@ -112,33 +112,39 @@ function yrange(kernel::RegularizedBoseKernel)
 end
 
 """
-    weight_func(kernel::LogisticKernel, statistics::Statistics)
+    inv_weight_func(kernel::LogisticKernel, statistics::Statistics, beta::Float64, lambda::Float64)
 
-Return the weight function for LogisticKernel.
+Return the inverse weight function for LogisticKernel.
 
-For fermionic statistics, returns the identity function (weight = 1).
-For bosonic statistics, returns w(y) = 1 / tanh(Λ y / 2) where y = βω/Λ.
+For fermionic statistics, returns the identity function (inv_weight = 1).
+For bosonic statistics, returns inv_weight(omega) = tanh(Λ * beta * omega / (2 * lambda)).
+
+The function is evaluated as `omega` only, with `beta` and `lambda` captured from the context.
 """
-function weight_func(kernel::LogisticKernel, statistics::Statistics)
+function inv_weight_func(kernel::LogisticKernel, statistics::Statistics, beta::Float64, lambda::Float64)
     if statistics == Fermionic()
-        return y -> ones(eltype(y), size(y))
+        return (omega::Float64) -> 1.0
     else  # Bosonic
-        return y -> 1 ./ tanh.(0.5 * kernel.Λ * y)
+        # For bosonic: inv_weight(omega) = tanh(Λ * beta * omega / (2 * lambda))
+        return (omega::Float64) -> tanh(0.5 * kernel.Λ * beta * omega / lambda)
     end
 end
 
 """
-    weight_func(kernel::RegularizedBoseKernel, statistics::Statistics)
+    inv_weight_func(kernel::RegularizedBoseKernel, statistics::Statistics, beta::Float64, lambda::Float64)
 
-Return the weight function for RegularizedBoseKernel.
+Return the inverse weight function for RegularizedBoseKernel.
 
-Only supports bosonic statistics. Returns w(y) = 1 / y where y = βω/Λ.
+Only supports bosonic statistics. Returns inv_weight(omega) = beta * omega / lambda.
+
+The function is evaluated as `omega` only, with `beta` and `lambda` captured from the context.
 """
-function weight_func(kernel::RegularizedBoseKernel, statistics::Statistics)
+function inv_weight_func(kernel::RegularizedBoseKernel, statistics::Statistics, beta::Float64, lambda::Float64)
     if statistics == Fermionic()
         error("RegularizedBoseKernel does not support fermionic functions")
     else  # Bosonic
-        return y -> 1 ./ y
+        # For bosonic: inv_weight(omega) = beta * omega / lambda
+        return (omega::Float64) -> beta * omega / lambda
     end
 end
 
@@ -223,7 +229,7 @@ end
 # Import C_API constants and functions
 using .C_API: SPIR_COMPUTATION_SUCCESS, spir_kernel_get_sve_hints_segments_x,
               spir_kernel_get_sve_hints_segments_y, spir_kernel_get_sve_hints_nsvals,
-              spir_kernel_get_sve_hints_ngauss
+              spir_kernel_get_sve_hints_ngauss, spir_gauss_legendre_rule_piecewise_double
 
 # Internal helper to create SVEHints from C-API
 # No caching - each method call queries C-API to ensure consistency with epsilon
@@ -288,4 +294,65 @@ Uses the C++ implementation via C-API.
 """
 function sve_hints(kernel::RegularizedBoseKernel, epsilon::Real)
     return SVEHintsFromCAPI(kernel, epsilon)
+end
+
+"""
+    _get_gauss_points_from_capi(n::Int, segments::Vector{Float64})
+
+Get Gauss-Legendre quadrature points and weights from C-API.
+
+# Arguments
+- `n`: Number of Gauss points per segment
+- `segments`: Array of segment boundaries (length = n_segments + 1)
+
+# Returns
+- `x`: Gauss points (length = n * n_segments)
+- `w`: Gauss weights (length = n * n_segments)
+"""
+function _get_gauss_points_from_capi(n::Int, segments::Vector{Float64})
+    n_segments = length(segments) - 1
+    n_points = n * n_segments
+    x = Vector{Float64}(undef, n_points)
+    w = Vector{Float64}(undef, n_points)
+    
+    status = Ref{Cint}(-100)
+    result = spir_gauss_legendre_rule_piecewise_double(
+        Cint(n), segments, Cint(n_segments), x, w, status
+    )
+    
+    status[] == SPIR_COMPUTATION_SUCCESS || 
+        error("Failed to get Gauss points from C-API: status=$(status[])")
+    
+    return x, w
+end
+
+"""
+    matrix_from_gauss(kernel::AbstractKernel, gauss_x::Vector{Float64}, gauss_y::Vector{Float64})
+
+Compute matrix for kernel from Gauss points.
+
+Evaluates the kernel at all pairs of Gauss points (gauss_x[i], gauss_y[j]) to create
+a discretized kernel matrix. This is used for singular value expansion via C-API.
+
+# Arguments
+- `kernel`: The kernel to evaluate
+- `gauss_x`: Gauss points for x direction (length nx)
+- `gauss_y`: Gauss points for y direction (length ny)
+
+# Returns
+- Matrix of size (nx, ny) containing kernel values K(gauss_x[i], gauss_y[j])
+"""
+function matrix_from_gauss(kernel::AbstractKernel, gauss_x::Vector{Float64}, gauss_y::Vector{Float64})
+    nx = length(gauss_x)
+    ny = length(gauss_y)
+    K = Matrix{Float64}(undef, nx, ny)
+    
+    # Evaluate kernel at all pairs (x[i], y[j])
+    for i in 1:nx
+        for j in 1:ny
+            K[i, j] = Float64(kernel(gauss_x[i], gauss_y[j]))
+        end
+    end
+    
+    return K
 end

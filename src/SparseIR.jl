@@ -16,7 +16,7 @@ export LogisticKernel, RegularizedBoseKernel
 export iscentrosymmetric
 export xrange, yrange
 export conv_radius
-export weight_func
+export inv_weight_func
 export sve_hints, segments_x, segments_y, nsvals, ngauss
 export _get_ptr
 export AugmentedBasis, TauConst, TauLinear, MatsubaraConst

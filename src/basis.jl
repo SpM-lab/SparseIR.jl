@@ -1,3 +1,8 @@
+using .C_API: spir_funcs_from_piecewise_legendre, spir_funcs_release, spir_basis_new_from_sve_and_inv_weight,
+              spir_basis_get_size, spir_basis_get_svals, spir_basis_get_u, spir_basis_get_v,
+              spir_basis_get_uhat, spir_basis_get_uhat_full, SPIR_COMPUTATION_SUCCESS,
+              SPIR_STATISTICS_FERMIONIC, SPIR_STATISTICS_BOSONIC
+
 """
     FiniteTempBasis <: AbstractBasis
 
@@ -59,6 +64,13 @@ mutable struct FiniteTempBasis{S,K} <: AbstractBasis{S}
             throw(ArgumentError("RegularizedBoseKernel is incompatible with Fermionic statistics"))
         end
 
+        # DEBUG: Check inv_weight_func for Bosonic
+        if S === Bosonic && hasmethod(SparseIR.inv_weight_func, (typeof(kernel), typeof(Bosonic()), Float64, Float64))
+            lambda = Float64(β) * Float64(ωmax)
+            inv_wfunc = SparseIR.inv_weight_func(kernel, Bosonic(), Float64(β), lambda)
+            println("[DEBUG basis.jl] Bosonic inv_weight_func available, testing at omega=1.0: $(inv_wfunc(1.0))")
+        end
+
         # Create basis
         status = Ref{Int32}(-100)
         basis = SparseIR.spir_basis_new(
@@ -94,6 +106,140 @@ mutable struct FiniteTempBasis{S,K} <: AbstractBasis{S}
             s,
             PiecewiseLegendrePolyVector(u, -β, β, β, (0.0, β)),  # u uses [0, β] as default overlap range
             PiecewiseLegendrePolyVector(v, -ωmax, ωmax, 0.0),     # v uses default range (xmin, xmax)
+            PiecewiseLegendreFTVector(uhat),
+            PiecewiseLegendreFTVector(uhat_full)
+        )
+        finalizer(b -> spir_basis_release(b.ptr), result)
+        return result
+    end
+    
+    """
+        FiniteTempBasis{S}(sve_result::SVEResult{K}, β::Real, ωmax::Real, ε::Real;
+                           inv_weight_func=nothing, ypower=0, conv_radius=Inf, max_size=-1) where {S<:Statistics, K<:AbstractKernel}
+
+    Construct a finite temperature basis from an SVE result for a custom kernel.
+
+    This constructor is used for custom kernels that do not have a direct C-API representation.
+    It creates a basis from an SVE result and an optional inverse weight function.
+
+    # Arguments
+
+    - `sve_result`: SVE result for the custom kernel
+    - `β`: Inverse temperature (must be positive)
+    - `ωmax`: Frequency cutoff (must be non-negative)
+    - `ε`: Accuracy target for the basis
+    - `inv_weight_func`: Optional inverse weight function `(omega) -> inv_weight`. If not provided,
+      defaults to identity (inv_weight = 1) for fermionic statistics, or uses kernel's
+      `inv_weight_func` method if available.
+    - `ypower`: Power with which y coordinate scales (default: 0)
+    - `conv_radius`: Convergence radius for Matsubara basis asymptotic model (default: Inf)
+    - `max_size`: Maximum number of basis functions (-1 for no limit)
+
+    # Returns
+
+    A `FiniteTempBasis` object constructed from the SVE result.
+    """
+    # Constructor from SVEResult for custom kernels
+    function FiniteTempBasis{S}(sve_result::SVEResult{K}, β::Real, ωmax::Real, ε::Real;
+            inv_weight_func=nothing, ypower=0, conv_radius=Inf, max_size=-1) where {S<:Statistics, K<:AbstractKernel}
+        beta = Float64(β)
+        wmax = Float64(ωmax)
+        epsilon = Float64(ε)
+        lambda = beta * wmax
+        
+        # Get inv_weight_func
+        if inv_weight_func === nothing
+            # Try to get inv_weight_func from kernel
+            kernel = sve_result.kernel
+            if hasmethod(SparseIR.inv_weight_func, (typeof(kernel), typeof(S()), Float64, Float64))
+                inv_weight_func = SparseIR.inv_weight_func(kernel, S(), beta, lambda)
+            else
+                # Default: identity for fermionic, error for bosonic
+                if S === Fermionic
+                    inv_weight_func = (omega::Float64) -> 1.0
+                else
+                    error("inv_weight_func must be provided for bosonic custom kernels")
+                end
+            end
+        end
+        
+        # Create spir_funcs from inv_weight_func
+        # Use omega range from sve_result
+        # Note: SVE result uses reduced domain, but inv_weight_func is evaluated in omega space
+        # We approximate the range based on yrange and lambda
+        kernel = sve_result.kernel
+        omega_min = try
+            ymin, ymax = yrange(kernel)
+            Float64(ymin * lambda / beta)
+        catch
+            -wmax  # Fallback: use reasonable defaults
+        end
+        omega_max_val = try
+            ymin, ymax = yrange(kernel)
+            Float64(ymax * lambda / beta)
+        catch
+            wmax  # Fallback: use reasonable defaults
+        end
+        
+        inv_weight_funcs_ptr = _create_spir_funcs_from_function(
+            inv_weight_func, omega_min, omega_max_val, sve_result, epsilon, beta, lambda)
+        
+        if inv_weight_funcs_ptr == C_NULL
+            error("Failed to create spir_funcs from inv_weight_func")
+        end
+        
+        # Create basis using C-API
+        statistics = S === Fermionic ? SPIR_STATISTICS_FERMIONIC : SPIR_STATISTICS_BOSONIC
+        status = Ref{Cint}(-100)
+        basis_ptr = spir_basis_new_from_sve_and_inv_weight(
+            statistics, beta, wmax, epsilon, lambda, ypower, conv_radius,
+            sve_result.ptr, inv_weight_funcs_ptr, max_size, status
+        )
+        
+        # Clean up spir_funcs
+        spir_funcs_release(inv_weight_funcs_ptr)
+        
+        if status[] != SPIR_COMPUTATION_SUCCESS
+            error("Failed to create FiniteTempBasis from SVEResult: status=$(status[])")
+        end
+        
+        if basis_ptr == C_NULL
+            error("Failed to create FiniteTempBasis from SVEResult: null pointer returned")
+        end
+        
+        # Extract basis data
+        basis_size = Ref{Int32}(0)
+        spir_basis_get_size(basis_ptr, basis_size) == SPIR_COMPUTATION_SUCCESS ||
+            error("Failed to get basis size")
+        s = Vector{Float64}(undef, Int(basis_size[]))
+        spir_basis_get_svals(basis_ptr, s) == SPIR_COMPUTATION_SUCCESS ||
+            error("Failed to get singular values")
+        
+        u_status = Ref{Int32}(-100)
+        u = spir_basis_get_u(basis_ptr, u_status)
+        u_status[] == SPIR_COMPUTATION_SUCCESS ||
+            error("Failed to get basis functions u $(u_status[])")
+        
+        v_status = Ref{Int32}(-100)
+        v = spir_basis_get_v(basis_ptr, v_status)
+        v_status[] == SPIR_COMPUTATION_SUCCESS ||
+            error("Failed to get basis functions v $(v_status[])")
+        
+        uhat_status = Ref{Int32}(-100)
+        uhat = spir_basis_get_uhat(basis_ptr, uhat_status)
+        uhat_status[] == SPIR_COMPUTATION_SUCCESS ||
+            error("Failed to get basis functions uhat $(uhat_status[])")
+        
+        uhat_full_status = Ref{Int32}(-100)
+        uhat_full = spir_basis_get_uhat_full(basis_ptr, uhat_full_status)
+        uhat_full_status[] == SPIR_COMPUTATION_SUCCESS ||
+            error("Failed to get basis functions uhat_full $(uhat_full_status[])")
+        
+        result = new{S,K}(
+            basis_ptr, kernel, sve_result, Float64(β), Float64(ωmax), Float64(ε),
+            s,
+            PiecewiseLegendrePolyVector(u, -β, β, β, (0.0, β)),
+            PiecewiseLegendrePolyVector(v, -ωmax, ωmax, 0.0),
             PiecewiseLegendreFTVector(uhat),
             PiecewiseLegendreFTVector(uhat_full)
         )
@@ -338,3 +484,54 @@ function finite_temp_bases(β::Real, ωmax::Real, ε::Real;
     basis_b = FiniteTempBasis{Bosonic}(β, ωmax, ε; sve_result, kernel)
     return basis_f, basis_b
 end
+
+# Internal helper: Create spir_funcs from a Julia function (omega -> value)
+# Uses SVE hints segments_y converted to omega space for optimal discretization
+function _create_spir_funcs_from_function(f::Function, omega_min::Float64, omega_max::Float64,
+        sve_result::SVEResult, epsilon::Float64, beta::Float64, lambda::Float64)
+    # Get SVE hints from kernel to use optimal segments
+    kernel = sve_result.kernel
+    hints = sve_hints(kernel, epsilon)
+    segs_y = segments_y(hints)  # segments in y space (y = beta * omega / lambda)
+    
+    # Convert segments_y from y space to omega space
+    # omega = (lambda / beta) * y
+    omega_segments = [y * lambda / beta for y in segs_y]
+    
+    # Filter segments to be within [omega_min, omega_max]
+    omega_segments_filtered = filter(seg -> omega_min <= seg <= omega_max, omega_segments)
+    
+    # Ensure omega_min and omega_max are included
+    segments = Vector{Float64}()
+    if isempty(omega_segments_filtered) || first(omega_segments_filtered) > omega_min + 1e-10
+        push!(segments, omega_min)
+    end
+    append!(segments, omega_segments_filtered)
+    if isempty(segments) || last(segments) < omega_max - 1e-10
+        push!(segments, omega_max)
+    end
+    
+    # Remove duplicates and sort
+    segments = sort(unique(segments))
+    n_segments = length(segments) - 1
+    n_segments > 0 || error("No valid segments found for inv_weight_func approximation")
+    
+    # Sample function at segment midpoints and use constant approximation per segment
+    nfuncs = 1  # Constant per segment (degree 0)
+    coeffs = Vector{Float64}(undef, n_segments)
+    for i in 1:n_segments
+        seg_min = segments[i]
+        seg_max = segments[i+1]
+        seg_mid = (seg_min + seg_max) / 2
+        coeffs[i] = f(seg_mid)
+    end
+    
+    status = Ref{Cint}(-100)
+    funcs_ptr = spir_funcs_from_piecewise_legendre(
+        segments, n_segments, coeffs, nfuncs, 0, status
+    )
+    status[] == SPIR_COMPUTATION_SUCCESS || 
+        error("Failed to create spir_funcs from function: status=$(status[])")
+    return funcs_ptr
+end
+

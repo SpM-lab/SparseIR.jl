@@ -40,6 +40,26 @@ In general, the kernel is applied to a scaled spectral function ``ρ'(y)`` as:
     ∫ K(x, y) ρ'(y) dy,
 ```
 where ``ρ'(y) = w(y) ρ(y)``.
+
+## Optional methods for centrosymmetric kernels
+
+For kernels that are centrosymmetric (i.e., `iscentrosymmetric(kernel) == true`),
+the following optional methods can be implemented to improve numerical accuracy
+when computing the singular value expansion:
+
+- `compute_even(kernel::AbstractKernel, x, y)`: Compute the even part of the kernel,
+  ``K_\mathrm{even}(x, y) = K(x, y) + K(x, -y)``. This should be implemented
+  when the kernel has a specialized, numerically stable implementation for the
+  even part that avoids cancellation errors.
+
+- `compute_odd(kernel::AbstractKernel, x, y)`: Compute the odd part of the kernel,
+  ``K_\mathrm{odd}(x, y) = K(x, y) - K(x, -y)``. This should be implemented
+  when the kernel has a specialized, numerically stable implementation for the
+  odd part that avoids cancellation errors.
+
+If these methods are not implemented, the library will fall back to computing
+``K(x, y) ± K(x, -y)`` directly, which may result in reduced numerical accuracy
+due to cancellation errors. A warning will be issued in such cases.
 """
 abstract type AbstractKernel end
 
@@ -255,13 +275,45 @@ is infinity, then the asymptotics are unused (the default).
 conv_radius(::AbstractKernel) = Inf
 
 """
-    weight_func(kernel::AbstractKernel, stat::Statistics)
+    inv_weight_func(kernel::AbstractKernel, stat::Statistics, beta::Float64, lambda::Float64)
 
-Return the weight function for given statistics.
+Return the inverse weight function for given statistics.
 
-Returns a function `(beta, omega) -> weight` that scales the spectral function.
+Returns a function `(omega) -> inv_weight` where `inv_weight = 1 / weight`.
+The function is evaluated as `omega` only, with `beta` and `lambda` captured from the context.
 """
-function weight_func end
+function inv_weight_func(kernel::AbstractKernel, stat::Statistics, beta::Float64, lambda::Float64)
+    # Default: identity for fermionic
+    if stat == Fermionic()
+        return (omega::Float64) -> 1.0
+    else
+        error("inv_weight_func must be implemented for bosonic kernels")
+    end
+end
+
+"""
+    compute_even(kernel::AbstractKernel, x, y)
+
+Compute the even part of a centrosymmetric kernel: K_even(x, y) = K(x, y) + K(x, -y).
+
+This is an optional method that can be implemented by kernels to provide
+numerically stable computation of the even part, avoiding cancellation errors.
+
+If not implemented, the library will fall back to computing K(x, y) + K(x, -y) directly.
+"""
+function compute_even end
+
+"""
+    compute_odd(kernel::AbstractKernel, x, y)
+
+Compute the odd part of a centrosymmetric kernel: K_odd(x, y) = K(x, y) - K(x, -y).
+
+This is an optional method that can be implemented by kernels to provide
+numerically stable computation of the odd part, avoiding cancellation errors.
+
+If not implemented, the library will fall back to computing K(x, y) - K(x, -y) directly.
+"""
+function compute_odd end
 
 """
     sve_hints(kernel::AbstractKernel, epsilon::Real)
@@ -301,18 +353,14 @@ function ngauss end
 Base.broadcastable(kernel::AbstractKernel) = Ref(kernel)
 
 # Global cache to store custom kernel pointers for Julia kernel objects
-# This allows us to cache the C-API custom kernel objects created from Julia kernels
-# The cache is used to manage the lifetime of the FunctionKernel objects
-const _custom_kernel_cache = Dict{Any, Ptr{spir_kernel}}()
-
 """
     _get_ptr(kernel::AbstractKernel)
 
 Get the underlying C pointer from a kernel. 
 
-For custom kernels (not LogisticKernel or RegularizedBoseKernel), automatically
-creates a C-API custom kernel object using spir_function_kernel_new if not already created.
-The result is cached to manage the lifetime of the FunctionKernel object.
+For custom kernels (not LogisticKernel or RegularizedBoseKernel), this function
+is not supported as custom kernels do not have C-API representations.
+Use SVEResult directly with custom kernels instead.
 """
 function _get_ptr(kernel::AbstractKernel)
     # Check if this is a standard kernel (LogisticKernel or RegularizedBoseKernel)
@@ -320,18 +368,10 @@ function _get_ptr(kernel::AbstractKernel)
         return kernel.ptr
     end
     
-    # For custom kernels, check cache first
-    if haskey(_custom_kernel_cache, kernel)
-        return _custom_kernel_cache[kernel]
-    end
-    
-    # Not in cache, create custom kernel
-    custom_ptr = _create_custom_kernel(kernel)
-    
-    # Store in cache to manage lifetime
-    _custom_kernel_cache[kernel] = custom_ptr
-    
-    return custom_ptr
+    # For custom kernels, _get_ptr is not supported
+    # Custom kernels should be used with SVEResult directly, not with C-API functions
+    # that require a kernel pointer
+    error("_get_ptr is not supported for custom kernels. Use SVEResult directly with custom kernels.")
 end
 
 Base.broadcastable(sampling::AbstractSampling) = Ref(sampling)

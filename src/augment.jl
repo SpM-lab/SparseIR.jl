@@ -136,38 +136,22 @@ function default_tau_sampling_points(basis::AugmentedBasis)
 end
 
 function default_matsubara_sampling_points(basis::AugmentedBasis; positive_only=false, mitigate=false)
-    # Check if underlying basis has uhat_full (for HoleKernel compatibility)
+    # uhat_full is required for AugmentedBasis
     underlying_basis = basis.basis
-    if hasfield(typeof(underlying_basis), :uhat_full)
-        uhat_full_val = getfield(underlying_basis, :uhat_full)
-        # Use uhat_full-based sampling for HoleKernel compatibility
-        # Statistics are automatically detected from uhat_full object type in C-API
-        return default_matsubara_sampling_points(
-            uhat_full_val,
-            length(underlying_basis) + length(basis.augmentations);
-            positive_only=positive_only,
-            mitigate=mitigate)
-    else
-        # Standard implementation for regular kernels
-        n_points = Ref{Cint}(0)
-        status = spir_basis_get_n_default_matsus_ext(
-            _get_ptr(underlying_basis), positive_only, length(basis), n_points)
-        status == SPIR_COMPUTATION_SUCCESS ||
-            error("Failed to get number of default Matsubara sampling points")
-        points = Vector{Int64}(undef, max(n_points[], length(basis) + 10))
-        n_points_returned = Ref{Cint}(0)
-        status = spir_basis_get_default_matsus_ext(
-            _get_ptr(underlying_basis), positive_only, mitigate, length(basis), points, n_points_returned)
-        status == SPIR_COMPUTATION_SUCCESS ||
-            error("Failed to get default Matsubara sampling points")
-        resize!(points, n_points_returned[])
-        S = statistics(basis)
-        if S isa Fermionic
-            return [FermionicFreq(n) for n in points]
-        else
-            return [BosonicFreq(n) for n in points]
-        end
-    end
+    hasfield(typeof(underlying_basis), :uhat_full) ||
+        error("uhat_full is required for AugmentedBasis, but underlying basis $(typeof(underlying_basis)) does not have uhat_full field")
+    
+    uhat_full_val = getfield(underlying_basis, :uhat_full)
+    uhat_full_val !== nothing ||
+        error("uhat_full is required for AugmentedBasis, but underlying basis has uhat_full = nothing")
+    
+    # Use uhat_full-based sampling
+    # Statistics are automatically detected from uhat_full object type in C-API
+    return default_matsubara_sampling_points(
+        uhat_full_val,
+        length(underlying_basis) + length(basis.augmentations);
+        positive_only=positive_only,
+        mitigate=mitigate)
 end
 
 # Special handling for AugmentedBasis with HoleKernel (for OvercompleteIR.jl compatibility)
@@ -176,37 +160,22 @@ end
 function default_matsubara_sampling_points(
         basis::AugmentedBasis{S, <:FiniteTempBasis{S, <:AbstractKernel}};
         positive_only=false, mitigate=false) where {S <: Statistics}
-    # Check if underlying basis has uhat_full (for HoleKernel compatibility)
+    # uhat_full is required for AugmentedBasis
     underlying_basis = basis.basis
-    if hasfield(typeof(underlying_basis), :uhat_full)
-        uhat_full_val = getfield(underlying_basis, :uhat_full)
-        # Use uhat_full-based sampling for HoleKernel compatibility
-        # Statistics are automatically detected from uhat_full object type in C-API
-        return default_matsubara_sampling_points(
-            uhat_full_val,
-            length(underlying_basis) + length(basis.augmentations);
-            positive_only=positive_only,
-            mitigate=mitigate)
-    else
-        # Fall back to standard implementation (avoid infinite recursion)
-    n_points = Ref{Cint}(0)
-    status = spir_basis_get_n_default_matsus_ext(
-            _get_ptr(underlying_basis), positive_only, length(basis), n_points)
-    status == SPIR_COMPUTATION_SUCCESS ||
-        error("Failed to get number of default Matsubara sampling points")
-        points = Vector{Int64}(undef, max(n_points[], length(basis) + 10))
-    n_points_returned = Ref{Cint}(0)
-    status = spir_basis_get_default_matsus_ext(
-            _get_ptr(underlying_basis), positive_only, mitigate, length(basis), points, n_points_returned)
-    status == SPIR_COMPUTATION_SUCCESS ||
-        error("Failed to get default Matsubara sampling points")
-        resize!(points, n_points_returned[])
-        if S === Fermionic
-            return [FermionicFreq(n) for n in points]
-        else
-            return [BosonicFreq(n) for n in points]
-        end
-    end
+    hasfield(typeof(underlying_basis), :uhat_full) ||
+        error("uhat_full is required for AugmentedBasis, but underlying basis $(typeof(underlying_basis)) does not have uhat_full field")
+    
+    uhat_full_val = getfield(underlying_basis, :uhat_full)
+    uhat_full_val !== nothing ||
+        error("uhat_full is required for AugmentedBasis, but underlying basis has uhat_full = nothing")
+    
+    # Use uhat_full-based sampling
+    # Statistics are automatically detected from uhat_full object type in C-API
+    return default_matsubara_sampling_points(
+        uhat_full_val,
+        length(underlying_basis) + length(basis.augmentations);
+        positive_only=positive_only,
+        mitigate=mitigate)
 end
 
 function iswellconditioned(basis::AugmentedBasis)
