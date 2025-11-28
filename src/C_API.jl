@@ -2,6 +2,7 @@ module C_API
 
 using CEnum: CEnum, @cenum
 
+using Libdl: Libdl
 
 function get_libsparseir()
     # Use debug library if SPARSEIR_LIB_PATH environment variable is set

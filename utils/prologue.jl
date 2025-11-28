@@ -1,3 +1,4 @@
+using Libdl: Libdl
 
 function get_libsparseir()
     # Use debug library if SPARSEIR_LIB_PATH environment variable is set
