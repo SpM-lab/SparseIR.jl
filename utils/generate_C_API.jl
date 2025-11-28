@@ -27,6 +27,7 @@ for (i, arg) in enumerate(ARGS)
         exit(0)
     elseif arg == "--libsparseir-dir"
         if i + 1 <= length(ARGS)
+            global libsparseir_dir
             libsparseir_dir = ARGS[i + 1]
         else
             println("Error: --libsparseir-dir requires a path argument")
