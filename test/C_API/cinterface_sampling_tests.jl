@@ -36,7 +36,7 @@
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, NaN, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
+        sve = SparseIR.spir_sve_result_new(kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         basis_status = Ref{Int32}(0)
@@ -103,7 +103,7 @@
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, NaN, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
+        sve = SparseIR.spir_sve_result_new(kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         basis_status = Ref{Int32}(0)
@@ -170,7 +170,7 @@
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, NaN, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
+        sve = SparseIR.spir_sve_result_new(kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         basis_status = Ref{Int32}(0)
@@ -258,7 +258,7 @@
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, NaN, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
+        sve = SparseIR.spir_sve_result_new(kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         basis_status = Ref{Int32}(0)
@@ -346,7 +346,7 @@
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, NaN, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
+        sve = SparseIR.spir_sve_result_new(kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         basis_status = Ref{Int32}(0)
@@ -437,7 +437,7 @@
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, NaN, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
+        sve = SparseIR.spir_sve_result_new(kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         basis_status = Ref{Int32}(0)
@@ -528,7 +528,7 @@
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, NaN, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
+        sve = SparseIR.spir_sve_result_new(kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         basis_status = Ref{Int32}(0)
@@ -658,7 +658,7 @@ end
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, NaN, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
+        sve = SparseIR.spir_sve_result_new(kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         basis_status = Ref{Int32}(0)
