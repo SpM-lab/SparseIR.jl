@@ -239,12 +239,13 @@ function evaluate!(
     end
 
     # Call appropriate C function based on input/output types
+    backend = Ref(C_API.spir_gemm_backend(Ptr{Cvoid}(C_NULL)))
     if Tin == Float64 && Tout == Float64
         ret = C_API.spir_sampling_eval_dd(
-            sampling.ptr, order, ndim, input_dims, target_dim, al, output)
+            sampling.ptr, backend, order, ndim, input_dims, target_dim, al, output)
     elseif Tin == ComplexF64 && Tout == ComplexF64
         ret = C_API.spir_sampling_eval_zz(
-            sampling.ptr, order, ndim, input_dims, target_dim, al, output)
+            sampling.ptr, backend, order, ndim, input_dims, target_dim, al, output)
     else
         error("Type combination not yet supported for TauSampling: input=$Tin, output=$Tout")
     end
@@ -279,12 +280,13 @@ function evaluate!(output::Array{Tout,N}, sampling::MatsubaraSampling,
     end
 
     # Call appropriate C function based on input/output types
+    backend = Ref(C_API.spir_gemm_backend(Ptr{Cvoid}(C_NULL)))
     if Tin == Float64 && Tout == ComplexF64
         ret = C_API.spir_sampling_eval_dz(
-            sampling.ptr, order, ndim, input_dims, target_dim, al, output)
+            sampling.ptr, backend, order, ndim, input_dims, target_dim, al, output)
     elseif Tin == ComplexF64 && Tout == ComplexF64
         ret = C_API.spir_sampling_eval_zz(
-            sampling.ptr, order, ndim, input_dims, target_dim, al, output)
+            sampling.ptr, backend, order, ndim, input_dims, target_dim, al, output)
     else
         error("Type combination not supported for MatsubaraSampling: input=$Tin, output=$Tout")
     end
@@ -374,13 +376,14 @@ function fit!(
         error("Output array must be contiguous")
     end
 
+    backend = Ref(C_API.spir_gemm_backend(Ptr{Cvoid}(C_NULL)))
     # Call appropriate C function
     if Tin == Float64 && Tout == Float64
         ret = C_API.spir_sampling_fit_dd(
-            sampling.ptr, order, ndim, input_dims, target_dim, al, output)
+            sampling.ptr, backend, order, ndim, input_dims, target_dim, al, output)
     elseif Tin == ComplexF64 && Tout == ComplexF64
         ret = C_API.spir_sampling_fit_zz(
-            sampling.ptr, order, ndim, input_dims, target_dim, al, output)
+            sampling.ptr, backend, order, ndim, input_dims, target_dim, al, output)
     else
         ArgumentError("Type combination not yet supported for TauSampling fit: input=$Tin, output=$Tout")
     end
@@ -416,15 +419,16 @@ function fit!(
     end
 
     # Call appropriate C function based on input/output types
+    backend = Ref(C_API.spir_gemm_backend(Ptr{Cvoid}(C_NULL)))
     if Tin == ComplexF64 && Tout == ComplexF64
         ret = C_API.spir_sampling_fit_zz(
-            sampling.ptr, order, ndim, input_dims, target_dim, al, output)
+            sampling.ptr, backend, order, ndim, input_dims, target_dim, al, output)
     elseif Tin == ComplexF64 && Tout == Float64
         # Create temporary complex output, then extract real part
         # TODO: Optimize for positive_only = True
         temp_output = Array{ComplexF64,N}(undef, size(output)...)
         ret = C_API.spir_sampling_fit_zz(
-            sampling.ptr, order, ndim, input_dims, target_dim, al, temp_output)
+            sampling.ptr, backend, order, ndim, input_dims, target_dim, al, temp_output)
         ret == C_API.SPIR_COMPUTATION_SUCCESS ||
             error("Failed to fit sampling: status=$ret")
         output .= real.(temp_output)

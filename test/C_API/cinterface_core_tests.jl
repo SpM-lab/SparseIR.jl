@@ -189,7 +189,7 @@ end
 
         # Create SVE result
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, NaN, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
+        sve = SparseIR.spir_sve_result_new(kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         if sve_status[] != SparseIR.SPIR_COMPUTATION_SUCCESS || sve == C_NULL
             SparseIR.spir_kernel_release(kernel)
             return C_NULL, sve_status[]
