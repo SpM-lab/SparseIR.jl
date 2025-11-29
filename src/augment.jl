@@ -143,8 +143,9 @@ function default_matsubara_sampling_points(basis::AugmentedBasis; positive_only=
         error("Failed to get number of default Matsubara sampling points")
     points = Vector{Int64}(undef, n_points[])
     n_points_returned = Ref{Cint}(0)
+    mitigate = false # corresponds to false in older version
     status = spir_basis_get_default_matsus_ext(
-        _get_ptr(basis.basis), positive_only, length(basis), points, n_points_returned)
+        _get_ptr(basis.basis), positive_only, mitigate, length(basis), points, n_points_returned)
     status == SPIR_COMPUTATION_SUCCESS ||
         error("Failed to get default Matsubara sampling points")
     n_points_returned[] == n_points[] ||
