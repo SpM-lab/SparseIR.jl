@@ -3,6 +3,7 @@ module C_API
 using CEnum: CEnum, @cenum
 
 using Libdl: Libdl
+import libsparseir_jll
 
 function get_libsparseir()
     # Use debug library if SPARSEIR_LIB_PATH environment variable is set
@@ -19,7 +20,6 @@ function get_libsparseir()
         end
     else
         # Production: use JLL package - load dynamically
-        @eval using libsparseir_jll
         return libsparseir_jll.libsparseir
     end
 end
