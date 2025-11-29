@@ -239,7 +239,7 @@ function evaluate!(
     end
 
     # Call appropriate C function based on input/output types
-    backend = Ref(C_API.spir_gemm_backend(Ptr{Cvoid}(C_NULL)))
+    backend = C_NULL
     if Tin == Float64 && Tout == Float64
         ret = C_API.spir_sampling_eval_dd(
             sampling.ptr, backend, order, ndim, input_dims, target_dim, al, output)
@@ -280,7 +280,7 @@ function evaluate!(output::Array{Tout,N}, sampling::MatsubaraSampling,
     end
 
     # Call appropriate C function based on input/output types
-    backend = Ref(C_API.spir_gemm_backend(Ptr{Cvoid}(C_NULL)))
+    backend = C_NULL
     if Tin == Float64 && Tout == ComplexF64
         ret = C_API.spir_sampling_eval_dz(
             sampling.ptr, backend, order, ndim, input_dims, target_dim, al, output)
@@ -375,8 +375,7 @@ function fit!(
     if !_is_column_major_contiguous(output)
         error("Output array must be contiguous")
     end
-
-    backend = Ref(C_API.spir_gemm_backend(Ptr{Cvoid}(C_NULL)))
+    backend = C_NULL
     # Call appropriate C function
     if Tin == Float64 && Tout == Float64
         ret = C_API.spir_sampling_fit_dd(
@@ -419,7 +418,7 @@ function fit!(
     end
 
     # Call appropriate C function based on input/output types
-    backend = Ref(C_API.spir_gemm_backend(Ptr{Cvoid}(C_NULL)))
+    backend = C_NULL
     if Tin == ComplexF64 && Tout == ComplexF64
         ret = C_API.spir_sampling_fit_zz(
             sampling.ptr, backend, order, ndim, input_dims, target_dim, al, output)

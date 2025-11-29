@@ -141,7 +141,7 @@
 
         # Test fitting
         fit_output = Vector{Float64}(undef, basis_size)
-        backend = Ref(SparseIR.spir_gemm_backend(Ptr{Cvoid}(C_NULL)))
+        backend = C_NULL
         fit_status = SparseIR.spir_sampling_fit_dd(
             sampling, backend, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, dims,
             target_dim, evaluate_output, fit_output)
@@ -229,7 +229,7 @@
 
             # Test fitting
             fit_output = Vector{Float64}(undef, total_size)
-            backend = Ref(SparseIR.spir_gemm_backend(Ptr{Cvoid}(C_NULL)))
+            backend = C_NULL
             fit_status = SparseIR.spir_sampling_fit_dd(
                 sampling, backend, SparseIR.SPIR_ORDER_ROW_MAJOR, ndim, output_dims,
                 target_dim, evaluate_output, fit_output)
@@ -318,7 +318,7 @@
 
             # Test fitting
             fit_output = Vector{Float64}(undef, total_size)
-            backend = Ref(SparseIR.spir_gemm_backend(Ptr{Cvoid}(C_NULL)))
+            backend = C_NULL
             fit_status = SparseIR.spir_sampling_fit_dd(
                 sampling, backend, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, output_dims,
                 target_dim, evaluate_output, fit_output)

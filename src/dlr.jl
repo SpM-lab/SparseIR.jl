@@ -101,7 +101,7 @@ function from_IR(dlr::DiscreteLehmannRepresentation, gl::Array{T,N}, dims=1) whe
     input_dims = Int32[size(gl)...]
     target_dim = Int32(dims - 1)  # C uses 0-based indexing
     order = C_API.SPIR_ORDER_COLUMN_MAJOR
-    backend = Ref(C_API.spir_gemm_backend(Ptr{Cvoid}(C_NULL)))
+    backend = C_NULL
     if T <: Real
         ret = C_API.spir_ir2dlr_dd(dlr.ptr, backend, order, ndim, input_dims, target_dim, gl, output)
     elseif T <: Complex
@@ -162,7 +162,7 @@ function to_IR(dlr::DiscreteLehmannRepresentation, g_dlr::Array{T,N}, dims=1) wh
     target_dim = Int32(dims - 1)  # C uses 0-based indexing
     order = C_API.SPIR_ORDER_COLUMN_MAJOR
 
-    backend = Ref(C_API.spir_gemm_backend(Ptr{Cvoid}(C_NULL)))
+    backend = C_NULL
     if T <: Real
         ret = C_API.spir_dlr2ir_dd(
             dlr.ptr, backend, order, ndim, input_dims, target_dim, g_dlr, output)
