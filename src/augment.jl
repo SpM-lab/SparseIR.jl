@@ -132,7 +132,7 @@ function default_tau_sampling_points(basis::AugmentedBasis)
     status = spir_basis_get_default_taus_ext(
         _get_ptr(basis.basis), length(basis), points, n_points_returned)
     status == SPIR_COMPUTATION_SUCCESS || error("Failed to get default tau sampling points")
-    return points
+    return points[1:n_points_returned[]]
 end
 
 function default_matsubara_sampling_points(basis::AugmentedBasis; positive_only=false)
@@ -149,7 +149,7 @@ function default_matsubara_sampling_points(basis::AugmentedBasis; positive_only=
         error("Failed to get default Matsubara sampling points")
     n_points_returned[] == n_points[] ||
         error("n_points_returned=$(n_points_returned[]) != n_points=$(n_points[])")
-    return points
+    return points[1:n_points_returned[]]
 end
 
 function iswellconditioned(basis::AugmentedBasis)
