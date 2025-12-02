@@ -16,7 +16,7 @@ function print_help()
     println("Examples:")
     println("  julia build.jl --libsparseir-dir /path/to/libsparseir")
     println()
-    println("Default: Uses ../../libsparseir relative to this script")
+    println("Default: Uses ../../sparse-ir-rs/sparse-ir-capi relative to this script")
 end
 
 # Parse command line arguments
@@ -27,6 +27,7 @@ for (i, arg) in enumerate(ARGS)
         exit(0)
     elseif arg == "--libsparseir-dir"
         if i + 1 <= length(ARGS)
+            global libsparseir_dir
             libsparseir_dir = ARGS[i + 1]
         else
             println("Error: --libsparseir-dir requires a path argument")
@@ -38,7 +39,7 @@ end
 # Get libsparseir directory from command line or use default
 if libsparseir_dir === nothing
     # Default path
-    libsparseir_dir = normpath(joinpath(@__DIR__, "../../libsparseir"))
+    libsparseir_dir = normpath(joinpath(@__DIR__, "../../sparse-ir-rs/sparse-ir-capi"))
 else
     # Convert to absolute path
     libsparseir_dir = normpath(abspath(libsparseir_dir))

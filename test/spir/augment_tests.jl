@@ -2,7 +2,6 @@
 @testitem "augment.jl" tags=[:julia, :sparseir, :debug] begin
     using Test
     using SparseIR
-    import SparseIR as SparseIR
     using LinearAlgebra
     using StableRNGs
 
