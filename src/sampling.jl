@@ -102,15 +102,15 @@ function MatsubaraSampling(
         # Get default Matsubara sampling points from basis
         status = Ref{Int32}(-100)
         n_points = Ref{Int32}(-1)
-
+        basis_ptr = _get_ptr(basis)
         ret = C_API.spir_basis_get_n_default_matsus(
-            _get_ptr(basis), positive_only, n_points)
+            basis_ptr, positive_only, n_points)
         ret == C_API.SPIR_COMPUTATION_SUCCESS ||
             error("Failed to get number of default Matsubara points")
 
         points_array = Vector{Int64}(undef, n_points[])
         ret = C_API.spir_basis_get_default_matsus(
-            _get_ptr(basis), positive_only, points_array)
+            basis_ptr, positive_only, points_array)
         ret == C_API.SPIR_COMPUTATION_SUCCESS ||
             error("Failed to get default Matsubara points")
 

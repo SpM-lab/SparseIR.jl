@@ -79,8 +79,14 @@ function MatsubaraSampling(
         sampling_points=default_matsubara_sampling_points(basis; positive_only)
 ) where {S}
     pts = MatsubaraFreq.(sampling_points)
-    matrix = eval_matrix(MatsubaraSampling, basis, pts)
+    matrix_raw = eval_matrix(MatsubaraSampling, basis, pts)
+    # Ensure column-major contiguous memory layout
+    # permutedims may create a non-contiguous view, so we create a new Matrix
+    matrix = Matrix{ComplexF64}(undef, size(matrix_raw)...)
+    matrix .= matrix_raw
     status = Ref{Int32}(-100)
+    # Ensure matrix is pinned in memory to prevent GC from moving it during ccall
+    GC.@preserve matrix begin
     ptr = C_API.spir_matsu_sampling_new_with_matrix(
         C_API.SPIR_ORDER_COLUMN_MAJOR,
         _statistics_to_c(S),
@@ -91,10 +97,10 @@ function MatsubaraSampling(
         matrix,
         status
     )
+    end
     status[] == C_API.SPIR_COMPUTATION_SUCCESS ||
         error("Failed to create Matsubara sampling: status=$(status[])")
     ptr != C_NULL || error("Failed to create Matsubara sampling: null pointer returned")
-
     return MatsubaraSampling{eltype(pts),typeof(basis)}(ptr, pts, positive_only, basis)
 end
 
@@ -137,19 +143,18 @@ end
 
 function default_matsubara_sampling_points(basis::AugmentedBasis; positive_only=false)
     n_points = Ref{Cint}(0)
+    basis_ptr = _get_ptr(basis.basis)
+    mitigate = false # corresponds to false in older version
     status = spir_basis_get_n_default_matsus_ext(
-        _get_ptr(basis.basis), positive_only, length(basis), n_points)
+        basis_ptr, positive_only, mitigate, length(basis), n_points)
     status == SPIR_COMPUTATION_SUCCESS ||
         error("Failed to get number of default Matsubara sampling points")
     points = Vector{Int64}(undef, n_points[])
     n_points_returned = Ref{Cint}(0)
-    mitigate = false # corresponds to false in older version
     status = spir_basis_get_default_matsus_ext(
-        _get_ptr(basis.basis), positive_only, mitigate, length(basis), points, n_points_returned)
+        basis_ptr, positive_only, mitigate, n_points[], points, n_points_returned)
     status == SPIR_COMPUTATION_SUCCESS ||
         error("Failed to get default Matsubara sampling points")
-    #n_points_returned[] == n_points[] ||
-    #    error("n_points_returned=$(n_points_returned[]) != n_points=$(n_points[])")
     return points
 end
 

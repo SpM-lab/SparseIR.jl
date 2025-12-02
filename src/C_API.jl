@@ -3,6 +3,42 @@ module C_API
 using CEnum: CEnum, @cenum
 
 using Libdl: Libdl
+
+# Conditionally import libsparseir_jll - only import if not using debug library
+# We need to import it at module level, but we'll check ENV in get_libsparseir()
+if !haskey(ENV, "SPARSEIR_LIB_PATH")
+    import libsparseir_jll
+end
+
+function get_libsparseir()
+    # Use debug library if SPARSEIR_LIB_PATH environment variable is set
+    if haskey(ENV, "SPARSEIR_LIB_PATH")
+        debug_path = ENV["SPARSEIR_LIB_PATH"]
+        print("SPARSEIR_LIB_PATH is set to: $debug_path")
+        if !isfile(debug_path)
+            error("Debug library not found at $debug_path")
+        end
+        try
+            return Libdl.LazyLibrary(debug_path)
+        catch e
+            error("Failed to load debug library: $e")
+        end
+    else
+        # Production: use JLL package - load dynamically
+        # libsparseir_jll should be imported at module level if we reach here
+        return libsparseir_jll.libsparseir
+    end
+end
+
+const libsparseir = get_libsparseir()
+
+end # module
+
+module C_API
+
+using CEnum: CEnum, @cenum
+
+using Libdl: Libdl
 import libsparseir_jll
 
 function get_libsparseir()
@@ -392,18 +428,18 @@ function spir_basis_get_default_taus_ext(b, n_points, points, n_points_returned)
 end
 
 """
-    spir_basis_get_n_default_matsus_ext(b, positive_only, L, num_points_returned)
+    spir_basis_get_n_default_matsus_ext(b, positive_only, mitigate, L, num_points_returned)
 
 Get number of default Matsubara sampling points with custom limit (extended version)
 
-# Arguments * `b` - Basis object * `positive_only` - If true, return only positive frequencies * `L` - Requested number of sampling points * `num_points_returned` - Pointer to store actual number of points
+# Arguments * `b` - Basis object * `positive_only` - If true, return only positive frequencies * `mitigate` - If true, enable mitigation (fencing) to improve conditioning * `L` - Requested number of sampling points * `num_points_returned` - Pointer to store actual number of points
 
 # Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if any pointer is null or L < 0 * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
 
-# Note Returns min(L, actual\\_default\\_points) sampling points
+# Note Returns the actual number of points that will be returned by `spir_basis_get_default_matsus_ext` with the same parameters. When mitigate is true, may return more points than requested due to fencing.
 """
-function spir_basis_get_n_default_matsus_ext(b, positive_only, L, num_points_returned)
-    ccall((:spir_basis_get_n_default_matsus_ext, libsparseir), StatusCode, (Ptr{spir_basis}, Bool, Cint, Ptr{Cint}), b, positive_only, L, num_points_returned)
+function spir_basis_get_n_default_matsus_ext(b, positive_only, mitigate, L, num_points_returned)
+    ccall((:spir_basis_get_n_default_matsus_ext, libsparseir), StatusCode, (Ptr{spir_basis}, Bool, Bool, Cint, Ptr{Cint}), b, positive_only, mitigate, L, num_points_returned)
 end
 
 """
