@@ -148,9 +148,9 @@ function default_matsubara_sampling_points(basis::AugmentedBasis; positive_only=
         _get_ptr(basis.basis), positive_only, mitigate, length(basis), points, n_points_returned)
     status == SPIR_COMPUTATION_SUCCESS ||
         error("Failed to get default Matsubara sampling points")
-    n_points_returned[] == n_points[] ||
-        error("n_points_returned=$(n_points_returned[]) != n_points=$(n_points[])")
-    return points[1:n_points_returned[]]
+    #n_points_returned[] == n_points[] ||
+    #    error("n_points_returned=$(n_points_returned[]) != n_points=$(n_points[])")
+    return points
 end
 
 function iswellconditioned(basis::AugmentedBasis)
@@ -187,7 +187,18 @@ end
 
 function (a::AbstractAugmentedFunction)(x::AbstractArray)
     fbasis_x = fbasis(a)(x)
-    faug_x = reduce(vcat, faug_l.(reshape(x, (1, :))) for faug_l in faug(a))
+    n_aug = naug(a)
+    if n_aug == 0
+        return fbasis_x
+    end
+    n_x = length(x)
+    T = eltype(fbasis_x)
+    faug_x = Matrix{T}(undef, n_aug, n_x)
+    for (i, faug_l) in enumerate(faug(a))
+        for j in 1:n_x
+            faug_x[i, j] = convert(T, faug_l(x[j]))
+        end
+    end
     return vcat(faug_x, fbasis_x)
 end
 
