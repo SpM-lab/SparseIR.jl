@@ -129,6 +129,37 @@ julia --project=. docs/make.jl
    Pkg.status(; target="dev")
    ```
 
+4. **Using locally built shared library**:
+
+   SparseIR.jl can be run against a locally built Rust C-API shared library (`libsparse_ir_capi.dylib` on macOS, `libsparse_ir_capi.so` on Linux) by setting the `SPARSEIR_LIB_PATH` environment variable before Julia is started:
+
+   ```bash
+   # Example: point SparseIR.jl to the local Rust C-API build
+   export SPARSEIR_LIB_PATH="$HOME/projects/sparse-ir/sparseir-rust/target/release/libsparse_ir_capi.dylib"
+
+   # Optional: enable verbose Rust-side debug logging
+   export SPARSEIR_DEBUG=1
+
+   julia --project=. -e "using Pkg; Pkg.test()"
+   ```
+
+   The repository also provides a helper script that does this for you:
+
+   ```bash
+   cd SparseIR.jl
+   ./run.sh   # sets SPARSEIR_LIB_PATH and SPARSEIR_DEBUG, then runs Pkg.test()
+   ```
+
+   If you previously ran tests **without** `SPARSEIR_LIB_PATH` set, Julia may have cached a precompiled SparseIR.jl that is still bound to the JLL package.  
+   In that case, clear the compiled cache once so that the new setting takes effect:
+
+   ```bash
+   rm -rf ~/.julia/compiled/v*/SparseIR
+
+   cd SparseIR.jl
+   ./run.sh
+   ```
+
 ### Getting Help
 
 - Check the [main documentation](README.md)

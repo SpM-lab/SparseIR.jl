@@ -51,7 +51,7 @@ mutable struct SVEResult{K<:AbstractKernel}
     ptr::Ptr{spir_sve_result}
     kernel::K
     function SVEResult(
-            kernel::K, ε::Real=eps(Float64); cutoff::Real=NaN, lmax::Integer=typemax(Int32),
+            kernel::K, ε::Real=eps(Float64); lmax::Integer=typemax(Int32),
             n_gauss::Integer=-1, Twork::Integer=SPIR_TWORK_AUTO) where {K<:AbstractKernel}
 
         # check Twork
@@ -61,7 +61,7 @@ mutable struct SVEResult{K<:AbstractKernel}
 
         status = Ref{Int32}(-100)
         sve_result = spir_sve_result_new(
-            kernel.ptr, ε, cutoff, lmax, n_gauss, Twork, status)
+            kernel.ptr, ε, lmax, n_gauss, Twork, status)
         status[] == 0 || error("Failed to create SVEResult")
         result = new{K}(sve_result, kernel)
         finalizer(r -> spir_sve_result_release(r.ptr), result)
