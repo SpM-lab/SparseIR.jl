@@ -9,13 +9,17 @@
         β = 10000.0
         ωmax = 1.0
         ε = 1e-12
-
-        basis = FiniteTempBasis(stat, β, ωmax, ε)
+        if stat === Bosonic()
+            kernel = RegularizedBoseKernel(β * ωmax)
+        else
+            kernel = LogisticKernel(β * ωmax)
+        end
+        basis = FiniteTempBasis(stat, β, ωmax, ε; kernel=kernel)
         dlr = DiscreteLehmannRepresentation(basis)
 
         @test dlr isa DiscreteLehmannRepresentation
         @test dlr isa SparseIR.AbstractBasis
-        @test SparseIR.statistics(dlr) == stat
+        @test SparseIR.statistics(dlr) === stat
         @test SparseIR.β(dlr) == β
         @test SparseIR.ωmax(dlr) == ωmax
         @test SparseIR.Λ(dlr) == β * ωmax
@@ -32,20 +36,24 @@
         @test dlr.poles ≈ default_poles
     end
 
-    @testset "Constructor with custom poles" begin
+    @testset "Constructor with custom poles - $stat" for stat in (Fermionic(), Bosonic())
         # Test with Bosonic statistics
         β = 10000.0
         ωmax = 1.0
         ε = 1e-12
-
-        basis = FiniteTempBasis(Bosonic(), β, ωmax, ε)
+        if stat === Bosonic()
+            kernel = RegularizedBoseKernel(β * ωmax)
+        else
+            kernel = LogisticKernel(β * ωmax)
+        end
+        basis = FiniteTempBasis(stat, β, ωmax, ε; kernel=kernel)
 
         # Get default poles and use them as custom poles
         default_poles = default_omega_sampling_points(basis)
         dlr_custom = DiscreteLehmannRepresentation(basis, default_poles)
 
         @test dlr_custom isa DiscreteLehmannRepresentation
-        @test SparseIR.statistics(dlr_custom) isa Bosonic
+        @test SparseIR.statistics(dlr_custom) === stat
         @test dlr_custom.poles ≈ default_poles
         @test npoles(dlr_custom) == length(default_poles)
         @test get_poles(dlr_custom) ≈ default_poles
