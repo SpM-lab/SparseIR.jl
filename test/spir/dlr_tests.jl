@@ -4,18 +4,18 @@
     using Random
     using LinearAlgebra
 
-    @testset "Constructor with default poles" begin
+    @testset "Constructor with default poles - $stat" for stat in (Fermionic(), Bosonic())
         # Test with Fermionic statistics
         β = 10000.0
         ωmax = 1.0
         ε = 1e-12
 
-        basis = FiniteTempBasis(Fermionic(), β, ωmax, ε)
+        basis = FiniteTempBasis(stat, β, ωmax, ε)
         dlr = DiscreteLehmannRepresentation(basis)
 
         @test dlr isa DiscreteLehmannRepresentation
         @test dlr isa SparseIR.AbstractBasis
-        @test SparseIR.statistics(dlr) isa Fermionic
+        @test SparseIR.statistics(dlr) == stat
         @test SparseIR.β(dlr) == β
         @test SparseIR.ωmax(dlr) == ωmax
         @test SparseIR.Λ(dlr) == β * ωmax
