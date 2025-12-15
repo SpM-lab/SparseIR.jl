@@ -1,6 +1,6 @@
 module C_API
 
-using CEnum: CEnum, @cenum
+using CEnum
 
 using Libdl: Libdl
 using libsparseir_jll: libsparseir_jll
