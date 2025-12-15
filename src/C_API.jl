@@ -3,59 +3,14 @@ module C_API
 using CEnum: CEnum, @cenum
 
 using Libdl: Libdl
-
-# Conditionally import libsparseir_jll - only import if not using debug library
-# We need to import it at module level, but we'll check ENV in get_libsparseir()
-if !haskey(ENV, "SPARSEIR_LIB_PATH")
-    import libsparseir_jll
-end
+using libsparseir_jll: libsparseir_jll
 
 function get_libsparseir()
-    # Use debug library if SPARSEIR_LIB_PATH environment variable is set
-    if haskey(ENV, "SPARSEIR_LIB_PATH")
-        debug_path = ENV["SPARSEIR_LIB_PATH"]
-        print("SPARSEIR_LIB_PATH is set to: $debug_path")
-        if !isfile(debug_path)
-            error("Debug library not found at $debug_path")
-        end
-        try
-            return Libdl.LazyLibrary(debug_path)
-        catch e
-            error("Failed to load debug library: $e")
-        end
+    deps_dir = joinpath(dirname(@__DIR__), "deps")
+    local_libsparseir_path = joinpath(deps_dir, "libsparse_ir_capi.$(Libdl.dlext)")
+    if isfile(local_libsparseir_path)
+        return local_libsparseir_path
     else
-        # Production: use JLL package - load dynamically
-        # libsparseir_jll should be imported at module level if we reach here
-        return libsparseir_jll.libsparseir
-    end
-end
-
-const libsparseir = get_libsparseir()
-
-end # module
-
-module C_API
-
-using CEnum: CEnum, @cenum
-
-using Libdl: Libdl
-import libsparseir_jll
-
-function get_libsparseir()
-    # Use debug library if SPARSEIR_LIB_PATH environment variable is set
-    if haskey(ENV, "SPARSEIR_LIB_PATH")
-        debug_path = ENV["SPARSEIR_LIB_PATH"]
-        print("SPARSEIR_LIB_PATH is set to: $debug_path")
-        if !isfile(debug_path)
-            error("Debug library not found at $debug_path")
-        end
-        try
-            return Libdl.LazyLibrary(debug_path)
-        catch e
-            error("Failed to load debug library: $e")
-        end
-    else
-        # Production: use JLL package - load dynamically
         return libsparseir_jll.libsparseir
     end
 end
@@ -200,22 +155,22 @@ function spir_basis_new(statistics, beta, omega_max, epsilon, k, sve, max_size, 
 end
 
 """
-    spir_basis_new_from_sve_and_inv_weight(statistics, beta, omega_max, epsilon, lambda, _ypower, _conv_radius, sve, inv_weight_funcs, max_size, status)
+    spir_basis_new_from_sve_and_regularizer(statistics, beta, omega_max, epsilon, lambda, _ypower, _conv_radius, sve, regularizer_funcs, max_size, status)
 
-Create a finite temperature basis from SVE result and custom inv\\_weight function
+Create a finite temperature basis from SVE result and custom regularizer function
 
-This function creates a basis from a pre-computed SVE result and a custom inverse weight function. The inv\\_weight function is used to scale the basis functions in the frequency domain.
+This function creates a basis from a pre-computed SVE result and a custom regularizer function. The regularizer function is used to scale the basis functions in the frequency domain.
 
-# Arguments * `statistics` - 0 for Bosonic, 1 for Fermionic * `beta` - Inverse temperature (must be > 0) * `omega_max` - Frequency cutoff (must be > 0) * `epsilon` - Accuracy target (must be > 0) * `lambda` - Kernel parameter Λ = β * ωmax (must be > 0) * `ypower` - Power of y in kernel (typically 0 or 1) * `conv_radius` - Convergence radius for Fourier transform * `sve` - Pre-computed SVE result (must not be NULL) * `inv_weight_funcs` - Custom inv\\_weight function (must not be NULL) * `max_size` - Maximum basis size (-1 for no limit) * `status` - Pointer to store status code
+# Arguments * `statistics` - 0 for Bosonic, 1 for Fermionic * `beta` - Inverse temperature (must be > 0) * `omega_max` - Frequency cutoff (must be > 0) * `epsilon` - Accuracy target (must be > 0) * `lambda` - Kernel parameter Λ = β * ωmax (must be > 0) * `ypower` - Power of y in kernel (typically 0 or 1) * `conv_radius` - Convergence radius for Fourier transform * `sve` - Pre-computed SVE result (must not be NULL) * `regularizer_funcs` - Custom regularizer function (must not be NULL) * `max_size` - Maximum basis size (-1 for no limit) * `status` - Pointer to store status code
 
 # Returns * Pointer to basis object, or NULL on failure
 
-# Note Currently, the inv\\_weight function is evaluated but the custom weight is not fully integrated into the basis construction. The basis is created using the standard from\\_sve\\_result method with the kernel's default inv\\_weight. This is a limitation of the current Rust implementation compared to the C++ version.
+# Note Currently, the regularizer function is evaluated but the custom weight is not fully integrated into the basis construction. The basis is created using the standard from\\_sve\\_result method with the kernel's default regularizer. This is a limitation of the current Rust implementation compared to the C++ version.
 
 # Safety The caller must ensure `status` is a valid pointer.
 """
-function spir_basis_new_from_sve_and_inv_weight(statistics, beta, omega_max, epsilon, lambda, _ypower, _conv_radius, sve, inv_weight_funcs, max_size, status)
-    ccall((:spir_basis_new_from_sve_and_inv_weight, libsparseir), Ptr{spir_basis}, (Cint, Cdouble, Cdouble, Cdouble, Cdouble, Cint, Cdouble, Ptr{spir_sve_result}, Ptr{spir_funcs}, Cint, Ptr{StatusCode}), statistics, beta, omega_max, epsilon, lambda, _ypower, _conv_radius, sve, inv_weight_funcs, max_size, status)
+function spir_basis_new_from_sve_and_regularizer(statistics, beta, omega_max, epsilon, lambda, _ypower, _conv_radius, sve, regularizer_funcs, max_size, status)
+    ccall((:spir_basis_new_from_sve_and_regularizer, libsparseir), Ptr{spir_basis}, (Cint, Cdouble, Cdouble, Cdouble, Cdouble, Cint, Cdouble, Ptr{spir_sve_result}, Ptr{spir_funcs}, Cint, Ptr{StatusCode}), statistics, beta, omega_max, epsilon, lambda, _ypower, _conv_radius, sve, regularizer_funcs, max_size, status)
 end
 
 """
@@ -436,7 +391,7 @@ Get number of default Matsubara sampling points with custom limit (extended vers
 
 # Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if any pointer is null or L < 0 * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
 
-# Note Returns the actual number of points that will be returned by `spir_basis_get_default_matsus_ext` with the same parameters. When mitigate is true, may return more points than requested due to fencing.
+# Note Returns the actual number of points that will be returned by [`spir_basis_get_default_matsus_ext`](@ref) with the same parameters. When mitigate is true, may return more points than requested due to fencing.
 """
 function spir_basis_get_n_default_matsus_ext(b, positive_only, mitigate, L, num_points_returned)
     ccall((:spir_basis_get_n_default_matsus_ext, libsparseir), StatusCode, (Ptr{spir_basis}, Bool, Bool, Cint, Ptr{Cint}), b, positive_only, mitigate, L, num_points_returned)
@@ -451,7 +406,7 @@ Get default Matsubara sampling points with custom limit (extended version)
 
 # Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if any pointer is null or n\\_points < 0 * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
 
-# Note Returns min(n\\_points, actual\\_default\\_points) sampling points When mitigate is true, may return more points than requested due to fencing
+# Note Returns the actual number of sampling points (may be more than n\\_points when mitigate is true due to fencing). The caller should call [`spir_basis_get_n_default_matsus_ext`](@ref) with the same parameters first to determine the required buffer size.
 """
 function spir_basis_get_default_matsus_ext(b, positive_only, mitigate, n_points, points, n_points_returned)
     ccall((:spir_basis_get_default_matsus_ext, libsparseir), StatusCode, (Ptr{spir_basis}, Bool, Bool, Cint, Ptr{Int64}, Ptr{Cint}), b, positive_only, mitigate, n_points, points, n_points_returned)
@@ -1053,7 +1008,21 @@ end
 """
     spir_sampling_get_npoints(s, num_points)
 
-Gets the number of sampling points in a sampling object
+Gets the number of sampling points in a sampling object.
+
+This function returns the number of sampling points used in the specified sampling object. This number is needed to allocate arrays of the correct size when retrieving the actual sampling points.
+
+# Arguments
+
+* `s` - Pointer to the sampling object. * `num_points` - Pointer to store the number of sampling points.
+
+# Returns
+
+A status code: - `0` ([[`SPIR_COMPUTATION_SUCCESS`](@ref)]) on success - A non-zero error code on failure
+
+# See also
+
+- [[`spir_sampling_get_taus`](@ref)] - [[`spir_sampling_get_matsus`](@ref)]
 """
 function spir_sampling_get_npoints(s, num_points)
     ccall((:spir_sampling_get_npoints, libsparseir), StatusCode, (Ptr{spir_sampling}, Ptr{Cint}), s, num_points)
@@ -1062,7 +1031,25 @@ end
 """
     spir_sampling_get_taus(s, points)
 
-Gets the imaginary time sampling points
+Gets the imaginary time (τ) sampling points used in the specified sampling object.
+
+This function fills the provided array with the imaginary time (τ) sampling points used in the specified sampling object. The array must be pre-allocated with sufficient size (use [[`spir_sampling_get_npoints`](@ref)] to determine the required size).
+
+# Arguments
+
+* `s` - Pointer to the sampling object. * `points` - Pre-allocated array to store the τ sampling points.
+
+# Returns
+
+An integer status code: - `0` ([[`SPIR_COMPUTATION_SUCCESS`](@ref)]) on success - A non-zero error code on failure
+
+# Notes
+
+The array must be pre-allocated with size >= [[`spir_sampling_get_npoints`](@ref)]([`spir_sampling_get_npoints`](@ref)).
+
+# See also
+
+- [[`spir_sampling_get_npoints`](@ref)]
 """
 function spir_sampling_get_taus(s, points)
     ccall((:spir_sampling_get_taus, libsparseir), StatusCode, (Ptr{spir_sampling}, Ptr{Cdouble}), s, points)
@@ -1080,9 +1067,15 @@ end
 """
     spir_sampling_get_cond_num(s, cond_num)
 
-Gets the condition number of the sampling matrix
+Gets the condition number of the sampling matrix.
 
-Note: Currently returns a placeholder value. TODO: Implement proper condition number calculation from SVD
+This function returns the condition number of the sampling matrix used in the specified sampling object. The condition number is a measure of how well- conditioned the sampling matrix is.
+
+# Parameters - `s`: Pointer to the sampling object. - `cond_num`: Pointer to store the condition number.
+
+# Returns An integer status code: - 0 ([`SPIR_COMPUTATION_SUCCESS`](@ref)) on success - Non-zero error code on failure
+
+# Notes - A large condition number indicates that the sampling matrix is ill-conditioned, which may lead to numerical instability in transformations. - The condition number is the ratio of the largest to smallest singular value of the sampling matrix.
 """
 function spir_sampling_get_cond_num(s, cond_num)
     ccall((:spir_sampling_get_cond_num, libsparseir), StatusCode, (Ptr{spir_sampling}, Ptr{Cdouble}), s, cond_num)
@@ -1091,11 +1084,23 @@ end
 """
     spir_sampling_eval_dd(s, backend, order, ndim, input_dims, target_dim, input, out)
 
-Evaluate basis coefficients at sampling points (double → double)
+Evaluates basis coefficients at sampling points (double to double version).
 
-Transforms IR basis coefficients to values at sampling points.
+Transforms basis coefficients to values at sampling points, where both input and output are real (double precision) values. The operation can be performed along any dimension of a multidimensional array.
 
-# Note Currently only supports column-major order ([`SPIR_ORDER_COLUMN_MAJOR`](@ref) = 1). Row-major support will be added in a future update.
+# Arguments
+
+* `s` - Pointer to the sampling object * `order` - Memory layout order ([`SPIR_ORDER_ROW_MAJOR`](@ref) or [`SPIR_ORDER_COLUMN_MAJOR`](@ref)) * `ndim` - Number of dimensions in the input/output arrays * `input_dims` - Array of dimension sizes * `target_dim` - Target dimension for the transformation (0-based) * `input` - Input array of basis coefficients * `out` - Output array for the evaluated values at sampling points
+
+# Returns
+
+An integer status code: - `0` ([`SPIR_COMPUTATION_SUCCESS`](@ref)) on success - A non-zero error code on failure
+
+# Notes
+
+- For optimal performance, the target dimension should be either the first (`0`) or the last (`ndim-1`) dimension to avoid large temporary array allocations - The output array must be pre-allocated with the correct size - The input and output arrays must be contiguous in memory - The transformation is performed using a pre-computed sampling matrix that is factorized using SVD for efficiency
+
+# See also - [[`spir_sampling_eval_dz`](@ref)] - [[`spir_sampling_eval_zz`](@ref)] # Note Supports both row-major and column-major order. Zero-copy implementation.
 """
 function spir_sampling_eval_dd(s, backend, order, ndim, input_dims, target_dim, input, out)
     ccall((:spir_sampling_eval_dd, libsparseir), StatusCode, (Ptr{spir_sampling}, Ptr{spir_gemm_backend}, Cint, Cint, Ptr{Cint}, Cint, Ptr{Cdouble}, Ptr{Cdouble}), s, backend, order, ndim, input_dims, target_dim, input, out)
@@ -1106,7 +1111,7 @@ end
 
 Evaluate basis coefficients at sampling points (double → complex)
 
-For Matsubara sampling: transforms real IR coefficients to complex values.
+For Matsubara sampling: transforms real IR coefficients to complex values. Zero-copy implementation.
 """
 function spir_sampling_eval_dz(s, backend, order, ndim, input_dims, target_dim, input, out)
     ccall((:spir_sampling_eval_dz, libsparseir), StatusCode, (Ptr{spir_sampling}, Ptr{spir_gemm_backend}, Cint, Cint, Ptr{Cint}, Cint, Ptr{Cdouble}, Ptr{Complex64}), s, backend, order, ndim, input_dims, target_dim, input, out)
@@ -1117,7 +1122,7 @@ end
 
 Evaluate basis coefficients at sampling points (complex → complex)
 
-For Matsubara sampling: transforms complex coefficients to complex values.
+For Matsubara sampling: transforms complex coefficients to complex values. Zero-copy implementation.
 """
 function spir_sampling_eval_zz(s, backend, order, ndim, input_dims, target_dim, input, out)
     ccall((:spir_sampling_eval_zz, libsparseir), StatusCode, (Ptr{spir_sampling}, Ptr{spir_gemm_backend}, Cint, Cint, Ptr{Cint}, Cint, Ptr{Complex64}, Ptr{Complex64}), s, backend, order, ndim, input_dims, target_dim, input, out)
@@ -1126,7 +1131,25 @@ end
 """
     spir_sampling_fit_dd(s, backend, order, ndim, input_dims, target_dim, input, out)
 
-Fit basis coefficients from sampling point values (double → double)
+Fits values at sampling points to basis coefficients (double to double version).
+
+Transforms values at sampling points back to basis coefficients, where both input and output are real (double precision) values. The operation can be performed along any dimension of a multidimensional array.
+
+# Arguments
+
+* `s` - Pointer to the sampling object * `backend` - Pointer to the GEMM backend (can be null to use default) * `order` - Memory layout order ([`SPIR_ORDER_ROW_MAJOR`](@ref) or [`SPIR_ORDER_COLUMN_MAJOR`](@ref)) * `ndim` - Number of dimensions in the input/output arrays * `input_dims` - Array of dimension sizes * `target_dim` - Target dimension for the transformation (0-based) * `input` - Input array of values at sampling points * `out` - Output array for the fitted basis coefficients
+
+# Returns
+
+An integer status code: * `0` ([`SPIR_COMPUTATION_SUCCESS`](@ref)) on success * A non-zero error code on failure
+
+# Notes
+
+* The output array must be pre-allocated with the correct size * This function performs the inverse operation of [`spir_sampling_eval_dd`](@ref) * The transformation is performed using a pre-computed sampling matrix that is factorized using SVD for efficiency * Zero-copy implementation
+
+# See also
+
+* [[`spir_sampling_eval_dd`](@ref)] * [[`spir_sampling_fit_zz`](@ref)]
 """
 function spir_sampling_fit_dd(s, backend, order, ndim, input_dims, target_dim, input, out)
     ccall((:spir_sampling_fit_dd, libsparseir), StatusCode, (Ptr{spir_sampling}, Ptr{spir_gemm_backend}, Cint, Cint, Ptr{Cint}, Cint, Ptr{Cdouble}, Ptr{Cdouble}), s, backend, order, ndim, input_dims, target_dim, input, out)
@@ -1135,7 +1158,9 @@ end
 """
     spir_sampling_fit_zz(s, backend, order, ndim, input_dims, target_dim, input, out)
 
-Fit basis coefficients from sampling point values (complex → complex)
+Fits values at sampling points to basis coefficients (complex to complex version).
+
+For more details, see [[`spir_sampling_fit_dd`](@ref)] Zero-copy implementation for Tau and Matsubara (full). MatsubaraPositiveOnly requires intermediate storage for real→complex conversion.
 """
 function spir_sampling_fit_zz(s, backend, order, ndim, input_dims, target_dim, input, out)
     ccall((:spir_sampling_fit_zz, libsparseir), StatusCode, (Ptr{spir_sampling}, Ptr{spir_gemm_backend}, Cint, Cint, Ptr{Cint}, Cint, Ptr{Complex64}, Ptr{Complex64}), s, backend, order, ndim, input_dims, target_dim, input, out)
@@ -1144,7 +1169,31 @@ end
 """
     spir_sampling_fit_zd(s, backend, order, ndim, input_dims, target_dim, input, out)
 
-Fit basis coefficients from Matsubara sampling (complex → double, positive only)
+Fit basis coefficients from Matsubara sampling points (complex input, real output)
+
+This function fits basis coefficients from Matsubara sampling points using complex input and real output.
+
+# Supported Sampling Types
+
+- **Matsubara (full)**: ✅ Supported (takes real part of fitted complex coefficients) - **Matsubara (positive\\_only)**: ✅ Supported - **Tau**: ❌ Not supported (use [`spir_sampling_fit_dd`](@ref) instead)
+
+# Notes
+
+For full-range Matsubara sampling, this function fits complex coefficients internally and returns their real parts. This is physically correct for Green's functions where IR coefficients are guaranteed to be real by symmetry.
+
+Zero-copy implementation.
+
+# Arguments
+
+* `s` - Pointer to the sampling object (must be Matsubara) * `backend` - Pointer to the GEMM backend (can be null to use default) * `order` - Memory layout order ([`SPIR_ORDER_COLUMN_MAJOR`](@ref) or [`SPIR_ORDER_ROW_MAJOR`](@ref)) * `ndim` - Number of dimensions in the input/output arrays * `input_dims` - Array of dimension sizes * `target_dim` - Target dimension for the transformation (0-based) * `input` - Input array (complex) * `out` - Output array (real)
+
+# Returns
+
+- [`SPIR_COMPUTATION_SUCCESS`](@ref) on success - [`SPIR_NOT_SUPPORTED`](@ref) if the sampling type doesn't support this operation - Other error codes on failure
+
+# See also
+
+* [[`spir_sampling_fit_zz`](@ref)] * [[`spir_sampling_fit_dd`](@ref)]
 """
 function spir_sampling_fit_zd(s, backend, order, ndim, input_dims, target_dim, input, out)
     ccall((:spir_sampling_fit_zd, libsparseir), StatusCode, (Ptr{spir_sampling}, Ptr{spir_gemm_backend}, Cint, Cint, Ptr{Cint}, Cint, Ptr{Complex64}, Ptr{Cdouble}), s, backend, order, ndim, input_dims, target_dim, input, out)
