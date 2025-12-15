@@ -13,7 +13,7 @@ libsparseir_jll = "e5bf0e3f-5e75-5bb8-9f3f-2c07620468a3"
 [compat]
 Aqua = "0.8.14"
 CEnum = "0.5.0"
-Clang = "0.19.1"
+Clang = "0.19.1, 0.19"
 Libdl = "1"
 LinearAlgebra = "1"
 QuadGK = "2.11.2"
