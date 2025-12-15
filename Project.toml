@@ -1,7 +1,7 @@
 name = "SparseIR"
 uuid = "4fe2279e-80f0-4adb-8463-ee114ff56b7d"
-authors = ["SatoshiTerasaki <terasakisatoshi.math@gmail.com>", "Samuel Badr <samuel.badr@gmail.com>", "Hiroshi Shinaoka <h.shinaoka@gmail.com>", "Markus Wallerberger <markus.wallerberger@tuwien.ac.at>"]
 version = "2.0.0-alpha.2"
+authors = ["SatoshiTerasaki <terasakisatoshi.math@gmail.com>", "Samuel Badr <samuel.badr@gmail.com>", "Hiroshi Shinaoka <h.shinaoka@gmail.com>", "Markus Wallerberger <markus.wallerberger@tuwien.ac.at>"]
 
 [deps]
 CEnum = "fa961155-64e5-5f13-b03f-caf6b980ea82"
@@ -30,5 +30,5 @@ StableRNGs = "860ef19b-820b-49d6-a774-d7a799459cd3"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Aqua", "Test", "ReTestItems", "Random", "StableRNGs"]
 dev = ["Clang"]
+test = ["Aqua", "Test", "ReTestItems", "Random", "StableRNGs"]
