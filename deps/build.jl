@@ -2,6 +2,8 @@ using RustToolChains: cargo
 using Libdl: dlext
 
 const DEV_DIR::String = joinpath(dirname(dirname(@__DIR__)), "sparse-ir-rs")
+# Check if the sparse-ir-rs directory exists locally; if not, do nothing.
+# If it exists, build the Rust project and copy libsparse_ir_capi.<ext> to deps/.
 if isdir(DEV_DIR)
     cd(DEV_DIR) do
         run(`$(cargo()) build --release --features system-blas`)
