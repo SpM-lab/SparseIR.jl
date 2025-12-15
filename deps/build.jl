@@ -1,3 +1,9 @@
+using Pkg
+
+if VERSION < v"1.11"
+    Pkg.add(url="https://github.com/AtelierArith/RustToolChains.jl.git")
+end
+
 using RustToolChains: cargo
 using Libdl: dlext
 
