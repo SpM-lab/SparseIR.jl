@@ -1,20 +1,13 @@
+using Libdl: Libdl
+using libsparseir_jll: libsparseir_jll
 
 function get_libsparseir()
-    # Use debug library if SPARSEIR_LIB_PATH environment variable is set
-    if haskey(ENV, "SPARSEIR_LIB_PATH")
-        debug_path = ENV["SPARSEIR_LIB_PATH"]
-        print("SPARSEIR_LIB_PATH is set to: $debug_path")
-        if !isfile(debug_path)
-            error("Debug library not found at $debug_path")
-        end
-        try
-            return Libdl.LazyLibrary(debug_path)
-        catch e
-            error("Failed to load debug library: $e")
-        end
+    deps_dir = joinpath(dirname(@__DIR__), "deps")
+    local_libsparseir_path = joinpath(deps_dir, "libsparse_ir_capi.$(Libdl.dlext)")
+    if isfile(local_libsparseir_path)
+        @info "Using local libsparseir: $local_libsparseir_path"
+        return local_libsparseir_path
     else
-        # Production: use JLL package - load dynamically
-        @eval using libsparseir_jll
         return libsparseir_jll.libsparseir
     end
 end

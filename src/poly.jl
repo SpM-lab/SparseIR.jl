@@ -113,7 +113,20 @@ end
 Base.size(polys::PiecewiseLegendreFTVector) = size(polys.ptr)
 
 function (polys::PiecewiseLegendreFTVector)(x::AbstractVector)
-    hcat(polys.(x)...)
+    n = length(x)
+    sz = Ref{Int32}(-1)
+    spir_funcs_get_size(polys.ptr, sz) == SPIR_COMPUTATION_SUCCESS ||
+        error("Failed to get funcs size")
+    n_basis = Int(sz[])
+    isempty(x) && return Matrix{ComplexF64}(undef, n_basis, 0)
+    result = Matrix{ComplexF64}(undef, n_basis, n)
+    col = Vector{ComplexF64}(undef, n_basis)
+    for i in 1:n
+        spir_funcs_eval_matsu(polys.ptr, x[i].n, col) == SPIR_COMPUTATION_SUCCESS ||
+            error("Failed to evaluate funcs")
+        result[:, i] = col
+    end
+    return result
 end
 
 function Base.getindex(funcs::Ptr{spir_funcs}, i::Int)
@@ -254,7 +267,7 @@ function cover_domain(knots::Vector{Float64}, xmin::Float64, xmax::Float64,
 end
 
 """
-    overlap(poly::PiecewiseLegendrePoly, f; 
+    overlap(poly::PiecewiseLegendrePoly, f;
         rtol=eps(), return_error=false, maxevals=10^4, points=Float64[])
 
 Evaluate overlap integral of `poly` with arbitrary function `f` using default range.
@@ -277,7 +290,7 @@ function overlap(
 end
 
 """
-    overlap(poly::PiecewiseLegendrePoly, f, xmin::Float64, xmax::Float64; 
+    overlap(poly::PiecewiseLegendrePoly, f, xmin::Float64, xmax::Float64;
         rtol=eps(), return_error=false, maxevals=10^4, points=Float64[])
 
 Evaluate overlap integral of `poly` with arbitrary function `f`.
@@ -298,7 +311,7 @@ function overlap(
     if xmin > xmax
         error("xmin must be less than xmax")
     end
-    
+
     # Check bounds for all functions (both periodic and non-periodic)
     if xmin < poly.xmin
         error("xmin ($xmin) must be greater than or equal to the lower bound of the polynomial domain ($(poly.xmin))")
@@ -306,7 +319,7 @@ function overlap(
     if xmax > poly.xmax
         error("xmax ($xmax) must be less than or equal to the upper bound of the polynomial domain ($(poly.xmax))")
     end
-    
+
     knots_ = sort([xmin, xmax, points..., knots(poly)...])
     knots_ = cover_domain(knots_, xmin, xmax, poly.period, poly.xmin, poly.xmax)
 
@@ -320,7 +333,7 @@ function overlap(
 end
 
 """
-    overlap(polys::PiecewiseLegendrePolyVector, f; 
+    overlap(polys::PiecewiseLegendrePolyVector, f;
         rtol=eps(), return_error=false, maxevals=10^4, points=Float64[])
 
 Evaluate overlap integral of `polys` with arbitrary function `f` using default range.

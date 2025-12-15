@@ -79,8 +79,14 @@ function MatsubaraSampling(
         sampling_points=default_matsubara_sampling_points(basis; positive_only)
 ) where {S}
     pts = MatsubaraFreq.(sampling_points)
-    matrix = eval_matrix(MatsubaraSampling, basis, pts)
+    matrix_raw = eval_matrix(MatsubaraSampling, basis, pts)
+    # Ensure column-major contiguous memory layout
+    # permutedims may create a non-contiguous view, so we create a new Matrix
+    matrix = Matrix{ComplexF64}(undef, size(matrix_raw)...)
+    matrix .= matrix_raw
     status = Ref{Int32}(-100)
+    # Ensure matrix is pinned in memory to prevent GC from moving it during ccall
+    GC.@preserve matrix begin
     ptr = C_API.spir_matsu_sampling_new_with_matrix(
         C_API.SPIR_ORDER_COLUMN_MAJOR,
         _statistics_to_c(S),
@@ -91,10 +97,10 @@ function MatsubaraSampling(
         matrix,
         status
     )
+    end
     status[] == C_API.SPIR_COMPUTATION_SUCCESS ||
         error("Failed to create Matsubara sampling: status=$(status[])")
     ptr != C_NULL || error("Failed to create Matsubara sampling: null pointer returned")
-
     return MatsubaraSampling{eltype(pts),typeof(basis)}(ptr, pts, positive_only, basis)
 end
 
@@ -132,23 +138,23 @@ function default_tau_sampling_points(basis::AugmentedBasis)
     status = spir_basis_get_default_taus_ext(
         _get_ptr(basis.basis), length(basis), points, n_points_returned)
     status == SPIR_COMPUTATION_SUCCESS || error("Failed to get default tau sampling points")
-    return points
+    return points[1:n_points_returned[]]
 end
 
 function default_matsubara_sampling_points(basis::AugmentedBasis; positive_only=false)
     n_points = Ref{Cint}(0)
+    basis_ptr = _get_ptr(basis.basis)
+    mitigate = false # corresponds to false in older version
     status = spir_basis_get_n_default_matsus_ext(
-        _get_ptr(basis.basis), positive_only, length(basis), n_points)
+        basis_ptr, positive_only, mitigate, length(basis), n_points)
     status == SPIR_COMPUTATION_SUCCESS ||
         error("Failed to get number of default Matsubara sampling points")
     points = Vector{Int64}(undef, n_points[])
     n_points_returned = Ref{Cint}(0)
     status = spir_basis_get_default_matsus_ext(
-        _get_ptr(basis.basis), positive_only, length(basis), points, n_points_returned)
+        basis_ptr, positive_only, mitigate, n_points[], points, n_points_returned)
     status == SPIR_COMPUTATION_SUCCESS ||
         error("Failed to get default Matsubara sampling points")
-    n_points_returned[] == n_points[] ||
-        error("n_points_returned=$(n_points_returned[]) != n_points=$(n_points[])")
     return points
 end
 
@@ -186,7 +192,18 @@ end
 
 function (a::AbstractAugmentedFunction)(x::AbstractArray)
     fbasis_x = fbasis(a)(x)
-    faug_x = reduce(vcat, faug_l.(reshape(x, (1, :))) for faug_l in faug(a))
+    n_aug = naug(a)
+    if n_aug == 0
+        return fbasis_x
+    end
+    n_x = length(x)
+    T = eltype(fbasis_x)
+    faug_x = Matrix{T}(undef, n_aug, n_x)
+    for (i, faug_l) in enumerate(faug(a))
+        for j in 1:n_x
+            faug_x[i, j] = convert(T, faug_l(x[j]))
+        end
+    end
     return vcat(faug_x, fbasis_x)
 end
 
