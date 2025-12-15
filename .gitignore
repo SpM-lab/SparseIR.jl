@@ -15,3 +15,6 @@ lcov.info
 !/.github/
 !/.JuliaFormatter.toml
 !/.typos.toml
+
+deps/build.log
+deps/libsparse_ir_capi.*

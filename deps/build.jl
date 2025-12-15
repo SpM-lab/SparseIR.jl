@@ -1,0 +1,15 @@
+using RustToolChains: cargo
+using Libdl: dlext
+
+const DEV_DIR::String = joinpath(dirname(dirname(@__DIR__)), "sparse-ir-rs")
+if isdir(DEV_DIR)
+    cd(DEV_DIR) do
+        run(`$(cargo()) build --release --features system-blas`)
+    end
+    libsparseir_path = joinpath(DEV_DIR, "target", "release", "libsparse_ir_capi.$(dlext)")
+    cp(libsparseir_path, joinpath(@__DIR__, "libsparse_ir_capi.$(dlext)"); force=true)
+
+    cd(joinpath(dirname(@__DIR__), "utils")) do
+        run(`$(Base.julia_cmd()) --project generate_C_API.jl`)
+    end
+end
