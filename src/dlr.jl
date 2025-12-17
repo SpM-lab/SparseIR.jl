@@ -244,8 +244,8 @@ accuracy(dlr::DiscreteLehmannRepresentation) = accuracy(dlr.basis)
 sampling_points(dlr::DiscreteLehmannRepresentation) = dlr.poles
 significance(dlr::DiscreteLehmannRepresentation) = ones(size(dlr))
 
-function default_tau_sampling_points(dlr::DiscreteLehmannRepresentation)
-    default_tau_sampling_points(dlr.basis)
+function default_tau_sampling_points(dlr::DiscreteLehmannRepresentation; kwargs...)
+    default_tau_sampling_points(dlr.basis; kwargs...)
 end
 
 function default_matsubara_sampling_points(dlr::DiscreteLehmannRepresentation; kwargs...)

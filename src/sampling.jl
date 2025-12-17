@@ -63,12 +63,7 @@ If `use_positive_taus=false`, the sampling points are in the range [-β/2, β/2]
 """
 function TauSampling(basis::AbstractBasis; sampling_points=nothing, use_positive_taus=true)
     if sampling_points === nothing
-        points = default_tau_sampling_points(basis)
-        if use_positive_taus
-            points = mod.(points, β(basis))
-            sort!(points)
-        end
-        sampling_points = points
+        sampling_points = default_tau_sampling_points(basis; use_positive_taus=use_positive_taus)
     end
 
     # Create sampling object with C_API

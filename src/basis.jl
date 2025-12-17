@@ -139,12 +139,19 @@ function FiniteTempBasis(
     FiniteTempBasis{typeof(stat)}(β, ωmax, ε; kernel, sve_result, max_size)
 end
 
-function default_tau_sampling_points(basis::FiniteTempBasis)
+function default_tau_sampling_points(basis::FiniteTempBasis; use_positive_taus::Bool=true)
     n_points = Ref{Int32}(-1)
     ret = spir_basis_get_n_default_taus(basis.ptr, n_points)
     ret == SPIR_COMPUTATION_SUCCESS || error("Failed to get number of default tau points")
     points_array = Vector{Float64}(undef, n_points[])
     ret = spir_basis_get_default_taus(basis.ptr, points_array)
+    ret == SPIR_COMPUTATION_SUCCESS || error("Failed to get default tau points")
+    
+    if use_positive_taus
+        points_array = mod.(points_array, β(basis))
+        sort!(points_array)
+    end
+    
     return points_array
 end
 
