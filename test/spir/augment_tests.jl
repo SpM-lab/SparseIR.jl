@@ -73,45 +73,127 @@
             @test SparseIR.create(MatsubaraConst, basis) == MatsubaraConst(β)
         end
 
+        @testset "normalize_tau" begin
+            β = 10.0
+            
+            # Test Bosonic statistics
+            @testset "Bosonic" begin
+                # Normal range [0, β]
+                @test SparseIR.normalize_tau(Bosonic, 5.0, β) == (5.0, 1.0)
+                @test SparseIR.normalize_tau(Bosonic, 0.0, β) == (0.0, 1.0)
+                @test SparseIR.normalize_tau(Bosonic, β, β) == (β, 1.0)
+                
+                # Negative range [-β, 0)
+                @test SparseIR.normalize_tau(Bosonic, -3.0, β) == (7.0, 1.0)
+                @test SparseIR.normalize_tau(Bosonic, -β, β) == (0.0, 1.0)
+                
+                # Negative zero
+                @test SparseIR.normalize_tau(Bosonic, -0.0, β) == (β, 1.0)
+                
+                # Out of range
+                @test_throws DomainError SparseIR.normalize_tau(Bosonic, -β - 0.1, β)
+                @test_throws DomainError SparseIR.normalize_tau(Bosonic, β + 0.1, β)
+            end
+            
+            # Test Fermionic statistics
+            @testset "Fermionic" begin
+                # Normal range [0, β]
+                @test SparseIR.normalize_tau(Fermionic, 5.0, β) == (5.0, 1.0)
+                @test SparseIR.normalize_tau(Fermionic, 0.0, β) == (0.0, 1.0)
+                @test SparseIR.normalize_tau(Fermionic, β, β) == (β, 1.0)
+                
+                # Negative range [-β, 0) - anti-periodic
+                @test SparseIR.normalize_tau(Fermionic, -3.0, β) == (7.0, -1.0)
+                @test SparseIR.normalize_tau(Fermionic, -β, β) == (0.0, -1.0)
+                
+                # Negative zero - anti-periodic
+                @test SparseIR.normalize_tau(Fermionic, -0.0, β) == (β, -1.0)
+                
+                # Out of range
+                @test_throws DomainError SparseIR.normalize_tau(Fermionic, -β - 0.1, β)
+                @test_throws DomainError SparseIR.normalize_tau(Fermionic, β + 0.1, β)
+            end
+        end
+
         @testset "TauConst" begin
+            β = 123.0
             @test_throws DomainError TauConst(-34)
-            tc = TauConst(123)
-            @test SparseIR.β(tc) == 123.0
-            @test_throws DomainError tc(-123)
-            @test_throws DomainError tc(321)
-            @test tc(50) == 1 / sqrt(123)
-            @test tc(MatsubaraFreq(0)) == sqrt(123)
-            @test tc(MatsubaraFreq(92)) == 0.0
-            @test_throws ErrorException tc(MatsubaraFreq(93))
+            
+            # Backward compatibility (defaults to Bosonic)
+            tc = TauConst(β)
+            @test SparseIR.β(tc) == β
+            @test tc(50) == 1 / sqrt(β)
+            @test tc(BosonicFreq(0)) == sqrt(β)
+            @test tc(BosonicFreq(92)) == 0.0
             @test SparseIR.deriv(tc)(4.2) == 0.0
             @test SparseIR.deriv(tc, Val(0)) == tc
+            
+            # Test periodicity for Bosonic
+            @testset "Bosonic periodicity" begin
+                tc_b = TauConst{Bosonic}(β)
+                @test tc_b(β/2) == 1 / sqrt(β)
+                @test tc_b(-β/2) == 1 / sqrt(β)  # Periodic
+                @test tc_b(0.0) == 1 / sqrt(β)
+                @test tc_b(-0.0) == 1 / sqrt(β)  # Negative zero, periodic
+            end
+            
+            # Test anti-periodicity for Fermionic
+            @testset "Fermionic anti-periodicity" begin
+                tc_f = TauConst{Fermionic}(β)
+                @test tc_f(β/2) == 1 / sqrt(β)
+                @test tc_f(-β/2) == -1 / sqrt(β)  # Anti-periodic
+                @test tc_f(0.0) == 1 / sqrt(β)
+                @test tc_f(-0.0) == -1 / sqrt(β)  # Negative zero, anti-periodic
+            end
         end
 
         @testset "TauLinear" begin
+            β = 123.0
             @test_throws DomainError TauLinear(-34)
-            tl = TauLinear(123)
-            @test SparseIR.β(tl) == 123.0
-            @test_throws DomainError tl(-1003)
-            @test_throws DomainError tl(1003)
-            @test tl(50) ≈ sqrt(3 / 123) * (2 / 123 * 50 - 1)
-            @test tl(MatsubaraFreq(0)) == 0.0
-            @test tl(MatsubaraFreq(92)) ≈ sqrt(3 / 123) * 2 / im * 123 / (92 * π)
-            @test_throws ErrorException tl(MatsubaraFreq(93))
+            
+            # Backward compatibility (defaults to Bosonic)
+            tl = TauLinear(β)
+            @test SparseIR.β(tl) == β
+            @test tl(50) ≈ sqrt(3 / β) * (2 / β * 50 - 1)
+            @test tl(BosonicFreq(0)) == 0.0
+            @test tl(BosonicFreq(92)) ≈ sqrt(3 / β) * 2 / im * β / (92 * π)
             @test SparseIR.deriv(tl, Val(0)) == tl
-            @test SparseIR.deriv(tl)(4.2) ≈ sqrt(3 / 123) * 2 / 123
+            @test SparseIR.deriv(tl)(4.2) ≈ sqrt(3 / β) * 2 / β
             @test SparseIR.deriv(tl, Val(2))(4.2) == 0.0
+            
+            # Test periodicity for Bosonic
+            @testset "Bosonic periodicity" begin
+                tl_b = TauLinear{Bosonic}(β)
+                val_pos = tl_b(β/4)
+                val_neg = tl_b(-β/4)
+                # Periodic: tl(τ + β) = tl(τ), so tl(-β/4) wraps to tl(3β/4)
+                val_wrapped = tl_b(3*β/4)
+                @test val_neg ≈ val_wrapped
+            end
+            
+            # Test anti-periodicity for Fermionic
+            @testset "Fermionic anti-periodicity" begin
+                tl_f = TauLinear{Fermionic}(β)
+                val_pos = tl_f(β/4)
+                val_neg = tl_f(-β/4)
+                # Anti-periodic: tl(τ + β) = -tl(τ), so tl(-β/4) wraps to -tl(3β/4)
+                val_wrapped = tl_f(3*β/4)
+                @test val_neg ≈ -val_wrapped
+            end
         end
 
         @testset "MatsubaraConst" begin
+            β = 123.0
             @test_throws DomainError MatsubaraConst(-34)
-            mc = MatsubaraConst(123)
-            @test SparseIR.β(mc) == 123.0
-            @test_throws DomainError mc(-123)
-            @test_throws DomainError mc(321)
+            mc = MatsubaraConst(β)
+            @test SparseIR.β(mc) == β
+            @test_throws DomainError mc(-β - 1)
+            @test_throws DomainError mc(β + 1)
             @test isnan(mc(30))
-            @test mc(MatsubaraFreq(0)) == 1.0
-            @test mc(MatsubaraFreq(92)) == 1.0
-            @test mc(MatsubaraFreq(93)) == 1.0
+            @test isnan(mc(-30))  # Now supports negative tau
+            @test mc(FermionicFreq(1)) == 1.0
+            @test mc(BosonicFreq(0)) == 1.0
+            @test mc(BosonicFreq(92)) == 1.0
             @test SparseIR.deriv(mc) == mc
             @test SparseIR.deriv(mc, Val(0)) == mc
         end

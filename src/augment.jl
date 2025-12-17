@@ -262,29 +262,94 @@ zeta(amat::AugmentedMatsubaraFunction) = zeta(fbasis(amat))
 ############################################################################################
 
 """
-    TauConst <: AbstractAugmentation
+    normalize_tau(S::Type{<:Statistics}, tau, beta) -> (tau_normalized, sign)
 
-Constant in imaginary time/discrete delta in frequency.
+Normalize τ to the range [0, β] with statistics-dependent boundary conditions.
+
+Handles boundary conditions based on statistics:
+- Fermions: Anti-periodic G(τ + β) = -G(τ)
+- Bosons: Periodic G(τ + β) = G(τ)
+
+# Arguments
+- `S`: Statistics type (Fermionic or Bosonic)
+- `tau`: Imaginary time in range [-β, β]
+- `beta`: Inverse temperature
+
+# Returns
+- `(tau_normalized, sign)`: Normalized τ ∈ [0, β] and sign factor
+
+# Special Cases
+For Fermionic statistics:
+- `tau = -0.0` (negative zero) → `(tau_normalized = β, sign = -1.0)`
+- `tau ∈ [-β, 0)` → wraps to [0, β] with `sign = -1.0`
+
+For Bosonic statistics:
+- `tau = -0.0` (negative zero) → `(tau_normalized = β, sign = 1.0)`
+- `tau ∈ [-β, 0)` → wraps to [0, β] with `sign = 1.0`
 """
-struct TauConst <: AbstractAugmentation
+function normalize_tau(::Type{S}, tau::Real, beta::Real) where {S<:Statistics}
+    tau_f = Float64(tau)
+    beta_f = Float64(beta)
+    
+    # Check range
+    if tau_f < -beta_f || tau_f > beta_f
+        throw(DomainError(tau_f, "τ must be in [-β, β] = [$(-beta_f), $beta_f]"))
+    end
+    
+    # Special handling for negative zero
+    if signbit(tau_f) && tau_f == 0.0
+        # tau = -0.0
+        if S === Fermionic
+            return (beta_f, -1.0)  # Anti-periodic: wraps to beta with sign flip
+        else  # Bosonic
+            return (beta_f, 1.0)   # Periodic: wraps to beta with sign unchanged
+        end
+    end
+    
+    # If already in [0, β], return as-is with sign = 1
+    if tau_f >= 0.0 && tau_f <= beta_f
+        return (tau_f, 1.0)
+    end
+    
+    # tau ∈ [-β, 0): wrap to [0, β]
+    tau_normalized = tau_f + beta_f
+    
+    # Sign depends on statistics
+    sign = S === Fermionic ? -1.0 : 1.0
+    
+    return (tau_normalized, sign)
+end
+
+"""
+    TauConst{S} <: AbstractAugmentation
+
+Constant function in imaginary time with statistics-dependent periodicity.
+
+# Type Parameters
+- `S`: Statistics type (Fermionic or Bosonic)
+"""
+struct TauConst{S<:Statistics} <: AbstractAugmentation
     β::Float64
-    function TauConst(β)
+    function TauConst{S}(β) where {S<:Statistics}
         β > 0 || throw(DomainError(β, "Temperature must be positive."))
-        return new(β)
+        return new{S}(β)
     end
 end
 
-create(::Type{TauConst}, basis::AbstractBasis{Bosonic}) = TauConst(β(basis))
+# Backward compatibility: TauConst(β) defaults to Bosonic
+TauConst(β) = TauConst{Bosonic}(β)
 
-function (aug::TauConst)(τ)
-    0 ≤ τ ≤ β(aug) || throw(DomainError(τ, "τ must be in [0, β]."))
-    return 1 / sqrt(β(aug))
+create(::Type{TauConst}, basis::AbstractBasis{Bosonic}) = TauConst{Bosonic}(β(basis))
+create(::Type{TauConst{S}}, basis::AbstractBasis{S}) where {S<:Statistics} = TauConst{S}(β(basis))
+
+function (aug::TauConst{S})(τ) where {S<:Statistics}
+    tau_normalized, sign = normalize_tau(S, τ, β(aug))
+    return sign / sqrt(β(aug))
 end
-function (aug::TauConst)(n::BosonicFreq)
-    iszero(n) || return zero(β(aug))
+function (aug::TauConst{S})(n::MatsubaraFreq{S}) where {S<:Statistics}
+    iszero(n.n) || return zero(β(aug))
     return sqrt(β(aug))
 end
-(::TauConst)(::FermionicFreq) = error("TauConst is not a Fermionic basis.")
 
 function deriv(aug::TauConst, (::Val{n})=Val(1)) where {n}
     iszero(n) && return aug
@@ -292,33 +357,39 @@ function deriv(aug::TauConst, (::Val{n})=Val(1)) where {n}
 end
 
 """
-    TauLinear <: AbstractAugmentation
+    TauLinear{S} <: AbstractAugmentation
 
-Linear function in imaginary time, antisymmetric around β/2.
+Linear function in imaginary time, antisymmetric around β/2, with statistics-dependent periodicity.
+
+# Type Parameters
+- `S`: Statistics type (Fermionic or Bosonic)
 """
-struct TauLinear <: AbstractAugmentation
+struct TauLinear{S<:Statistics} <: AbstractAugmentation
     β::Float64
     norm::Float64
-    function TauLinear(β)
+    function TauLinear{S}(β) where {S<:Statistics}
         β > 0 || throw(DomainError(β, "Temperature must be positive."))
         norm = sqrt(3 / β)
-        return new(β, norm)
+        return new{S}(β, norm)
     end
 end
 
-create(::Type{TauLinear}, basis::AbstractBasis{Bosonic}) = TauLinear(β(basis))
+# Backward compatibility: TauLinear(β) defaults to Bosonic
+TauLinear(β) = TauLinear{Bosonic}(β)
 
-function (aug::TauLinear)(τ)
-    0 ≤ τ ≤ β(aug) || throw(DomainError(τ, "τ must be in [0, β]."))
-    x = 2 / β(aug) * τ - 1
-    return aug.norm * x
+create(::Type{TauLinear}, basis::AbstractBasis{Bosonic}) = TauLinear{Bosonic}(β(basis))
+create(::Type{TauLinear{S}}, basis::AbstractBasis{S}) where {S<:Statistics} = TauLinear{S}(β(basis))
+
+function (aug::TauLinear{S})(τ) where {S<:Statistics}
+    tau_normalized, sign = normalize_tau(S, τ, β(aug))
+    x = 2 / β(aug) * tau_normalized - 1
+    return sign * aug.norm * x
 end
-function (aug::TauLinear)(n::BosonicFreq)
+function (aug::TauLinear{S})(n::MatsubaraFreq{S}) where {S<:Statistics}
     inv_w = value(n, β(aug))
-    inv_w = iszero(n) ? inv_w : 1 / inv_w
+    inv_w = iszero(n.n) ? inv_w : 1 / inv_w
     return aug.norm * 2 / im * inv_w
 end
-(::TauLinear)(::FermionicFreq) = error("TauLinear is not a Fermionic basis.")
 
 function deriv(aug::TauLinear, (::Val{n})=Val(1)) where {n}
     iszero(n) && return aug
@@ -342,7 +413,7 @@ end
 create(::Type{MatsubaraConst}, basis::AbstractBasis) = MatsubaraConst(β(basis))
 
 function (aug::MatsubaraConst)(τ)
-    0 ≤ τ ≤ β(aug) || throw(DomainError(τ, "τ must be in [0, β]."))
+    -β(aug) ≤ τ ≤ β(aug) || throw(DomainError(τ, "τ must be in [-β, β]."))
     return NaN
 end
 
