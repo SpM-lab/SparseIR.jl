@@ -60,7 +60,7 @@ struct AugmentedBasis{S<:Statistics,B<:FiniteTempBasis{S},A<:AugmentationTuple,F
 end
 
 function TauSampling(basis::AugmentedBasis{S};
-        sampling_points=default_tau_sampling_points(basis)) where {S}
+        sampling_points=default_tau_sampling_points(basis; use_positive_taus=true)) where {S}
     matrix = eval_matrix(TauSampling, basis, sampling_points)
     status = Ref{Int32}(-100)
     ptr = C_API.spir_tau_sampling_new_with_matrix(
@@ -132,13 +132,20 @@ accuracy(basis::AugmentedBasis) = accuracy(basis.basis)
 
 significance(basis::AugmentedBasis) = vcat(ones(naug(basis)), significance(basis.basis))
 
-function default_tau_sampling_points(basis::AugmentedBasis)
+function default_tau_sampling_points(basis::AugmentedBasis; use_positive_taus::Bool=true)
     points = Vector{Float64}(undef, length(basis))
     n_points_returned = Ref{Cint}(0)
     status = spir_basis_get_default_taus_ext(
         _get_ptr(basis.basis), length(basis), points, n_points_returned)
     status == SPIR_COMPUTATION_SUCCESS || error("Failed to get default tau sampling points")
-    return points[1:n_points_returned[]]
+    points = points[1:n_points_returned[]]
+    
+    if use_positive_taus
+        points = mod.(points, β(basis))
+        sort!(points)
+    end
+    
+    return points
 end
 
 function default_matsubara_sampling_points(basis::AugmentedBasis; positive_only=false)
@@ -270,10 +277,7 @@ end
 create(::Type{TauConst}, basis::AbstractBasis{Bosonic}) = TauConst(β(basis))
 
 function (aug::TauConst)(τ)
-    #0 ≤ τ ≤ β(aug) || throw(DomainError(τ, "τ must be in [0, β]."))
-    -β(aug) / 2 ≤ τ ≤ β(aug) / 2 ||
-        throw(DomainError(τ, "τ must be in [-β(aug)/2, β(aug)/2]."))
-
+    0 ≤ τ ≤ β(aug) || throw(DomainError(τ, "τ must be in [0, β]."))
     return 1 / sqrt(β(aug))
 end
 function (aug::TauConst)(n::BosonicFreq)
@@ -305,9 +309,7 @@ end
 create(::Type{TauLinear}, basis::AbstractBasis{Bosonic}) = TauLinear(β(basis))
 
 function (aug::TauLinear)(τ)
-    # 0 ≤ τ ≤ β(aug) || throw(DomainError(τ, "τ must be in [0, β]."))
-    -β(aug) / 2 ≤ τ ≤ β(aug) / 2 ||
-        throw(DomainError(τ, "τ must be in [-β(aug)/2, β(aug)/2]."))
+    0 ≤ τ ≤ β(aug) || throw(DomainError(τ, "τ must be in [0, β]."))
     x = 2 / β(aug) * τ - 1
     return aug.norm * x
 end
@@ -340,8 +342,7 @@ end
 create(::Type{MatsubaraConst}, basis::AbstractBasis) = MatsubaraConst(β(basis))
 
 function (aug::MatsubaraConst)(τ)
-    -β(aug) / 2 ≤ τ ≤ β(aug) / 2 ||
-        throw(DomainError(τ, "τ must be in [-β(aug)/2, β(aug)/2]."))
+    0 ≤ τ ≤ β(aug) || throw(DomainError(τ, "τ must be in [0, β]."))
     return NaN
 end
 
