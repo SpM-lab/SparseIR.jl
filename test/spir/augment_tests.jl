@@ -190,7 +190,7 @@
             @test_throws DomainError mc(-β - 1)
             @test_throws DomainError mc(β + 1)
             @test isnan(mc(30))
-            @test isnan(mc(-30))  # Now supports negative tau
+            @test isnan(mc(-30))  # Accepts [-β, β] range
             @test mc(FermionicFreq(1)) == 1.0
             @test mc(BosonicFreq(0)) == 1.0
             @test mc(BosonicFreq(92)) == 1.0

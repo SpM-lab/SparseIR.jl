@@ -8,9 +8,9 @@ with some auxiliary methods that make it suitable for augmenting a basis.
 
 See also: [`AugmentedBasis`](@ref)
 """
-abstract type AbstractAugmentation <: Function end
+abstract type AbstractAugmentation{S<:Statistics} <: Function end
 
-const AugmentationTuple = Tuple{Vararg{AbstractAugmentation}}
+const AugmentationTuple{S} = Tuple{Vararg{AbstractAugmentation{S}}} where S<:Statistics
 
 create(aug::AbstractAugmentation, ::AbstractBasis) = aug
 β(aug::AbstractAugmentation) = aug.β
@@ -51,7 +51,7 @@ See also: [`MatsubaraConst`](@ref) for vertex basis [^wallerberger2021],
 [^wallerberger2021]: https://doi.org/10.1103/PhysRevResearch.3.033168
 [^shinaoka2018]: https://doi.org/10.1103/PhysRevB.97.205111
 """
-struct AugmentedBasis{S<:Statistics,B<:FiniteTempBasis{S},A<:AugmentationTuple,F,FHAT} <:
+struct AugmentedBasis{S<:Statistics,B<:FiniteTempBasis{S},A<:AugmentationTuple{S},F,FHAT} <:
        AbstractBasis{S}
     basis         :: B
     augmentations :: A
@@ -321,14 +321,14 @@ function normalize_tau(::Type{S}, tau::Real, beta::Real) where {S<:Statistics}
 end
 
 """
-    TauConst{S} <: AbstractAugmentation
+    TauConst{S} <: AbstractAugmentation{S}
 
 Constant function in imaginary time with statistics-dependent periodicity.
 
 # Type Parameters
 - `S`: Statistics type (Fermionic or Bosonic)
 """
-struct TauConst{S<:Statistics} <: AbstractAugmentation
+struct TauConst{S<:Statistics} <: AbstractAugmentation{S}
     β::Float64
     function TauConst{S}(β) where {S<:Statistics}
         β > 0 || throw(DomainError(β, "Temperature must be positive."))
@@ -357,14 +357,14 @@ function deriv(aug::TauConst, (::Val{n})=Val(1)) where {n}
 end
 
 """
-    TauLinear{S} <: AbstractAugmentation
+    TauLinear{S} <: AbstractAugmentation{S}
 
 Linear function in imaginary time, antisymmetric around β/2, with statistics-dependent periodicity.
 
 # Type Parameters
 - `S`: Statistics type (Fermionic or Bosonic)
 """
-struct TauLinear{S<:Statistics} <: AbstractAugmentation
+struct TauLinear{S<:Statistics} <: AbstractAugmentation{S}
     β::Float64
     norm::Float64
     function TauLinear{S}(β) where {S<:Statistics}
@@ -398,19 +398,27 @@ function deriv(aug::TauLinear, (::Val{n})=Val(1)) where {n}
 end
 
 """
-    MatsubaraConst <: AbstractAugmentation
+    MatsubaraConst{S} <: AbstractAugmentation{S}
 
 Constant in Matsubara, undefined in imaginary time.
+
+# Type Parameters
+- `S`: Statistics type (Fermionic or Bosonic). This is required for type consistency,
+  though MatsubaraConst works identically for both statistics.
 """
-struct MatsubaraConst <: AbstractAugmentation
+struct MatsubaraConst{S<:Statistics} <: AbstractAugmentation{S}
     β::Float64
-    function MatsubaraConst(β)
+    function MatsubaraConst{S}(β) where {S<:Statistics}
         β > 0 || throw(DomainError(β, "Temperature must be positive."))
-        return new(β)
+        return new{S}(β)
     end
 end
 
-create(::Type{MatsubaraConst}, basis::AbstractBasis) = MatsubaraConst(β(basis))
+# Backward compatibility: MatsubaraConst(β) - statistics will be inferred from basis
+MatsubaraConst(β) = MatsubaraConst{Bosonic}(β)
+
+create(::Type{MatsubaraConst}, basis::AbstractBasis{S}) where {S} = MatsubaraConst{S}(β(basis))
+create(::Type{MatsubaraConst{S}}, basis::AbstractBasis{S}) where {S<:Statistics} = MatsubaraConst{S}(β(basis))
 
 function (aug::MatsubaraConst)(τ)
     -β(aug) ≤ τ ≤ β(aug) || throw(DomainError(τ, "τ must be in [-β, β]."))
