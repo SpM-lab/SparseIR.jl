@@ -23,19 +23,17 @@ function _is_column_major_contiguous(A::AbstractArray)
     strides(A) == cumprod((1, size(A)...)[1:(end - 1)])
 end
 
-using Libdl
 import libsparseir_jll
-# Julia から見た backend は「opaque なポインタ」で十分
+# From Julia, an "opaque pointer" is sufficient to represent the backend
 const SpirGemmBackend = Ptr{Cvoid}
 
-# GLobal に保持しておく（必要に応じて他の ccall に渡す想定）
+# Globally retained (passed to other ccall as needed)
 const _spir_default_backend = Ref{SpirGemmBackend}(C_NULL)
 
-# ===== BLAS 関数ポインタの取得 =====
+# ===== Obtaining BLAS function pointers =====
 
 function _get_blas_gemm_ptrs()
-    # Initialize LinearAlgebra.BLAS to ensure libblastrampoline is forwarded to the
-    # actual BLAS implementation
+    # Ensure libblastrampoline is forwarded to the actual BLAS implementation
     LinearAlgebra.BLAS
 
     interface = LinearAlgebra.BLAS.USE_BLAS64 ? :ilp64 : :lp64
@@ -50,7 +48,8 @@ function _get_blas_gemm_ptrs()
     return dgemm_ptr, zgemm_ptr
 end
 
-# C 側の backend ハンドル型を Ptr{Cvoid} で表現（詳細な struct は Rust 側のみが知っていればよい）
+# The backend handle type on the C side is represented as Ptr{Cvoid}
+# (the detailed struct is only known to the Rust side)
 const SpirGemmBackend = Ptr{Cvoid}
 
 function _init_sparseir_blas_backend()
