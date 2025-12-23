@@ -52,7 +52,7 @@ Opaque SVE result type for C API (compatible with libsparseir)
 
 Contains singular values and singular functions from SVE computation.
 
-Note: Named [`spir_sve_result`](@ref) to match libsparseir C++ API exactly. The internal structure is hidden using a void pointer to prevent exposing Arc<SVEResult> to C.
+Note: Named [`spir_sve_result`](@ref) to match libsparseir C++ API exactly. The internal structure is hidden using a void pointer to prevent exposing `Arc<SVEResult>` to C.
 """
 struct spir_sve_result
     _private::Ptr{Cvoid}
@@ -672,7 +672,7 @@ Batch evaluate functions at multiple points (continuous functions only)
 
 # Returns Status code ([`SPIR_COMPUTATION_SUCCESS`](@ref) on success, [`SPIR_NOT_SUPPORTED`](@ref) if not continuous)
 
-# Safety - `xs` must have size >= `num_points` - `out` must have size >= `num\\_points * [`spir_funcs_get_size`](@ref)(funcs)` - Layout: row-major = out[point][func], column-major = out[func][point]
+# Safety - `xs` must have size >= `num_points` - `out` must have size >= `num\\_points * [`spir_funcs_get_size`](@ref)(funcs)` - Layout: row-major = out\\[point\\]\\[func\\], column-major = out\\[func\\]\\[point\\]
 """
 function spir_funcs_batch_eval(funcs, order, num_points, xs, out)
     ccall((:spir_funcs_batch_eval, libsparseir), StatusCode, (Ptr{spir_funcs}, Cint, Cint, Ptr{Cdouble}, Ptr{Cdouble}), funcs, order, num_points, xs, out)
@@ -687,7 +687,7 @@ Batch evaluate functions at multiple Matsubara frequencies
 
 # Returns Status code ([`SPIR_COMPUTATION_SUCCESS`](@ref) on success, [`SPIR_NOT_SUPPORTED`](@ref) if not Matsubara type)
 
-# Safety - `ns` must have size >= `num_freqs` - `out` must have size >= `num\\_freqs * [`spir_funcs_get_size`](@ref)(funcs)` - Complex numbers are laid out as [real, imag] pairs - Layout: row-major = out[freq][func], column-major = out[func][freq]
+# Safety - `ns` must have size >= `num_freqs` - `out` must have size >= `num\\_freqs * [`spir_funcs_get_size`](@ref)(funcs)` - Complex numbers are laid out as [real, imag] pairs - Layout: row-major = out\\[freq\\]\\[func\\], column-major = out\\[func\\]\\[freq\\]
 """
 function spir_funcs_batch_eval_matsu(funcs, order, num_freqs, ns, out)
     ccall((:spir_funcs_batch_eval_matsu, libsparseir), StatusCode, (Ptr{spir_funcs}, Cint, Cint, Ptr{Int64}, Ptr{Complex64}), funcs, order, num_freqs, ns, out)
@@ -1262,9 +1262,9 @@ end
 
 Truncate an SVE result based on epsilon and max\\_size
 
-This function creates a new SVE result containing only the singular values that are larger than `epsilon * s[0]`, where `s[0]` is the largest singular value. The result can also be limited to a maximum size.
+This function creates a new SVE result containing only the singular values that are larger than `epsilon * s\\[0\\]`, where `s\\[0\\]` is the largest singular value. The result can also be limited to a maximum size.
 
-# Arguments * `sve` - Source SVE result object * `epsilon` - Relative threshold for truncation (singular values < epsilon * s[0] are removed) * `max_size` - Maximum number of singular values to keep (-1 for no limit) * `status` - Pointer to store status code
+# Arguments * `sve` - Source SVE result object * `epsilon` - Relative threshold for truncation (singular values < epsilon * s\\[0\\] are removed) * `max_size` - Maximum number of singular values to keep (-1 for no limit) * `status` - Pointer to store status code
 
 # Returns * Pointer to new truncated SVE result, or NULL on failure * Status code: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if sve or status is null, or epsilon is invalid - [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
 

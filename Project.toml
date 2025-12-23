@@ -1,6 +1,6 @@
 name = "SparseIR"
 uuid = "4fe2279e-80f0-4adb-8463-ee114ff56b7d"
-version = "2.0.0-alpha.2"
+version = "2.0.0-alpha.3"
 authors = ["SatoshiTerasaki <terasakisatoshi.math@gmail.com>", "Samuel Badr <samuel.badr@gmail.com>", "Hiroshi Shinaoka <h.shinaoka@gmail.com>", "Markus Wallerberger <markus.wallerberger@tuwien.ac.at>"]
 
 [deps]
@@ -19,7 +19,7 @@ LinearAlgebra = "1"
 QuadGK = "2.11.2"
 StableRNGs = "1.0.3"
 julia = "1.6"
-libsparseir_jll = "0.6.0, 0.7.0"
+libsparseir_jll = "0.7.5"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
