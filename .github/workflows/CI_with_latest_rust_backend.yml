@@ -1,4 +1,4 @@
-name: CI
+name: CI_with_latest_rust_backend
 on:
   push:
     branches:
