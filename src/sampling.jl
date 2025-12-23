@@ -234,7 +234,7 @@ function evaluate!(
     end
 
     # Call appropriate C function based on input/output types
-    backend = C_NULL
+    backend = _spir_default_backend[]
     if Tin == Float64 && Tout == Float64
         ret = C_API.spir_sampling_eval_dd(
             sampling.ptr, backend, order, ndim, input_dims, target_dim, al, output)
@@ -275,7 +275,7 @@ function evaluate!(output::Array{Tout,N}, sampling::MatsubaraSampling,
     end
 
     # Call appropriate C function based on input/output types
-    backend = C_NULL
+    backend = _spir_default_backend[]
     if Tin == Float64 && Tout == ComplexF64
         ret = C_API.spir_sampling_eval_dz(
             sampling.ptr, backend, order, ndim, input_dims, target_dim, al, output)
@@ -370,7 +370,7 @@ function fit!(
     if !_is_column_major_contiguous(output)
         error("Output array must be contiguous")
     end
-    backend = C_NULL
+    backend = _spir_default_backend[]
     # Call appropriate C function
     if Tin == Float64 && Tout == Float64
         ret = C_API.spir_sampling_fit_dd(
@@ -413,7 +413,7 @@ function fit!(
     end
 
     # Call appropriate C function based on input/output types
-    backend = C_NULL
+    backend = _spir_default_backend[]
     if Tin == ComplexF64 && Tout == ComplexF64
         ret = C_API.spir_sampling_fit_zz(
             sampling.ptr, backend, order, ndim, input_dims, target_dim, al, output)
