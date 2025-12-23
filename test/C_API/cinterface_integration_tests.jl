@@ -80,13 +80,13 @@
 
     function dlr_to_IR(dlr, order, ndim, dims, target_dim,
             coeffs::AbstractArray{<:Real}, g_IR::AbstractArray{<:Real})
-        backend = C_NULL
+        backend = _spir_default_backend[]
         SparseIR.spir_dlr2ir_dd(dlr, backend, order, ndim, dims, target_dim, coeffs, g_IR)
     end
 
     function dlr_to_IR(dlr, order, ndim, dims, target_dim,
             coeffs::AbstractArray{<:Complex}, g_IR::AbstractArray{<:Complex})
-        backend = C_NULL
+        backend = _spir_default_backend[]
         SparseIR.spir_dlr2ir_zz(dlr, backend, order, ndim, dims, target_dim, coeffs, g_IR)
     end
 
@@ -207,7 +207,7 @@
 
     function _tau_sampling_fit(sampling, order, ndim, dims, target_dim,
             gtau::AbstractArray{<:Real}, gIR::AbstractArray{<:Real})
-        backend = C_NULL
+        backend = _spir_default_backend[]
         status = SparseIR.spir_sampling_fit_dd(
             sampling, backend, order, ndim, dims, target_dim, gtau, gIR)
         @test status == SparseIR.SPIR_COMPUTATION_SUCCESS
