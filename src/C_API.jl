@@ -561,6 +561,23 @@ function spir_funcs_is_assigned(obj)
 end
 
 """
+    spir_funcs_deriv(funcs, n, status)
+
+Compute the n-th derivative of basis functions
+
+Creates a new funcs object representing the n-th derivative of the input functions. For n=0, returns a clone of the input. For n=1, returns the first derivative, etc.
+
+# Arguments * `funcs` - Pointer to the input funcs object * `n` - Order of derivative (0 = no derivative, 1 = first derivative, etc.) * `status` - Pointer to store the status code
+
+# Returns Pointer to the newly created derivative funcs object, or NULL if computation fails
+
+# Safety Caller must ensure `funcs` is a valid pointer and `status` is non-null
+"""
+function spir_funcs_deriv(funcs, n, status)
+    ccall((:spir_funcs_deriv, libsparseir), Ptr{spir_funcs}, (Ptr{spir_funcs}, Cint, Ptr{StatusCode}), funcs, n, status)
+end
+
+"""
     spir_funcs_from_piecewise_legendre(segments, n_segments, coeffs, nfuncs, _order, status)
 
 Create a [`spir_funcs`](@ref) object from piecewise Legendre polynomial coefficients

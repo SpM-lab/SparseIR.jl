@@ -59,14 +59,14 @@ function _init_sparseir_blas_backend()
     # ILP64 uses 64-bit integers, LP64 uses 32-bit integers
     if LinearAlgebra.BLAS.USE_BLAS64
         backend = ccall(
-            (:spir_gemm_backend_new_from_fblas_ilp64, libsparseir_jll.libsparseir),
+            (:spir_gemm_backend_new_from_fblas_ilp64, C_API.libsparseir),
             SpirGemmBackend,                  # struct spir_gemm_backend*
             (Ptr{Cvoid}, Ptr{Cvoid}),         # const void *dgemm64, const void *zgemm64
             dgemm_ptr, zgemm_ptr,
         )
     else
         backend = ccall(
-            (:spir_gemm_backend_new_from_fblas_lp64, libsparseir_jll.libsparseir),
+            (:spir_gemm_backend_new_from_fblas_lp64, C_API.libsparseir),
             SpirGemmBackend,                  # struct spir_gemm_backend*
             (Ptr{Cvoid}, Ptr{Cvoid}),         # const void *dgemm, const void *zgemm
             dgemm_ptr, zgemm_ptr,
