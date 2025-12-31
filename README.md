@@ -169,4 +169,6 @@ MINIMAX isometry method (Merzuk Kaltak and Georg Kresse,
 
 Development
 -----------
-See [development.md](development.md) for more information on how to contribute to the project.
+For development information, please refer to:
+- [**Development Guide**](development.md) - Complete development instructions and guidelines
+- [GitHub Issues][issues-url] - Bug reports and feature requests
