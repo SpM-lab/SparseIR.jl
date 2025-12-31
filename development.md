@@ -69,6 +69,42 @@ projects/
 
 **Note:** If `sparse-ir-rs` is not found in the expected location, SparseIR.jl will fall back to using the pre-built `libsparseir_jll` package from Julia's package registry.
 
+### Clearing Build Cache
+
+If you need to force a clean rebuild (e.g., after updating `sparse-ir-rs`), you can clear the build cache:
+
+```bash
+# Remove the built library and cached files
+rm -rf deps/libsparse_ir_capi.*
+rm -rf deps/build.log
+
+# Then rebuild
+julia --project=. -e "using Pkg; Pkg.build(\"SparseIR\")"
+```
+
+Alternatively, you can clear Julia's precompilation cache:
+
+```bash
+# Clear all precompiled files for SparseIR
+rm -rf ~/.julia/compiled/v1.*/SparseIR/
+
+# Then restart Julia and reload the package
+julia --project=. -e "using SparseIR"
+```
+
+For a complete clean rebuild:
+
+```bash
+# 1. Clean local build artifacts
+rm -rf deps/
+
+# 2. Clear precompilation cache
+rm -rf ~/.julia/compiled/v1.*/SparseIR/
+
+# 3. Rebuild and precompile
+julia --project=. -e "using Pkg; Pkg.build(\"SparseIR\"); using SparseIR"
+```
+
 ## Code Structure
 
 ```
