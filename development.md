@@ -170,6 +170,14 @@ using Profile
 @profile some_function()
 ```
 
+```bash
+# Clear precompilation cache (if code changes aren't reflected)
+rm -rf ~/.julia/compiled/v1.*/SparseIR/
+
+# Rebuild local library
+julia --project=. -e "using Pkg; Pkg.build(\"SparseIR\")"
+```
+
 ## Debugging
 
 ```julia
