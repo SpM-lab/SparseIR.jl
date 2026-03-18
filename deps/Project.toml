@@ -1,3 +1,4 @@
 [deps]
 Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+RustToolChain = "e9dc52e2-edb8-4742-9783-5e542d30dbb5"

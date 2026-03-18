@@ -1,5 +1,6 @@
 using Pkg
 using Libdl: dlext
+using RustToolChain: cargo
 
 const DEV_DIR::String = joinpath(dirname(dirname(@__DIR__)), "sparse-ir-rs")
 
@@ -7,7 +8,7 @@ const DEV_DIR::String = joinpath(dirname(dirname(@__DIR__)), "sparse-ir-rs")
 # If it exists, build the Rust project and copy libsparse_ir_capi.<ext> to deps/.
 if isdir(DEV_DIR)
     cd(DEV_DIR) do
-        run(`cargo build --release --features system-blas`)
+        run(`$(cargo()) build --release --features system-blas`)
     end
     libsparseir_path = joinpath(DEV_DIR, "target", "release", "libsparse_ir_capi.$(dlext)")
     cp(libsparseir_path, joinpath(@__DIR__, "libsparse_ir_capi.$(dlext)"); force=true)

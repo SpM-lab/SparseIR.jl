@@ -2,8 +2,7 @@ using Pkg
 Pkg.activate(@__DIR__)
 Pkg.instantiate()
 
-using Clang.Generators
-using Clang.LibClang.Clang_jll
+using Clang.Generators: load_options, get_default_args, create_context, build!
 
 # Function to print help message
 function print_help()
