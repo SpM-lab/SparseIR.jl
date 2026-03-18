@@ -131,6 +131,24 @@ terms of compactness.
 [intermediate representation]: https://arxiv.org/abs/2106.12685
 [singular value expansion]: https://w.wiki/3poQ
 
+Development
+-----------
+If you are developing `SparseIR.jl` together with the Rust backend in the sibling
+repository `../sparse-ir-rs`, rebuild this package after changing the Rust code:
+
+```bash
+julia -e 'using Pkg; Pkg.build()'
+```
+
+This rebuilds the Rust backend, copies the generated shared library into `deps/`,
+and refreshes `src/C_API.jl`. See [`deps/README.md`](deps/README.md) for the
+developer-oriented build details.
+
+If Julia still appears to load the artifact-provided library after `Pkg.build()`,
+the precompile cache may still be holding the old path. In that case, remove the
+compiled cache for `SparseIR` under `~/.julia/compiled/.../SparseIR` and start a
+fresh Julia process.
+
 License and citation
 --------------------
 This software is released under the MIT License. See `LICENSE` for details.
@@ -164,11 +182,3 @@ MINIMAX isometry method (Merzuk Kaltak and Georg Kresse,
 [codecov-url]: https://codecov.io/gh/SpM-lab/SparseIR.jl
 [aqua-img]: https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg
 [aqua-url]: https://github.com/JuliaTesting/Aqua.jl
-
-[issues-url]: https://github.com/SpM-lab/SparseIR.jl/issues
-
-Development
------------
-For development information, please refer to:
-- [**Development Guide**](development.md) - Complete development instructions and guidelines
-- [GitHub Issues][issues-url] - Bug reports and feature requests
