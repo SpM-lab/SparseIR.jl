@@ -64,7 +64,8 @@ This build step:
 
 - builds the Rust backend with `cargo build --release --features system-blas`
 - copies `libsparse_ir_capi.(dylib|so|dll)` into `deps/`
-- regenerates `src/C_API.jl`
+- regenerates `deps/C_API.jl` for installed package trees
+- keeps `src/C_API.jl` as the source-tree fallback binding file
 - updates `deps/backend.stamp` so backend rebuilds invalidate Julia precompile state
 - records progress in `deps/build-state.toml`
 - writes detailed logs to `deps/build.log`
@@ -96,8 +97,8 @@ tail -n 50 deps/build.log
 ```
 
 Manual precompile-cache deletion should normally not be necessary. Backend
-rebuilds update `deps/backend.stamp`, and `src/C_API.jl` tracks that file as a
-precompile dependency.
+rebuilds update `deps/backend.stamp`, and the generated C API bindings track
+that file as a precompile dependency.
 
 ## Code Structure
 

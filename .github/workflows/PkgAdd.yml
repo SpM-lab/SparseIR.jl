@@ -1,0 +1,76 @@
+name: CI_pkg_add_install
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+      - develop_v2xx
+  workflow_dispatch:
+  schedule:
+    - cron: 0 0 * * 1
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+permissions:
+  actions: write
+  contents: read
+jobs:
+  install:
+    name: Pkg.add / Julia ${{ matrix.version }} / ${{ matrix.os }} / ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 'lts'
+            os: ubuntu-latest
+            arch: x64
+          - version: '1'
+            os: ubuntu-latest
+            arch: x64
+          - version: 'lts'
+            os: macOS-latest
+            arch: arm64
+          - version: '1'
+            os: macOS-latest
+            arch: arm64
+    steps:
+      - name: Install OpenBLAS
+        run: |
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            sudo apt-get update
+            sudo apt-get install -y libopenblas-dev pkg-config gzip
+          fi
+          if [ "${{ matrix.os }}" = "macOS-latest" ]; then
+            brew install openblas pkg-config
+          fi
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.version }}
+          arch: ${{ matrix.arch }}
+      - name: Select package revision
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "SPARSEIR_PKG_URL=https://github.com/${{ github.event.pull_request.head.repo.full_name }}.git" >> "$GITHUB_ENV"
+            echo "SPARSEIR_PKG_REV=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_ENV"
+          else
+            echo "SPARSEIR_PKG_URL=https://github.com/${{ github.repository }}.git" >> "$GITHUB_ENV"
+            echo "SPARSEIR_PKG_REV=${{ github.sha }}" >> "$GITHUB_ENV"
+          fi
+      - name: Install from git and smoke test
+        run: |
+          julia -e '
+            using Pkg
+            temp_env = mktempdir()
+            Pkg.activate(temp_env)
+            Pkg.add(url=ENV["SPARSEIR_PKG_URL"], rev=ENV["SPARSEIR_PKG_REV"])
+            using SparseIR
+            path = Base.pathof(SparseIR)
+            println("SparseIR path: ", path)
+            occursin(joinpath(".julia", "packages", "SparseIR"), path) ||
+                error("SparseIR was not loaded from an installed package tree: $path")
+            basis = FiniteTempBasis{Fermionic}(10.0, 1.0, 1e-6)
+            length(basis) > 0 || error("unexpected empty basis")
+          '

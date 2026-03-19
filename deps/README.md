@@ -15,7 +15,8 @@ Relative paths in `SPARSEIR_RUST_BACKEND_DIR` are resolved against the
 After a successful build, the script:
 
 - copies `libsparse_ir_capi.(dylib|so|dll)` into `deps/`
-- regenerates `src/C_API.jl`
+- regenerates `deps/C_API.jl` for installed package trees
+- keeps `src/C_API.jl` as the source-tree fallback binding file
 - updates `deps/backend.stamp`
 - records build status in `deps/build-state.toml`
 - writes detailed logs to `deps/build.log`

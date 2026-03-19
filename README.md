@@ -153,8 +153,8 @@ julia -e 'using Pkg; Pkg.build()'
 ```
 
 This rebuilds the Rust backend, copies the generated shared library into `deps/`,
-refreshes `src/C_API.jl`, and updates `deps/backend.stamp` so Julia invalidates
-stale precompile state automatically.
+refreshes `deps/C_API.jl` for the installed package tree, and updates
+`deps/backend.stamp` so Julia invalidates stale precompile state automatically.
 
 Build-time environment variables:
 

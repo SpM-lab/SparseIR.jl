@@ -16,6 +16,7 @@
     mktempdir() do root
         mkpath(joinpath(root, "deps"))
         @test BuildSupport.backend_stamp_path(root) == joinpath(root, "deps", "backend.stamp")
+        @test BuildSupport.generated_c_api_path(root) == joinpath(root, "deps", "C_API.jl")
         @test BuildSupport.select_build_source(root; dev_dir=joinpath(root, "missing")).kind == :crates_io
     end
 

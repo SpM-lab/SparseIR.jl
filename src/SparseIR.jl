@@ -1,6 +1,12 @@
 module SparseIR
 
-include("C_API.jl") # libsparseir
+const _generated_c_api = joinpath(@__DIR__, "..", "deps", "C_API.jl")
+if isfile(_generated_c_api)
+    Base.include_dependency(_generated_c_api)
+    include(_generated_c_api) # libsparseir
+else
+    include("C_API.jl") # libsparseir fallback
+end
 using .C_API
 
 import LinearAlgebra

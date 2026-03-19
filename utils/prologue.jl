@@ -1,4 +1,4 @@
-include("backend_loader.jl")
+include(joinpath(@__DIR__, "../src/backend_loader.jl"))
 using .BackendLoader
 
 const _backend_stamp = BackendLoader.backend_stamp_path()

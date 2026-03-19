@@ -17,6 +17,7 @@
         write(libpath, "")
         @test BackendLoader.backend_stamp_path(root) == joinpath(root, "deps", "backend.stamp")
         @test BackendLoader.backend_library_path(root) == libpath
+        @test BackendLoader.generated_c_api_path(root) == joinpath(root, "deps", "C_API.jl")
         @test BackendLoader.require_backend_library(root) == libpath
     end
 end
