@@ -13,10 +13,12 @@ function parse_keep_workdir(env::AbstractDict)
 end
 
 function parse_debuginfo(env::AbstractDict)
-    value = get(env, "SPARSEIR_BUILD_DEBUGINFO", "none")
+    value = get(env, "SPARSEIR_BUILD_DEBUGINFO", "line")
     mapping = Dict(
         "none" => "none",
         "line" => "line-tables-only",
+        "line-tables-only" => "line-tables-only",
+        "limited" => "limited",
         "full" => "full",
     )
     haskey(mapping, value) || error("Unsupported SPARSEIR_BUILD_DEBUGINFO=$value")

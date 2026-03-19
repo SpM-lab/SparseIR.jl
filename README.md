@@ -162,7 +162,8 @@ Build-time environment variables:
   Selects a local Rust backend checkout. Relative paths are resolved against
   the `SparseIR.jl` package root.
 - `SPARSEIR_BUILD_DEBUG=1` keeps the temporary crates.io workspace after a successful build.
-- `SPARSEIR_BUILD_DEBUGINFO=none|line|full` controls the Rust debuginfo level embedded in the built library.
+- `SPARSEIR_BUILD_DEBUGINFO=none|line|limited|full` controls the Rust debuginfo level embedded in the built library.
+  The default is `line`, which maps to Rust's `line-tables-only`.
 
 Build progress is recorded in `deps/build-state.toml`, and detailed cargo/binding
 logs are written to `deps/build.log`. See [`deps/README.md`](deps/README.md) and
