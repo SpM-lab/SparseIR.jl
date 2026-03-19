@@ -11,7 +11,9 @@
 
     @test BuildSupport.parse_keep_workdir(Dict("SPARSEIR_BUILD_DEBUG" => "1")) === true
     @test BuildSupport.parse_keep_workdir(Dict{String,String}()) === false
+    @test BuildSupport.parse_debuginfo(Dict{String,String}()) == "line-tables-only"
     @test BuildSupport.parse_debuginfo(Dict("SPARSEIR_BUILD_DEBUGINFO" => "line")) == "line-tables-only"
+    @test BuildSupport.parse_debuginfo(Dict("SPARSEIR_BUILD_DEBUGINFO" => "limited")) == "limited"
 
     mktempdir() do root
         mkpath(joinpath(root, "deps"))
@@ -70,7 +72,7 @@
         @test plan.workspace == dev_dir
         @test plan.version == expected_version
         @test plan.keep_workdir == false
-        @test plan.debuginfo == "none"
+        @test plan.debuginfo == "line-tables-only"
     end
 
     mktempdir() do root

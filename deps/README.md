@@ -28,8 +28,9 @@ Build-time environment variables:
 - `SPARSEIR_BUILD_DEBUG=1`
   Keeps the temporary crates.io workspace after a successful build. Failed builds
   always keep the workspace path recorded in `deps/build-state.toml`.
-- `SPARSEIR_BUILD_DEBUGINFO=none|line|full`
-  Controls the Rust debuginfo level passed to cargo.
+- `SPARSEIR_BUILD_DEBUGINFO=none|line|limited|full`
+  Controls the Rust debuginfo level passed to cargo. The default is `line`,
+  which maps to Rust's `line-tables-only`.
 
 Examples:
 

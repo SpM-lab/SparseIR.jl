@@ -78,8 +78,9 @@ This build step:
 - `SPARSEIR_BUILD_DEBUG=1`
   Keeps the temporary crates.io workspace after a successful build. Failed builds
   also keep the workspace path for inspection.
-- `SPARSEIR_BUILD_DEBUGINFO=none|line|full`
-  Controls the debuginfo level embedded in the Rust library.
+- `SPARSEIR_BUILD_DEBUGINFO=none|line|limited|full`
+  Controls the debuginfo level embedded in the Rust library. The default is
+  `line`, which maps to Rust's `line-tables-only`.
 
 **Examples:**
 
