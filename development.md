@@ -27,9 +27,9 @@ using Documenter
 include("docs/make.jl")
 ```
 
-### Using Local libsparseir for Development
+### Rust Backend Development
 
-During development, you may want to use a locally built version of `libsparseir` instead of the pre-built JLL package. This allows you to test changes to the C API immediately.
+SparseIR now builds its Rust backend during `Pkg.build("SparseIR")`.
 
 **Directory Structure:**
 ```
@@ -39,100 +39,54 @@ projects/
 │   └── SparseIR.jl/       # Julia bindings
 ```
 
-**Steps:**
+**Build source priority:**
 
-1. **Place repositories side by side**: Ensure `sparse-ir-rs` and `SparseIR.jl` are in the same parent directory.
+1. `../sparse-ir-rs` if the sibling checkout exists
+2. pinned `sparse-ir-capi` `0.8.1` from crates.io otherwise
 
-2. **Rebuild SparseIR.jl**: The build script automatically detects `sparse-ir-rs` and builds it:
-   ```julia
-   using Pkg
-   Pkg.build("SparseIR")
-   ```
+**Important:** `Pkg.add("SparseIR")` runs the build step automatically on first
+install, but `Pkg.develop(...)` does not. For development checkouts, run:
 
-   This will:
-   - Detect `../sparse-ir-rs` directory
-   - Build `sparse-ir-rs` with `cargo build --release --features system-blas`
-   - Copy `libsparse_ir_capi.dylib` (or `.so`/`.dll`) to `deps/`
-   - Regenerate C API bindings in `src/C_API.jl`
-
-3. **Verify the build**: Check that the local library was built:
-   ```bash
-   ls -lh deps/libsparse_ir_capi.dylib
-   ```
-
-4. **Test with local library**:
-   ```julia
-   using SparseIR
-   basis = FiniteTempBasis{Fermionic}(10.0, 1.0, 1e-6)
-   println("Basis size: ", length(basis))
-   ```
-
-**Note:** If `sparse-ir-rs` is not found in the expected location, SparseIR.jl will fall back to using the pre-built `libsparseir_jll` package from Julia's package registry.
-
-### Switching Between Local and Remote libsparseir
-
-**Using Local libsparseir (for development):**
-
-When `deps/libsparse_ir_capi.dylib` (or `.so`/`.dll`) exists, SparseIR.jl will use it automatically. You'll see:
-```
-[ Info: Using local libsparseir: /path/to/SparseIR.jl/deps/libsparse_ir_capi.dylib
+```julia
+using Pkg
+Pkg.build("SparseIR")
 ```
 
-**Switching to Remote libsparseir (JLL version):**
+This build step:
 
-To use the pre-built JLL package instead of the local library:
+- builds the Rust backend with `cargo build --release --features system-blas`
+- copies `libsparse_ir_capi.(dylib|so|dll)` into `deps/`
+- regenerates `src/C_API.jl`
+- updates `deps/backend.stamp` so backend rebuilds invalidate Julia precompile state
+- records progress in `deps/build-state.toml`
+- writes detailed logs to `deps/build.log`
+
+**Build-time environment variables:**
+
+- `SPARSEIR_BUILD_DEBUG=1`
+  Keeps the temporary crates.io workspace after a successful build. Failed builds
+  also keep the workspace path for inspection.
+- `SPARSEIR_BUILD_DEBUGINFO=none|line|full`
+  Controls the debuginfo level embedded in the Rust library.
+
+**Examples:**
 
 ```bash
-# Remove local library
-rm -rf deps/libsparse_ir_capi.*
-
-# Clear precompilation cache
-rm -rf ~/.julia/compiled/v1.*/SparseIR/
-
-# Restart Julia and verify
-julia --project=. -e "using SparseIR"
-# You should NOT see the "Using local libsparseir" message
+julia --project=. -e 'using Pkg; Pkg.build("SparseIR")'
+SPARSEIR_BUILD_DEBUG=1 julia --project=. -e 'using Pkg; Pkg.build("SparseIR")'
+SPARSEIR_BUILD_DEBUGINFO=full julia --project=. -e 'using Pkg; Pkg.build("SparseIR")'
 ```
 
-**Switching back to Local libsparseir:**
+**Build diagnostics:**
 
 ```bash
-# Rebuild local library
-julia --project=. -e "using Pkg; Pkg.build(\"SparseIR\")"
-
-# Clear precompilation cache
-rm -rf ~/.julia/compiled/v1.*/SparseIR/
-
-# Restart Julia and verify
-julia --project=. -e "using SparseIR"
-# You should see "Using local libsparseir: ..." message
+cat deps/build-state.toml
+tail -n 50 deps/build.log
 ```
 
-### Clearing Build Cache
-
-If you need to force a clean rebuild (e.g., after updating `sparse-ir-rs`):
-
-```bash
-# Remove the built library and cached files
-rm -rf deps/libsparse_ir_capi.*
-rm -rf deps/build.log
-
-# Then rebuild
-julia --project=. -e "using Pkg; Pkg.build(\"SparseIR\")"
-```
-
-For a complete clean rebuild:
-
-```bash
-# 1. Clean local build artifacts
-rm -rf deps/
-
-# 2. Clear precompilation cache
-rm -rf ~/.julia/compiled/v1.*/SparseIR/
-
-# 3. Rebuild and precompile
-julia --project=. -e "using Pkg; Pkg.build(\"SparseIR\"); using SparseIR"
-```
+Manual precompile-cache deletion should normally not be necessary. Backend
+rebuilds update `deps/backend.stamp`, and `src/C_API.jl` tracks that file as a
+precompile dependency.
 
 ## Code Structure
 
@@ -241,4 +195,3 @@ Profile.print()
 3. Ensure all tests pass
 4. Build documentation
 5. Create and push a tag
-

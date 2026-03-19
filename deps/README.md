@@ -1,19 +1,37 @@
 # deps
 
-The `build.jl` script provides developer-focused support for building the Rust backend required by `SparseIR.jl`. It assumes that the Rust crate `sparse-ir-rs` is located in the same parent directory as the `SparseIR.jl` package.
+`Pkg.build("SparseIR")` builds the Rust backend used by `SparseIR.jl` and writes
+the runtime artifacts into `deps/`.
 
-After making changes to the Rust code, it is assumed that you will rebuild the Julia package as follows:
+Build source priority:
 
+1. use a sibling checkout at `../sparse-ir-rs` when it exists
+2. otherwise download pinned `sparse-ir-capi` `0.8.1` from crates.io and build it in a temporary workspace
+
+After a successful build, the script:
+
+- copies `libsparse_ir_capi.(dylib|so|dll)` into `deps/`
+- regenerates `src/C_API.jl`
+- updates `deps/backend.stamp`
+- records build status in `deps/build-state.toml`
+- writes detailed logs to `deps/build.log`
+
+Build-time environment variables:
+
+- `SPARSEIR_BUILD_DEBUG=1`
+  Keeps the temporary crates.io workspace after a successful build. Failed builds
+  always keep the workspace path recorded in `deps/build-state.toml`.
+- `SPARSEIR_BUILD_DEBUGINFO=none|line|full`
+  Controls the Rust debuginfo level passed to cargo.
+
+Examples:
+
+```bash
+julia -e 'using Pkg; Pkg.build("SparseIR")'
+SPARSEIR_BUILD_DEBUG=1 julia -e 'using Pkg; Pkg.build("SparseIR")'
+SPARSEIR_BUILD_DEBUGINFO=full julia -e 'using Pkg; Pkg.build("SparseIR")'
 ```
-$ cd path/to/SparseIR.jl
-$ ls
-src/ utils/ test/ ...
-$ julia -e 'using Pkg; Pkg.build()'
-```
 
-This process will update `src/C_API.jl` and copy the `libsparse_ir_capi.dylib` (or the appropriate shared library) to the `deps/` directory. During `Pkg.test()`, the dynamic library `deps/libsparse_ir_capi.[dylib|so]` will be linked.
-
-If `Pkg.build()` finishes successfully but Julia still loads the artifact-provided
-library instead of `deps/libsparse_ir_capi.[dylib|so]`, the cause may be Julia's
-precompile cache. In that case, remove the compiled cache for `SparseIR` under
-`~/.julia/compiled/.../SparseIR` and start a fresh Julia process before testing again.
+`Pkg.add("SparseIR")` runs the build step automatically on first install.
+`Pkg.develop(...)` does not, so development checkouts must run
+`Pkg.build("SparseIR")` explicitly.

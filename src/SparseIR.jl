@@ -23,7 +23,6 @@ function _is_column_major_contiguous(A::AbstractArray)
     strides(A) == cumprod((1, size(A)...)[1:(end - 1)])
 end
 
-import libsparseir_jll
 # From Julia, an "opaque pointer" is sufficient to represent the backend
 const SpirGemmBackend = Ptr{Cvoid}
 
