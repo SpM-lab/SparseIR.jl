@@ -6,6 +6,7 @@ using Tar: Tar
 using TOML: TOML
 
 const LIBSPARSEIR_FILENAME = "libsparse_ir_capi.$(dlext)"
+const LOCAL_RUST_BACKEND_DIR_ENV = "SPARSEIR_RUST_BACKEND_DIR"
 
 function parse_keep_workdir(env::AbstractDict)
     return get(env, "SPARSEIR_BUILD_DEBUG", "0") == "1"
@@ -30,6 +31,12 @@ installed_library_path(root::AbstractString) = joinpath(root, "deps", LIBSPARSEI
 function read_backend_version(project_toml::AbstractString)
     data = TOML.parsefile(project_toml)
     return data["tool"]["sparseir"]["rust_backend_version"]
+end
+
+function normalize_local_backend_dir(root::AbstractString, backend_dir::AbstractString)
+    path = expanduser(strip(backend_dir))
+    isempty(path) && error("$LOCAL_RUST_BACKEND_DIR_ENV is set but empty")
+    return isabspath(path) ? normpath(path) : normpath(joinpath(root, path))
 end
 
 function write_build_state!(
@@ -86,12 +93,32 @@ function write_backend_stamp!(
     end
 end
 
-function select_build_source(
+function resolve_local_backend_dir(
     root::AbstractString;
+    env::AbstractDict=ENV,
     dev_dir::AbstractString=joinpath(dirname(root), "sparse-ir-rs"),
 )
+    if haskey(env, LOCAL_RUST_BACKEND_DIR_ENV)
+        dir = normalize_local_backend_dir(root, env[LOCAL_RUST_BACKEND_DIR_ENV])
+        isdir(dir) || error("$LOCAL_RUST_BACKEND_DIR_ENV points to a missing directory: $dir")
+        return dir
+    end
+
     if isdir(dev_dir)
-        return (kind=:local, workspace=dev_dir)
+        return dev_dir
+    end
+
+    return nothing
+end
+
+function select_build_source(
+    root::AbstractString;
+    env::AbstractDict=ENV,
+    dev_dir::AbstractString=joinpath(dirname(root), "sparse-ir-rs"),
+)
+    local_dir = resolve_local_backend_dir(root; env, dev_dir)
+    if local_dir !== nothing
+        return (kind=:local, workspace=local_dir)
     end
     return (kind=:crates_io, workspace=nothing)
 end
@@ -101,7 +128,7 @@ function build_plan(
     env::AbstractDict=ENV,
     dev_dir::AbstractString=joinpath(dirname(root), "sparse-ir-rs"),
 )
-    source = select_build_source(root; dev_dir)
+    source = select_build_source(root; env, dev_dir)
     keep_workdir = parse_keep_workdir(env)
     return (
         root=root,
