@@ -40,6 +40,9 @@ jobs:
             ];
             const ok = new Set(["success", "neutral", "skipped"]);
             const deadline = Date.now() + 60 * 60 * 1000;
+            const ref = context.payload.pull_request?.head?.sha ?? context.sha;
+
+            core.info(`Waiting on checks for ref ${ref}.`);
 
             function latestRunsByName(checkRuns) {
               const byName = new Map();
@@ -56,7 +59,7 @@ jobs:
               const response = await github.rest.checks.listForRef({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                ref: context.sha,
+                ref,
                 per_page: 100,
               });
               const byName = latestRunsByName(response.data.check_runs);
