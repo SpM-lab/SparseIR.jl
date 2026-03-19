@@ -89,7 +89,7 @@ ctx = create_context(headers, args, options)
 build!(ctx)
 
 # Replace line 28 with:
-file_path = joinpath(@__DIR__, "../src/C_API.jl")
+file_path = joinpath(@__DIR__, "../deps/C_API.jl")
 content = read(file_path, String)
 content = replace(content, "const c_complex = ComplexF32" => "const c_complex = ComplexF64")
 write(file_path, content)

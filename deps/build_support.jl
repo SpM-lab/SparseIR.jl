@@ -27,6 +27,7 @@ backend_stamp_path(root::AbstractString) = joinpath(root, "deps", "backend.stamp
 build_state_path(root::AbstractString) = joinpath(root, "deps", "build-state.toml")
 build_log_path(root::AbstractString) = joinpath(root, "deps", "build.log")
 installed_library_path(root::AbstractString) = joinpath(root, "deps", LIBSPARSEIR_FILENAME)
+generated_c_api_path(root::AbstractString) = joinpath(root, "deps", "C_API.jl")
 
 function read_backend_version(project_toml::AbstractString)
     data = TOML.parsefile(project_toml)
