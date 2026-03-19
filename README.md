@@ -139,13 +139,16 @@ Development
 SparseIR builds its Rust backend during `Pkg.build("SparseIR")`.
 Build source priority is:
 
-1. `../sparse-ir-rs` if that sibling checkout exists
-2. pinned `sparse-ir-capi` `0.8.1` from crates.io otherwise
+1. `SPARSEIR_RUST_BACKEND_DIR` when set; relative paths are resolved against the `SparseIR.jl` package root
+2. `../sparse-ir-rs` if that sibling checkout exists
+3. pinned `sparse-ir-capi` `0.8.1` from crates.io otherwise
 
-If you are developing `SparseIR.jl` together with the Rust backend in the sibling
-repository `../sparse-ir-rs`, rebuild this package after changing the Rust code:
+If you are developing `SparseIR.jl` together with the Rust backend in another
+worktree or checkout, point `SPARSEIR_RUST_BACKEND_DIR` at that repository and
+rebuild this package after changing the Rust code:
 
 ```bash
+export SPARSEIR_RUST_BACKEND_DIR=/path/to/sparse-ir-rs
 julia -e 'using Pkg; Pkg.build()'
 ```
 
@@ -155,6 +158,9 @@ stale precompile state automatically.
 
 Build-time environment variables:
 
+- `SPARSEIR_RUST_BACKEND_DIR=/path/to/sparse-ir-rs`
+  Selects a local Rust backend checkout. Relative paths are resolved against
+  the `SparseIR.jl` package root.
 - `SPARSEIR_BUILD_DEBUG=1` keeps the temporary crates.io workspace after a successful build.
 - `SPARSEIR_BUILD_DEBUGINFO=none|line|full` controls the Rust debuginfo level embedded in the built library.
 

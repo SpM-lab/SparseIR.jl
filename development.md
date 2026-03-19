@@ -41,8 +41,16 @@ projects/
 
 **Build source priority:**
 
-1. `../sparse-ir-rs` if the sibling checkout exists
-2. pinned `sparse-ir-capi` `0.8.1` from crates.io otherwise
+1. `SPARSEIR_RUST_BACKEND_DIR` if set and pointing to an existing checkout
+2. `../sparse-ir-rs` if the sibling checkout exists
+3. pinned `sparse-ir-capi` `0.8.1` from crates.io otherwise
+
+If your Rust checkout lives in another worktree or directory, point the
+environment variable at it before rebuilding:
+
+```bash
+export SPARSEIR_RUST_BACKEND_DIR=/path/to/sparse-ir-rs
+```
 
 **Important:** `Pkg.add("SparseIR")` runs the build step automatically on first
 install, but `Pkg.develop(...)` does not. For development checkouts, run:
@@ -63,6 +71,9 @@ This build step:
 
 **Build-time environment variables:**
 
+- `SPARSEIR_RUST_BACKEND_DIR=/path/to/sparse-ir-rs`
+  Points `Pkg.build("SparseIR")` at a specific local Rust checkout. Relative
+  paths are resolved against the `SparseIR.jl` package root.
 - `SPARSEIR_BUILD_DEBUG=1`
   Keeps the temporary crates.io workspace after a successful build. Failed builds
   also keep the workspace path for inspection.
