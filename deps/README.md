@@ -7,7 +7,7 @@ Build source priority:
 
 1. use `SPARSEIR_RUST_BACKEND_DIR` when it is set and points to an existing checkout
 2. otherwise use a sibling checkout at `../sparse-ir-rs` when it exists
-3. otherwise download pinned `sparse-ir-capi` `0.8.1` from crates.io and build it in a temporary workspace
+3. otherwise download pinned `sparse-ir-capi` `0.8.3` from crates.io and build it in a temporary workspace
 
 Relative paths in `SPARSEIR_RUST_BACKEND_DIR` are resolved against the
 `SparseIR.jl` package root.

@@ -43,7 +43,7 @@ projects/
 
 1. `SPARSEIR_RUST_BACKEND_DIR` if set and pointing to an existing checkout
 2. `../sparse-ir-rs` if the sibling checkout exists
-3. pinned `sparse-ir-capi` `0.8.1` from crates.io otherwise
+3. pinned `sparse-ir-capi` `0.8.3` from crates.io otherwise
 
 If your Rust checkout lives in another worktree or directory, point the
 environment variable at it before rebuilding:
