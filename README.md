@@ -141,7 +141,7 @@ Build source priority is:
 
 1. `SPARSEIR_RUST_BACKEND_DIR` when set; relative paths are resolved against the `SparseIR.jl` package root
 2. `../sparse-ir-rs` if that sibling checkout exists
-3. pinned `sparse-ir-capi` `0.8.1` from crates.io otherwise
+3. pinned `sparse-ir-capi` `0.8.3` from crates.io otherwise
 
 If you are developing `SparseIR.jl` together with the Rust backend in another
 worktree or checkout, point `SPARSEIR_RUST_BACKEND_DIR` at that repository and
