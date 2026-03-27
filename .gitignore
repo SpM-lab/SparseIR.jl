@@ -17,7 +17,4 @@ lcov.info
 !/.typos.toml
 
 deps/build.log
-deps/build-state.toml
-deps/backend.stamp
-deps/C_API.jl
 deps/libsparse_ir_capi.*

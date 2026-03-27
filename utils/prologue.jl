@@ -1,9 +1,15 @@
-include(joinpath(@__DIR__, "../src/backend_loader.jl"))
-using .BackendLoader
+using Libdl: Libdl
+using libsparseir_jll: libsparseir_jll
 
-const _backend_stamp = BackendLoader.backend_stamp_path()
-if isfile(_backend_stamp)
-    Base.include_dependency(_backend_stamp)
+function get_libsparseir()
+    deps_dir = joinpath(dirname(@__DIR__), "deps")
+    local_libsparseir_path = joinpath(deps_dir, "libsparse_ir_capi.$(Libdl.dlext)")
+    if isfile(local_libsparseir_path)
+        @info "Using local libsparseir: $local_libsparseir_path"
+        return local_libsparseir_path
+    else
+        return libsparseir_jll.libsparseir
+    end
 end
 
-const libsparseir = BackendLoader.require_backend_library()
+const libsparseir = get_libsparseir()
