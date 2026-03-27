@@ -21,7 +21,7 @@ permissions:
   contents: read
 jobs:
   test:
-    name: CI / Julia ${{ matrix.version }} / ${{ matrix.os }} / ${{ matrix.arch }}
+    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -47,15 +47,6 @@ jobs:
             #os: windows-latest
             #arch: x64
     steps:
-      - name: Install OpenBLAS
-        run: |
-          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-            sudo apt-get update
-            sudo apt-get install -y libopenblas-dev pkg-config gzip
-          fi
-          if [ "${{ matrix.os }}" = "macOS-latest" ]; then
-            brew install openblas pkg-config
-          fi
       - uses: actions/checkout@v6
       - uses: julia-actions/setup-julia@v2
         with:
@@ -67,13 +58,9 @@ jobs:
       - uses: julia-actions/julia-processcoverage@v1
       - uses: codecov/codecov-action@v5
   docs:
-    name: CI / Documentation
+    name: Documentation
     runs-on: ubuntu-latest
     steps:
-      - name: Install OpenBLAS
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libopenblas-dev pkg-config gzip
       - uses: actions/checkout@v6
       - uses: julia-actions/setup-julia@v2
         with:
