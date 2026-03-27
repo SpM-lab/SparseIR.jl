@@ -5,12 +5,8 @@ the runtime artifacts into `deps/`.
 
 Build source priority:
 
-1. use `SPARSEIR_RUST_BACKEND_DIR` when it is set and points to an existing checkout
-2. otherwise use a sibling checkout at `../sparse-ir-rs` when it exists
-3. otherwise download pinned `sparse-ir-capi` `0.8.1` from crates.io and build it in a temporary workspace
-
-Relative paths in `SPARSEIR_RUST_BACKEND_DIR` are resolved against the
-`SparseIR.jl` package root.
+1. use a sibling checkout at `../sparse-ir-rs` when it exists
+2. otherwise download pinned `sparse-ir-capi` `0.8.1` from crates.io and build it in a temporary workspace
 
 After a successful build, the script:
 
@@ -23,8 +19,6 @@ After a successful build, the script:
 
 Build-time environment variables:
 
-- `SPARSEIR_RUST_BACKEND_DIR=/path/to/sparse-ir-rs`
-  Selects a local Rust backend checkout before the sibling default is checked.
 - `SPARSEIR_BUILD_DEBUG=1`
   Keeps the temporary crates.io workspace after a successful build. Failed builds
   always keep the workspace path recorded in `deps/build-state.toml`.

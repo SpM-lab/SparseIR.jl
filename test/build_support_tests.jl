@@ -18,8 +18,7 @@
     mktempdir() do root
         mkpath(joinpath(root, "deps"))
         @test BuildSupport.backend_stamp_path(root) == joinpath(root, "deps", "backend.stamp")
-        @test BuildSupport.generated_c_api_path(root) == joinpath(root, "deps", "C_API.jl")
-        @test BuildSupport.select_build_source(root; dev_dir=joinpath(root, "missing")).kind == :crates_io
+        @test BuildSupport.select_build_source(root; dev_dir=joinpath(root, "..", "sparse-ir-rs")).kind == :crates_io
     end
 
     mktempdir() do root
@@ -93,35 +92,6 @@
         @test plan.version == expected_version
         @test plan.keep_workdir == true
         @test plan.debuginfo == "full"
-    end
-
-    mktempdir() do root
-        write(joinpath(root, "Project.toml"), """
-        [tool.sparseir]
-        rust_backend_version = "$expected_version"
-        """)
-        backend_dir = joinpath(root, "other-sparse-ir-rs")
-        mkpath(backend_dir)
-        plan = BuildSupport.build_plan(
-            root;
-            env=Dict(BuildSupport.LOCAL_RUST_BACKEND_DIR_ENV => "other-sparse-ir-rs"),
-            dev_dir=joinpath(root, "missing"),
-        )
-        @test plan.source == :local
-        @test plan.workspace == backend_dir
-    end
-
-    mktempdir() do root
-        write(joinpath(root, "Project.toml"), """
-        [tool.sparseir]
-        rust_backend_version = "$expected_version"
-        """)
-        err = @test_throws ErrorException BuildSupport.build_plan(
-            root;
-            env=Dict(BuildSupport.LOCAL_RUST_BACKEND_DIR_ENV => joinpath(root, "missing")),
-            dev_dir=joinpath(root, "sparse-ir-rs"),
-        )
-        @test occursin("points to a missing directory", sprint(showerror, err.value))
     end
 
     @test BuildSupport.crates_io_download_url(expected_version) ==
