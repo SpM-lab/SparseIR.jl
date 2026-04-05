@@ -41,7 +41,7 @@ U = 1.2
 ρ₀(ω) = 2/π * √(1 - clamp(ω, -1, +1)^2)
 
 # Compute the IR basis coefficients for the non-interacting propagator
-ρ₀l = overlap.(basis.v, ρ₀)
+ρ₀l = overlap(basis.v, ρ₀)
 G₀l = -basis.s .* ρ₀l
 
 # Self-consistency loop: alternate between second-order expression for the
@@ -353,7 +353,7 @@ julia> U = 1.2
 julia> ρ₀(ω) = 2/π * √(1 - clamp(ω, -1, +1)^2)
 ρ₀ (generic function with 1 method)
 
-julia> ρ₀l = overlap.(basis.v, ρ₀)
+julia> ρ₀l = overlap(basis.v, ρ₀)
 20-element Vector{Float64}:
   0.601244316541724
   1.3444106938820255e-17
@@ -522,7 +522,7 @@ function main(; β=10.0, ωmax=8.0, ε=1e-6)
     ρ₀(ω) = 2 / π * √(1 - clamp(ω, -1, +1)^2)
 
     # Compute the IR basis coefficients for the non-interacting propagator
-    ρ₀l = overlap.(basis.v, ρ₀)::Vector{Float64}
+    ρ₀l = overlap(basis.v, ρ₀)::Vector{Float64}
     G₀l = -basis.s .* ρ₀l
 
     # Self-consistency loop: alternate between second-order expression for the

@@ -88,7 +88,7 @@ function main(β = 10, ωmax = 8, ε = 1e-6)
     ρ₀(ω) = 2/π * √(1 - clamp(ω, -1, +1)^2)
     
     # Compute the IR basis coefficients for the non-interacting propagator
-    ρ₀l = overlap.(basis.v, ρ₀)
+    ρ₀l = overlap(basis.v, ρ₀)
     G₀l = -basis.s .* ρ₀l
     
     # Self-consistency loop: alternate between second-order expression for the
