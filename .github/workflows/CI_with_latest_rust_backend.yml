@@ -51,7 +51,7 @@ jobs:
         run: |
           if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
             sudo apt-get update
-            sudo apt-get install -y libopenblas-dev pkg-config gzip
+            sudo apt-get install -y libopenblas-dev pkg-config
           fi
           if [ "${{ matrix.os }}" = "macOS-latest" ]; then
             brew install openblas pkg-config
@@ -73,18 +73,14 @@ jobs:
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
       - uses: julia-actions/julia-processcoverage@v1
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@v6
   docs:
-    name: Latest Rust Backend / Documentation
+    name: Documentation
     runs-on: ubuntu-latest
     concurrency:
       group: docs-deploy
       cancel-in-progress: false
     steps:
-      - name: Install OpenBLAS
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libopenblas-dev pkg-config gzip
       - uses: actions/checkout@v6
       - uses: julia-actions/setup-julia@v2
         with:
