@@ -1,12 +1,6 @@
 module SparseIR
 
-const _generated_c_api = joinpath(@__DIR__, "..", "deps", "C_API.jl")
-if isfile(_generated_c_api)
-    Base.include_dependency(_generated_c_api)
-    include(_generated_c_api) # libsparseir
-else
-    include("C_API.jl") # libsparseir fallback
-end
+include("C_API.jl") # libsparseir
 using .C_API
 
 import LinearAlgebra
@@ -29,6 +23,7 @@ function _is_column_major_contiguous(A::AbstractArray)
     strides(A) == cumprod((1, size(A)...)[1:(end - 1)])
 end
 
+import libsparseir_jll
 # From Julia, an "opaque pointer" is sufficient to represent the backend
 const SpirGemmBackend = Ptr{Cvoid}
 
