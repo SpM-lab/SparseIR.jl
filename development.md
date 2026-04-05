@@ -27,6 +27,16 @@ using Documenter
 include("docs/make.jl")
 ```
 
+If `Pkg.instantiate()` fails because a local `Manifest.toml` has fallen out of sync
+with `Project.toml`, run `Pkg.resolve()` and then retry `Pkg.instantiate()`:
+
+```julia
+using Pkg
+Pkg.activate(".")
+Pkg.resolve()
+Pkg.instantiate()
+```
+
 ### Using Local libsparseir for Development
 
 During development, you may want to use a locally built version of `libsparseir` instead of the pre-built JLL package. This allows you to test changes to the C API immediately.
@@ -241,4 +251,3 @@ Profile.print()
 3. Ensure all tests pass
 4. Build documentation
 5. Create and push a tag
-
