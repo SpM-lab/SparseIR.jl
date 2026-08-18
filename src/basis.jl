@@ -188,9 +188,11 @@ end
 ωmax(basis::FiniteTempBasis) = basis.wmax
 Λ(basis::FiniteTempBasis) = basis.beta * basis.wmax
 
-# For now, accuracy is approximated by epsilon
-# In reality, it would be computed from the singular values
-accuracy(basis::FiniteTempBasis) = basis.epsilon
+function accuracy(basis::FiniteTempBasis)
+    s_full = basis.sve_result.s
+    n = length(basis.s)
+    return length(s_full) > n ? s_full[n + 1] / first(s_full) : last(s_full) / first(s_full)
+end
 
 function (f::BasisFunction)(freq::MatsubaraFreq)
     return f(freq.n)
