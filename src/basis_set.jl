@@ -17,7 +17,7 @@ and associated sparse-sampling objects.
   - smpl_tau_b::TauSampling: Sparse sampling for tau & boson
   - smpl_wn_f::MatsubaraSampling: Sparse sampling for Matsubara frequency & fermion
   - smpl_wn_b::MatsubaraSampling: Sparse sampling for Matsubara frequency & boson
-  - sve_result::Tuple{PiecewiseLegendrePoly,Vector{Float64},PiecewiseLegendrePoly}: Results of SVE
+  - sve_result::SVEResult: Result of the singular value expansion shared by both bases
 
 # Getters
 
@@ -43,8 +43,8 @@ struct FiniteTempBasisSet
         basis_f = FiniteTempBasis{Fermionic}(β, ωmax, ε; sve_result)
         basis_b = FiniteTempBasis{Bosonic}(β, ωmax, ε; sve_result)
 
-        tau_sampling_f = TauSampling(basis_f, use_positive_taus=use_positive_taus)
-        tau_sampling_b = TauSampling(basis_b, use_positive_taus=use_positive_taus)
+        tau_sampling_f = TauSampling(basis_f; use_positive_taus=use_positive_taus)
+        tau_sampling_b = TauSampling(basis_b; use_positive_taus=use_positive_taus)
         matsubara_sampling_f = MatsubaraSampling(basis_f)
         matsubara_sampling_b = MatsubaraSampling(basis_b)
 
@@ -64,7 +64,7 @@ function Base.getproperty(bset::FiniteTempBasisSet, d::Symbol)
     elseif d === :wn_b
         return sampling_points(bset.smpl_wn_b)
     elseif d === :sve_result
-        return sve_result(bset.basis_f)
+        return getfield(bset, :basis_f).sve_result
     else
         return getfield(bset, d)
     end

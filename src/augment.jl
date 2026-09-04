@@ -10,7 +10,7 @@ See also: [`AugmentedBasis`](@ref)
 """
 abstract type AbstractAugmentation{S<:Statistics} <: Function end
 
-const AugmentationTuple{S} = Tuple{Vararg{AbstractAugmentation{S}}} where S<:Statistics
+const AugmentationTuple{S} = Tuple{Vararg{AbstractAugmentation{S}}} where {S<:Statistics}
 
 create(aug::AbstractAugmentation, ::AbstractBasis) = aug
 β(aug::AbstractAugmentation) = aug.β
@@ -49,6 +49,7 @@ See also: [`MatsubaraConst`](@ref) for vertex basis [^wallerberger2021],
 [`TauLinear`](@ref) for multi-point [^shinaoka2018]
 
 [^wallerberger2021]: https://doi.org/10.1103/PhysRevResearch.3.033168
+
 [^shinaoka2018]: https://doi.org/10.1103/PhysRevB.97.205111
 """
 struct AugmentedBasis{S<:Statistics,B<:FiniteTempBasis{S},A<:AugmentationTuple{S},F,FHAT} <:
@@ -61,16 +62,24 @@ end
 
 function TauSampling(basis::AugmentedBasis{S};
         sampling_points=default_tau_sampling_points(basis; use_positive_taus=true)) where {S}
-    matrix = eval_matrix(TauSampling, basis, sampling_points)
+    # Normalize the element type before the ccall: the C entry point reads
+    # Ptr{Cdouble} for both arguments, so both must come from Float64 arrays we
+    # own, and both must be finite (a NaN reaches a Rust-side factorization,
+    # which panics and returns an uninitialized handle).
+    points = convert(Vector{Float64}, collect(sampling_points))
+    isempty(points) && throw(ArgumentError("sampling_points must not be empty"))
+    _check_all_finite(points, "sampling_points")
+    _check_unique(points, "sampling_points")
+    matrix = convert(Matrix{Float64}, eval_matrix(TauSampling, basis, points))
+    _check_all_finite(matrix, "evaluation matrix")
     status = Ref{Int32}(-100)
-    ptr = C_API.spir_tau_sampling_new_with_matrix(
+    ptr = GC.@preserve points matrix C_API.spir_tau_sampling_new_with_matrix(
         C_API.SPIR_ORDER_COLUMN_MAJOR, _statistics_to_c(S), length(basis),
-        length(sampling_points), sampling_points, matrix, status)
-    status[] == C_API.SPIR_COMPUTATION_SUCCESS ||
-        error("Failed to create tau sampling: status=$(status[])")
-    ptr != C_NULL || error("Failed to create tau sampling: null pointer returned")
+        length(points), pointer(points), pointer(matrix), status)
+    _check_status(status[], "spir_tau_sampling_new_with_matrix")
+    _check_handle(ptr, "spir_tau_sampling_new_with_matrix")
 
-    return TauSampling{Float64,typeof(basis)}(ptr, sampling_points, basis)
+    return TauSampling{Float64,typeof(basis)}(ptr, points, basis)
 end
 
 function MatsubaraSampling(
@@ -78,29 +87,33 @@ function MatsubaraSampling(
         positive_only=false,
         sampling_points=default_matsubara_sampling_points(basis; positive_only)
 ) where {S}
-    pts = MatsubaraFreq.(sampling_points)
+    pts = MatsubaraFreq.(collect(sampling_points))
+    isempty(pts) && throw(ArgumentError("sampling_points must not be empty"))
+    # The C entry point reads Ptr{Int64}; build the Int64 index vector
+    # explicitly instead of letting a Vector{<:MatsubaraFreq} be reinterpreted.
+    indices = Int64[Int64(Int(p)) for p in pts]
+    _check_unique(indices, "sampling_points")
     matrix_raw = eval_matrix(MatsubaraSampling, basis, pts)
     # Ensure column-major contiguous memory layout
     # permutedims may create a non-contiguous view, so we create a new Matrix
     matrix = Matrix{ComplexF64}(undef, size(matrix_raw)...)
     matrix .= matrix_raw
+    _check_all_finite(matrix, "evaluation matrix")
     status = Ref{Int32}(-100)
-    # Ensure matrix is pinned in memory to prevent GC from moving it during ccall
-    GC.@preserve matrix begin
-    ptr = C_API.spir_matsu_sampling_new_with_matrix(
+    # Keep both arrays pinned for the duration of the call and take the
+    # pointers from the very objects that are preserved.
+    ptr = GC.@preserve indices matrix C_API.spir_matsu_sampling_new_with_matrix(
         C_API.SPIR_ORDER_COLUMN_MAJOR,
         _statistics_to_c(S),
         length(basis),
         positive_only,
-        length(sampling_points),
-        sampling_points,
-        matrix,
+        length(indices),
+        pointer(indices),
+        pointer(matrix),
         status
     )
-    end
-    status[] == C_API.SPIR_COMPUTATION_SUCCESS ||
-        error("Failed to create Matsubara sampling: status=$(status[])")
-    ptr != C_NULL || error("Failed to create Matsubara sampling: null pointer returned")
+    _check_status(status[], "spir_matsu_sampling_new_with_matrix")
+    _check_handle(ptr, "spir_matsu_sampling_new_with_matrix")
     return MatsubaraSampling{eltype(pts),typeof(basis)}(ptr, pts, positive_only, basis)
 end
 
@@ -139,12 +152,12 @@ function default_tau_sampling_points(basis::AugmentedBasis; use_positive_taus::B
         _get_ptr(basis.basis), length(basis), points, n_points_returned)
     status == SPIR_COMPUTATION_SUCCESS || error("Failed to get default tau sampling points")
     points = points[1:n_points_returned[]]
-    
+
     if use_positive_taus
         points = mod.(points, β(basis))
         sort!(points)
     end
-    
+
     return points
 end
 
@@ -233,12 +246,13 @@ augmentedfunction(aτ::AugmentedTauFunction) = aτ.a
 
 AugmentedTauFunction(fbasis, faug) = AugmentedTauFunction(AugmentedFunction(fbasis, faug))
 
-# Not supported yet
-#xmin(aτ::AugmentedTauFunction) = xmin(fbasis(aτ))
-#xmax(aτ::AugmentedTauFunction) = xmax(fbasis(aτ))
+xmin(aτ::AugmentedTauFunction) = xmin(fbasis(aτ))
+xmax(aτ::AugmentedTauFunction) = xmax(fbasis(aτ))
 
 function deriv(aτ::AugmentedTauFunction, n=Val(1))
-    dbasis = PiecewiseLegendrePolyVector(deriv.(fbasis(aτ), n))
+    # `fbasis(aτ)` is a single `PiecewiseLegendrePolyVector` handle, not an
+    # iterable of polynomials, so differentiate it as a whole.
+    dbasis = deriv(fbasis(aτ), n)
     daug = deriv.(faug(aτ), n)
     return AugmentedTauFunction(dbasis, daug)
 end
@@ -267,35 +281,41 @@ zeta(amat::AugmentedMatsubaraFunction) = zeta(fbasis(amat))
 Normalize τ to the range [0, β] with statistics-dependent boundary conditions.
 
 Handles boundary conditions based on statistics:
-- Fermions: Anti-periodic G(τ + β) = -G(τ)
-- Bosons: Periodic G(τ + β) = G(τ)
+
+  - Fermions: Anti-periodic G(τ + β) = -G(τ)
+  - Bosons: Periodic G(τ + β) = G(τ)
 
 # Arguments
-- `S`: Statistics type (Fermionic or Bosonic)
-- `tau`: Imaginary time in range [-β, β]
-- `beta`: Inverse temperature
+
+  - `S`: Statistics type (Fermionic or Bosonic)
+  - `tau`: Imaginary time in range [-β, β]
+  - `beta`: Inverse temperature
 
 # Returns
-- `(tau_normalized, sign)`: Normalized τ ∈ [0, β] and sign factor
+
+  - `(tau_normalized, sign)`: Normalized τ ∈ [0, β] and sign factor
 
 # Special Cases
+
 For Fermionic statistics:
-- `tau = -0.0` (negative zero) → `(tau_normalized = β, sign = -1.0)`
-- `tau ∈ [-β, 0)` → wraps to [0, β] with `sign = -1.0`
+
+  - `tau = -0.0` (negative zero) → `(tau_normalized = β, sign = -1.0)`
+  - `tau ∈ [-β, 0)` → wraps to [0, β] with `sign = -1.0`
 
 For Bosonic statistics:
-- `tau = -0.0` (negative zero) → `(tau_normalized = β, sign = 1.0)`
-- `tau ∈ [-β, 0)` → wraps to [0, β] with `sign = 1.0`
+
+  - `tau = -0.0` (negative zero) → `(tau_normalized = β, sign = 1.0)`
+  - `tau ∈ [-β, 0)` → wraps to [0, β] with `sign = 1.0`
 """
 function normalize_tau(::Type{S}, tau::Real, beta::Real) where {S<:Statistics}
     tau_f = Float64(tau)
     beta_f = Float64(beta)
-    
+
     # Check range
     if tau_f < -beta_f || tau_f > beta_f
         throw(DomainError(tau_f, "τ must be in [-β, β] = [$(-beta_f), $beta_f]"))
     end
-    
+
     # Special handling for negative zero
     if signbit(tau_f) && tau_f == 0.0
         # tau = -0.0
@@ -305,18 +325,18 @@ function normalize_tau(::Type{S}, tau::Real, beta::Real) where {S<:Statistics}
             return (beta_f, 1.0)   # Periodic: wraps to beta with sign unchanged
         end
     end
-    
+
     # If already in [0, β], return as-is with sign = 1
     if tau_f >= 0.0 && tau_f <= beta_f
         return (tau_f, 1.0)
     end
-    
+
     # tau ∈ [-β, 0): wrap to [0, β]
     tau_normalized = tau_f + beta_f
-    
+
     # Sign depends on statistics
     sign = S === Fermionic ? -1.0 : 1.0
-    
+
     return (tau_normalized, sign)
 end
 
@@ -326,7 +346,8 @@ end
 Constant function in imaginary time with statistics-dependent periodicity.
 
 # Type Parameters
-- `S`: Statistics type (Fermionic or Bosonic)
+
+  - `S`: Statistics type (Fermionic or Bosonic)
 """
 struct TauConst{S<:Statistics} <: AbstractAugmentation{S}
     β::Float64
@@ -362,7 +383,8 @@ end
 Linear function in imaginary time, antisymmetric around β/2, with statistics-dependent periodicity.
 
 # Type Parameters
-- `S`: Statistics type (Fermionic or Bosonic)
+
+  - `S`: Statistics type (Fermionic or Bosonic)
 """
 struct TauLinear{S<:Statistics} <: AbstractAugmentation{S}
     β::Float64
@@ -403,8 +425,9 @@ end
 Constant in Matsubara, undefined in imaginary time.
 
 # Type Parameters
-- `S`: Statistics type (Fermionic or Bosonic). This is required for type consistency,
-  though MatsubaraConst works identically for both statistics.
+
+  - `S`: Statistics type (Fermionic or Bosonic). This is required for type consistency,
+    though MatsubaraConst works identically for both statistics.
 """
 struct MatsubaraConst{S<:Statistics} <: AbstractAugmentation{S}
     β::Float64

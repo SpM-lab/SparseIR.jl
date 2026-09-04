@@ -12,11 +12,12 @@ mutable struct PiecewiseLegendrePoly
     xmin::Float64
     xmax::Float64
     period::Float64 # 0.0 for a non-periodic function, the period for a periodic function
-    default_overlap_range::Tuple{Float64, Float64} # Default range for overlap calculations
+    default_overlap_range::Tuple{Float64,Float64} # Default range for overlap calculations
     function PiecewiseLegendrePoly(
             funcs::Ptr{spir_funcs}, xmin::Float64, xmax::Float64, period::Float64,
-            default_overlap_range::Union{Tuple{Float64, Float64}, Nothing}=nothing)
-        default_range = default_overlap_range === nothing ? (xmin, xmax) : default_overlap_range
+            default_overlap_range::Union{Tuple{Float64,Float64},Nothing}=nothing)
+        default_range = default_overlap_range === nothing ? (xmin, xmax) :
+                        default_overlap_range
         result = new(funcs, xmin, xmax, period, default_range)
         finalizer(r -> spir_funcs_release(r.ptr), result)
         return result
@@ -35,11 +36,12 @@ mutable struct PiecewiseLegendrePolyVector
     xmin::Float64
     xmax::Float64
     period::Float64 # 0.0 for a non-periodic function, the period for a periodic function
-    default_overlap_range::Tuple{Float64, Float64} # Default range for overlap calculations
+    default_overlap_range::Tuple{Float64,Float64} # Default range for overlap calculations
     function PiecewiseLegendrePolyVector(
             funcs::Ptr{spir_funcs}, xmin::Float64, xmax::Float64, period::Float64,
-            default_overlap_range::Union{Tuple{Float64, Float64}, Nothing}=nothing)
-        default_range = default_overlap_range === nothing ? (xmin, xmax) : default_overlap_range
+            default_overlap_range::Union{Tuple{Float64,Float64},Nothing}=nothing)
+        default_range = default_overlap_range === nothing ? (xmin, xmax) :
+                        default_overlap_range
         result = new(funcs, xmin, xmax, period, default_range)
         finalizer(r -> spir_funcs_release(r.ptr), result)
         return result
@@ -153,18 +155,22 @@ function Base.getindex(funcs::Ptr{spir_funcs}, indices::Vector{Int})
 end
 
 function Base.getindex(polys::PiecewiseLegendrePolyVector, i::Int)
-    return PiecewiseLegendrePoly(polys.ptr[i], polys.xmin, polys.xmax, polys.period, polys.default_overlap_range)
+    return PiecewiseLegendrePoly(
+        polys.ptr[i], polys.xmin, polys.xmax, polys.period, polys.default_overlap_range)
 end
 
 function Base.getindex(polys::PiecewiseLegendrePolyVector,
         I)::Union{PiecewiseLegendrePoly,PiecewiseLegendrePolyVector}
     indices = collect(1:size(polys))[I]
     if indices isa Int
-        return PiecewiseLegendrePoly(polys.ptr[indices], polys.xmin, polys.xmax, polys.period, polys.default_overlap_range)
+        return PiecewiseLegendrePoly(polys.ptr[indices], polys.xmin, polys.xmax,
+            polys.period, polys.default_overlap_range)
     elseif length(indices) == 1
-        return PiecewiseLegendrePoly(polys.ptr[indices[1]], polys.xmin, polys.xmax, polys.period, polys.default_overlap_range)
+        return PiecewiseLegendrePoly(polys.ptr[indices[1]], polys.xmin, polys.xmax,
+            polys.period, polys.default_overlap_range)
     else
-        return PiecewiseLegendrePolyVector(polys.ptr[indices], polys.xmin, polys.xmax, polys.period, polys.default_overlap_range)
+        return PiecewiseLegendrePolyVector(polys.ptr[indices], polys.xmin, polys.xmax,
+            polys.period, polys.default_overlap_range)
     end
 end
 
@@ -356,37 +362,64 @@ function overlap(
         polys::PiecewiseLegendrePolyVector, f::F, xmin::Float64, xmax::Float64;
         rtol=eps(), return_error=false, maxevals=10^4, points=Float64[]
 ) where {F}
-    result_ = [overlap(polys[i], f, xmin, xmax; rtol, return_error, maxevals, points)
+    if return_error
+        # Each element is a `(value, error)` tuple; `size` is undefined for a
+        # tuple, so the two halves have to be collected and shaped separately
+        # instead of being reshaped together.
+        results = [overlap(polys[i], f, xmin, xmax;
+                       rtol, return_error=true, maxevals, points)
+                   for i in 1:size(polys)]
+        values = first.(results)
+        errors = last.(results)
+        # `quadgk` reports a single scalar error estimate per integral, so the
+        # error array is shaped independently of the value array.
+        value_shape = (size(polys), size(first(values))...)
+        error_shape = (size(polys), size(first(errors))...)
+        return reshape(vcat(values...), value_shape),
+        reshape(vcat(errors...), error_shape)
+    end
+    result_ = [overlap(polys[i], f, xmin, xmax;
+                   rtol, return_error=false, maxevals, points)
                for i in 1:size(polys)]
     result_shape = (size(polys), size(first(result_))...)
     return reshape(vcat(result_...), result_shape)
 end
 
-function xmin(poly::PiecewiseLegendrePoly)
-    return poly.xmin
+xmin(poly::PiecewiseLegendrePoly) = poly.xmin
+xmax(poly::PiecewiseLegendrePoly) = poly.xmax
+xmin(poly::PiecewiseLegendrePolyVector) = poly.xmin
+xmax(poly::PiecewiseLegendrePolyVector) = poly.xmax
+
+# NOTE: `PiecewiseLegendreFTVector` lives on the Matsubara axis and carries no
+# `xmin`/`xmax`; there used to be `xmin`/`xmax` methods for it that unavoidably
+# threw `FieldError`, and they have been removed rather than left as a trap.
+
+"""
+    deriv(poly::PiecewiseLegendrePoly, n=1)
+    deriv(polys::PiecewiseLegendrePolyVector, n=1)
+
+Return the `n`-th derivative of `poly`/`polys` as a new object of the same type,
+computed by `libsparseir`. `n` may be given as an `Integer` or as a `Val`, and
+must be non-negative; `n == 0` returns a copy.
+"""
+function deriv(poly::PiecewiseLegendrePoly, n::Integer=1)
+    return PiecewiseLegendrePoly(_funcs_deriv(poly.ptr, n), poly.xmin, poly.xmax,
+        poly.period, poly.default_overlap_range)
 end
 
-function xmax(poly::PiecewiseLegendrePoly)
-    return poly.xmax
+function deriv(polys::PiecewiseLegendrePolyVector, n::Integer=1)
+    return PiecewiseLegendrePolyVector(_funcs_deriv(polys.ptr, n), polys.xmin,
+        polys.xmax, polys.period, polys.default_overlap_range)
 end
 
-function xmin(poly::PiecewiseLegendrePolyVector)
-    return poly.xmin
-end
+deriv(poly::PiecewiseLegendrePoly, ::Val{n}) where {n} = deriv(poly, n)
+deriv(polys::PiecewiseLegendrePolyVector, ::Val{n}) where {n} = deriv(polys, n)
 
-function xmax(poly::PiecewiseLegendrePolyVector)
-    return poly.xmax
+function _funcs_deriv(ptr::Ptr{spir_funcs}, n::Integer)
+    n >= 0 || throw(DomainError(n, "derivative order must be non-negative"))
+    status = Ref{Int32}(-100)
+    out = GC.@preserve ptr C_API.spir_funcs_deriv(ptr, Cint(n), status)
+    _check_status(status[], "spir_funcs_deriv")
+    _check_handle(out, "spir_funcs_deriv")
+    return out
 end
-
-function xmin(poly::PiecewiseLegendreFTVector)
-    return poly.xmin
-end
-
-function xmax(poly::PiecewiseLegendreFTVector)
-    return poly.xmax
-end
-
-#function overlap(polys::PiecewiseLegendrePolyVector, f::F; rtol=eps(),
-#return_error=false) where {F}
-#return overlap.(polys, f; rtol, return_error)
-#end
