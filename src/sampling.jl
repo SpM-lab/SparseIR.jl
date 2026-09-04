@@ -323,15 +323,6 @@ function fit(
     output = Array{output_type,N}(undef, output_dims...)
     fit!(output, sampling, al; dim=dim)
 
-    # For MatsubaraSampling, if we want real coefficients, extract real part
-    if sampling isa MatsubaraSampling && T <: Complex && output_type <: Complex
-        # The fitted coefficients should be real for physical reasons
-        # Extract real part and return as real array
-        real_output = Array{real(output_type),N}(undef, output_dims...)
-        real_output .= real.(output)
-        return real_output
-    end
-
     return output
 end
 

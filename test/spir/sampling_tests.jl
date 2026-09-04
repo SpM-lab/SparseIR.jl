@@ -124,6 +124,30 @@
         @test Gℓ_n == Gℓ_n_inplace
     end
 
+    @testset "complex coefficients roundtrip with stat = $stat" for stat in
+                                                                    (Bosonic(), Fermionic())
+        # Regression test: the imaginary part of complex expansion coefficients
+        # (e.g. off-diagonal Green's functions) must survive fit().
+        basis = FiniteTempBasis(stat, 10.0, 10.0, 1e-8)
+        Random.seed!(42)
+        gl = randn(length(basis)) + im * randn(length(basis))
+
+        τ_smpl = TauSampling(basis)
+        gtau = evaluate(τ_smpl, gl)
+        @test eltype(gtau) == ComplexF64
+        gl_tau = fit(τ_smpl, gtau)
+        @test eltype(gl_tau) == ComplexF64
+        @test gl_tau ≈ gl
+        @test imag(gl_tau) ≈ imag(gl)
+
+        iw_smpl = MatsubaraSampling(basis)
+        giw = evaluate(iw_smpl, gl)
+        gl_iw = fit(iw_smpl, giw)
+        @test eltype(gl_iw) == ComplexF64
+        @test gl_iw ≈ gl
+        @test imag(gl_iw) ≈ imag(gl)
+    end
+
     #==
     @testset "errors with stat = $stat, $sampling" for stat in (Bosonic(), Fermionic()),
         sampling in (TauSampling,
