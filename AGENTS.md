@@ -1,7 +1,7 @@
 # AGENTS.md
 
-SparseIR.jl is a Julia wrapper over the [libsparseir](https://github.com/SpM-lab/libsparseir)
-C API, accessed via `ccall`. It exposes the sparse intermediate representation
+SparseIR.jl is a Julia wrapper over the `libsparseir` C API built from
+[sparse-ir-rs](https://github.com/SpM-lab/sparse-ir-rs), accessed via `ccall`. It exposes the sparse intermediate representation
 (IR) of many-body Green's functions: IR basis construction, sparse sampling in
 imaginary time and Matsubara frequency, and the discrete Lehmann
 representation (DLR).
