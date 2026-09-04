@@ -60,27 +60,42 @@ the default tau sampling points from the basis are used.
 If `use_positive_taus=true`, the sampling points are folded to the positive tau domain [0, β) [default].
 
 If `use_positive_taus=false`, the sampling points are in the range [-β/2, β/2].
+
+`sampling_points`, when given, may be any real-valued `AbstractVector`
+(including `Vector{Int}` and `Vector{Float32}`); it is converted to
+`Vector{Float64}` — the element type the C API reads — before the pointer is
+taken, so a narrower element type is never reinterpreted as `Float64`. The
+points must be non-empty, finite, pairwise distinct and inside `[-β, β]`;
+otherwise an `ArgumentError` (or `DomainError` for the range) is thrown before
+any call into `libsparseir`.
 """
 function TauSampling(basis::AbstractBasis; sampling_points=nothing, use_positive_taus=true)
     if sampling_points === nothing
         sampling_points = default_tau_sampling_points(basis; use_positive_taus=use_positive_taus)
     end
+    sampling_points isa AbstractVector{<:Real} || throw(ArgumentError(
+        "sampling_points must be a real-valued vector, got $(typeof(sampling_points))"))
+
+    # Validate and normalize BEFORE any ccall: the C entry point reads a
+    # Ptr{Cdouble}, so the pointer must come from a Vector{Float64} we own.
+    points = convert(Vector{Float64}, sampling_points)
+    isempty(points) && throw(ArgumentError("sampling_points must not be empty"))
+    _check_all_finite(points, "sampling_points")
+    _check_unique(points, "sampling_points")
+    βb = β(basis)
+    for (i, τ) in enumerate(points)
+        -βb ≤ τ ≤ βb || throw(DomainError(τ,
+            "sampling_points[$i] must lie in [-β, β] = [$(-βb), $βb]"))
+    end
 
     # Create sampling object with C_API
     status = Ref{Int32}(-100)
-    if !_is_column_major_contiguous(sampling_points)
-        error("Sampling points must be contiguous")
-    end
-    if length(sampling_points) == 0
-        error("Sampling points cannot be empty")
-    end
-    ptr = C_API.spir_tau_sampling_new(
-        _get_ptr(basis), length(sampling_points), sampling_points, status)
-    status[] == C_API.SPIR_COMPUTATION_SUCCESS ||
-        error("Failed to create tau sampling: status=$(status[])")
-    ptr != C_API.C_NULL || error("Failed to create tau sampling: null pointer returned")
+    ptr = GC.@preserve points C_API.spir_tau_sampling_new(
+        _get_ptr(basis), length(points), pointer(points), status)
+    _check_status(status[], "spir_tau_sampling_new")
+    _check_handle(ptr, "spir_tau_sampling_new")
 
-    return TauSampling{Float64,typeof(basis)}(ptr, sampling_points, basis)
+    return TauSampling{Float64,typeof(basis)}(ptr, points, basis)
 end
 
 """
@@ -89,7 +104,16 @@ end
 Construct a `MatsubaraSampling` object from a basis. If `sampling_points` is not provided,
 the default Matsubara sampling points from the basis are used.
 
-If `positive_only=true`, assumes functions are symmetric in Matsubara frequency.
+`positive_only = true` asserts that the caller's data satisfies the symmetry
+`g(-iω) = conj(g(iω))`, i.e. that the underlying quantity is real in imaginary
+time; the sampling object then holds only the non-negative frequencies. It is a
+statement about the data, not a display option, and its default is `false` (the
+general case). The assertion is **not** checked and cannot be checked from the
+sampled values alone — see the warning in [`fit`](@ref) — so data violating it
+is fitted to silently meaningless coefficients.
+
+The sampling points must be non-empty and pairwise distinct; otherwise an
+`ArgumentError` is thrown before any call into `libsparseir`.
 """
 function MatsubaraSampling(
         basis::AbstractBasis; positive_only=false, sampling_points=nothing)
@@ -100,14 +124,12 @@ function MatsubaraSampling(
         basis_ptr = _get_ptr(basis)
         ret = C_API.spir_basis_get_n_default_matsus(
             basis_ptr, positive_only, n_points)
-        ret == C_API.SPIR_COMPUTATION_SUCCESS ||
-            error("Failed to get number of default Matsubara points")
+        _check_status(ret, "spir_basis_get_n_default_matsus")
 
         points_array = Vector{Int64}(undef, n_points[])
         ret = C_API.spir_basis_get_default_matsus(
             basis_ptr, positive_only, points_array)
-        ret == C_API.SPIR_COMPUTATION_SUCCESS ||
-            error("Failed to get default Matsubara points")
+        _check_status(ret, "spir_basis_get_default_matsus")
 
         # Convert to MatsubaraFreq objects based on statistics
         if statistics(basis) isa Fermionic
@@ -126,20 +148,19 @@ function MatsubaraSampling(
         end
     end
 
-    # Extract indices for C API
-    indices = [Int64(Int(p)) for p in sampling_points]
+    # Extract indices for the C API; the entry point reads a Ptr{Int64}, so the
+    # pointer is taken from this Vector{Int64}.
+    indices = Int64[Int64(Int(p)) for p in sampling_points]
 
-    # Safety checks
-    if length(indices) == 0
-        error("Sampling points cannot be empty")
-    end
+    # Safety checks, all before the ccall
+    isempty(indices) && throw(ArgumentError("sampling_points must not be empty"))
+    _check_unique(indices, "sampling_points")
 
     status = Ref{Int32}(-100)
-    ptr = C_API.spir_matsu_sampling_new(
-        _get_ptr(basis), positive_only, length(indices), indices, status)
-    status[] == C_API.SPIR_COMPUTATION_SUCCESS ||
-        error("Failed to create Matsubara sampling: status=$(status[])")
-    ptr != C_NULL || error("Failed to create Matsubara sampling: null pointer returned")
+    ptr = GC.@preserve indices C_API.spir_matsu_sampling_new(
+        _get_ptr(basis), positive_only, length(indices), pointer(indices), status)
+    _check_status(status[], "spir_matsu_sampling_new")
+    _check_handle(ptr, "spir_matsu_sampling_new")
 
     return MatsubaraSampling{eltype(sampling_points),typeof(basis)}(
         ptr, sampling_points, positive_only, basis)
@@ -164,8 +185,7 @@ Get the number of sampling points.
 function npoints(sampling::Union{TauSampling,MatsubaraSampling})
     n_points = Ref{Int32}(-1)
     ret = C_API.spir_sampling_get_npoints(sampling.ptr, n_points)
-    ret == C_API.SPIR_COMPUTATION_SUCCESS ||
-        error("Failed to get number of sampling points")
+    _check_status(ret, "spir_sampling_get_npoints")
     return Int(n_points[])
 end
 
@@ -183,7 +203,7 @@ function evaluate(
             T,N}; dim=1) where {T,N}
     # Determine output dimensions
     if dim < 1 || dim > N
-        error("dim $(dim) is invalid!")
+        throw(ArgumentError("dim $(dim) is invalid: must be in 1:$N"))
     end
     output_dims = collect(size(al))
     output_dims[dim] = npoints(sampling)
@@ -213,7 +233,7 @@ function evaluate!(
             Tin,N}; dim=1) where {Tout,Tin,N}
     # Check dimensions
     if dim < 1 || dim > N
-        error("dim $(dim) is invalid!")
+        throw(ArgumentError("dim $(dim) is invalid: must be in 1:$N"))
     end
     expected_dims = collect(size(al))
     expected_dims[dim] = npoints(sampling)
@@ -227,10 +247,10 @@ function evaluate!(
     order = C_API.SPIR_ORDER_COLUMN_MAJOR
 
     if !_is_column_major_contiguous(al)
-        error("Input array must be contiguous")
+        throw(ArgumentError("Input array must be contiguous"))
     end
     if !_is_column_major_contiguous(output)
-        error("Output array must be contiguous")
+        throw(ArgumentError("Output array must be contiguous"))
     end
 
     # Call appropriate C function based on input/output types
@@ -238,24 +258,27 @@ function evaluate!(
     if Tin == Float64 && Tout == Float64
         ret = C_API.spir_sampling_eval_dd(
             sampling.ptr, backend, order, ndim, input_dims, target_dim, al, output)
+        op = "spir_sampling_eval_dd"
     elseif Tin == ComplexF64 && Tout == ComplexF64
         ret = C_API.spir_sampling_eval_zz(
             sampling.ptr, backend, order, ndim, input_dims, target_dim, al, output)
+        op = "spir_sampling_eval_zz"
     else
-        error("Type combination not yet supported for TauSampling: input=$Tin, output=$Tout")
+        throw(ArgumentError("Type combination not supported for TauSampling evaluate!: input=$Tin, output=$Tout"))
     end
 
-    ret in [
-        C_API.SPIR_INPUT_DIMENSION_MISMATCH,
-        C_API.SPIR_OUTPUT_DIMENSION_MISMATCH,
-        C_API.SPIR_INVALID_DIMENSION
-    ] && throw(DimensionMismatch("Failed to evaluate sampling: status=$ret"))
+    # Handle by success: every status other than SPIR_COMPUTATION_SUCCESS is an
+    # error, including codes this wrapper does not enumerate.
+    _check_status(ret, op)
     return output
 end
 
 function evaluate!(output::Array{Tout,N}, sampling::MatsubaraSampling,
         al::Array{Tin,N}; dim=1) where {Tout,Tin,N}
     # Check dimensions
+    if dim < 1 || dim > N
+        throw(ArgumentError("dim $(dim) is invalid: must be in 1:$N"))
+    end
     expected_dims = collect(size(al))
     expected_dims[dim] = npoints(sampling)
     size(output) == tuple(expected_dims...) ||
@@ -268,10 +291,10 @@ function evaluate!(output::Array{Tout,N}, sampling::MatsubaraSampling,
     order = C_API.SPIR_ORDER_COLUMN_MAJOR
 
     if !_is_column_major_contiguous(al)
-        error("Input array must be contiguous")
+        throw(ArgumentError("Input array must be contiguous"))
     end
     if !_is_column_major_contiguous(output)
-        error("Output array must be contiguous")
+        throw(ArgumentError("Output array must be contiguous"))
     end
 
     # Call appropriate C function based on input/output types
@@ -279,18 +302,16 @@ function evaluate!(output::Array{Tout,N}, sampling::MatsubaraSampling,
     if Tin == Float64 && Tout == ComplexF64
         ret = C_API.spir_sampling_eval_dz(
             sampling.ptr, backend, order, ndim, input_dims, target_dim, al, output)
+        op = "spir_sampling_eval_dz"
     elseif Tin == ComplexF64 && Tout == ComplexF64
         ret = C_API.spir_sampling_eval_zz(
             sampling.ptr, backend, order, ndim, input_dims, target_dim, al, output)
+        op = "spir_sampling_eval_zz"
     else
-        error("Type combination not supported for MatsubaraSampling: input=$Tin, output=$Tout")
+        throw(ArgumentError("Type combination not supported for MatsubaraSampling evaluate!: input=$Tin, output=$Tout"))
     end
 
-    ret in [
-        C_API.SPIR_INPUT_DIMENSION_MISMATCH,
-        C_API.SPIR_OUTPUT_DIMENSION_MISMATCH,
-        C_API.SPIR_INVALID_DIMENSION
-    ] && throw(DimensionMismatch("Failed to evaluate sampling: status=$ret"))
+    _check_status(ret, op)
     return output
 end
 
@@ -300,12 +321,44 @@ end
 Fit basis coefficients from values at sampling points using the C API.
 
 For multidimensional arrays, `dim` specifies which dimension corresponds to the sampling points.
+
+# Element type of the result
+
+  - `TauSampling`: the element type of `al` (`Float64` in → `Float64` out,
+    `ComplexF64` in → `ComplexF64` out).
+  - `MatsubaraSampling`: always `ComplexF64`, because the IR expansion
+    coefficients of a general Green's function are complex. The imaginary part
+    is never projected away.
+
+Only `Float64` and `ComplexF64` input are supported; anything else throws
+`ArgumentError`.
+
+# `positive_only`
+
+When `sampling` was built with `positive_only = true`, the caller asserts the
+symmetry `g(-iω) = conj(g(iω))` — equivalently, that the underlying quantity is
+real in imaginary time, so that its IR coefficients are real. Only the
+non-negative frequencies are then sampled, and each complex sampling point
+contributes two real equations, so the fit solves an exactly determined *real*
+system and always returns coefficients whose imaginary part is exactly zero.
+
+!!! warning "`positive_only = true` is an unchecked contract"
+
+    Because the default point set makes the real system exactly determined, data
+    that violates `g(-iω) = conj(g(iω))` is fitted with a vanishing residual and
+    produces silently meaningless coefficients: the violation cannot be detected
+    from the sampled values alone, and neither this wrapper nor `libsparseir`
+    raises. Use `positive_only = true` only for a quantity you know to be real
+    in imaginary time; otherwise use the default `positive_only = false`.
 """
 function fit(
         sampling::Union{TauSampling,MatsubaraSampling}, al::Array{T,N}; dim=1) where {
         T,N}
     if !(T ∈ [Float64, ComplexF64])
-        error("Type combination not supported for fit: input=$T")
+        throw(ArgumentError("Type not supported for fit: input=$T (expected Float64 or ComplexF64)"))
+    end
+    if dim < 1 || dim > N
+        throw(ArgumentError("dim $(dim) is invalid: must be in 1:$N"))
     end
     # Determine output dimensions
     output_dims = collect(size(al))
@@ -336,13 +389,13 @@ function fit!(
             Tin,N}; dim=1) where {Tout,Tin,N}
     # Check dimensions
     if dim < 1 || dim > N
-        error("dim $(dim) is invalid!")
+        throw(ArgumentError("dim $(dim) is invalid: must be in 1:$N"))
     end
     if !(Tin ∈ [Float64, ComplexF64])
-        error("Type combination not supported for TauSampling fit: input=$Tin")
+        throw(ArgumentError("Type not supported for TauSampling fit: input=$Tin"))
     end
     if !(Tout ∈ [Float64, ComplexF64])
-        error("Type combination not supported for TauSampling fit: output=$Tout")
+        throw(ArgumentError("Type not supported for TauSampling fit: output=$Tout"))
     end
     expected_dims = collect(size(al))
     expected_dims[dim] = length(sampling.basis)
@@ -356,28 +409,26 @@ function fit!(
     order = C_API.SPIR_ORDER_COLUMN_MAJOR
 
     if !_is_column_major_contiguous(al)
-        error("Input array must be contiguous")
+        throw(ArgumentError("Input array must be contiguous"))
     end
     if !_is_column_major_contiguous(output)
-        error("Output array must be contiguous")
+        throw(ArgumentError("Output array must be contiguous"))
     end
     backend = _spir_default_backend[]
     # Call appropriate C function
     if Tin == Float64 && Tout == Float64
         ret = C_API.spir_sampling_fit_dd(
             sampling.ptr, backend, order, ndim, input_dims, target_dim, al, output)
+        op = "spir_sampling_fit_dd"
     elseif Tin == ComplexF64 && Tout == ComplexF64
         ret = C_API.spir_sampling_fit_zz(
             sampling.ptr, backend, order, ndim, input_dims, target_dim, al, output)
+        op = "spir_sampling_fit_zz"
     else
-        ArgumentError("Type combination not yet supported for TauSampling fit: input=$Tin, output=$Tout")
+        throw(ArgumentError("Type combination not supported for TauSampling fit!: input=$Tin, output=$Tout"))
     end
 
-    ret in [
-        C_API.SPIR_INPUT_DIMENSION_MISMATCH,
-        C_API.SPIR_OUTPUT_DIMENSION_MISMATCH,
-        C_API.SPIR_INVALID_DIMENSION
-    ] && throw(DimensionMismatch("Failed to fit sampling: status=$ret"))
+    _check_status(ret, op)
     return output
 end
 
@@ -385,6 +436,9 @@ function fit!(
         output::Array{Tout,N}, sampling::MatsubaraSampling, al::Array{
             Tin,N}; dim=1) where {Tout,Tin,N}
     # Check dimensions
+    if dim < 1 || dim > N
+        throw(ArgumentError("dim $(dim) is invalid: must be in 1:$N"))
+    end
     expected_dims = collect(size(al))
     expected_dims[dim] = length(sampling.basis)
     size(output) == tuple(expected_dims...) ||
@@ -397,10 +451,10 @@ function fit!(
     order = C_API.SPIR_ORDER_COLUMN_MAJOR
 
     if !_is_column_major_contiguous(al)
-        error("Input array must be contiguous")
+        throw(ArgumentError("Input array must be contiguous"))
     end
     if !_is_column_major_contiguous(output)
-        error("Output array must be contiguous")
+        throw(ArgumentError("Output array must be contiguous"))
     end
 
     # Call appropriate C function based on input/output types
@@ -408,26 +462,38 @@ function fit!(
     if Tin == ComplexF64 && Tout == ComplexF64
         ret = C_API.spir_sampling_fit_zz(
             sampling.ptr, backend, order, ndim, input_dims, target_dim, al, output)
+        _check_status(ret, "spir_sampling_fit_zz")
+        return output
     elseif Tin == ComplexF64 && Tout == Float64
-        # Create temporary complex output, then extract real part
-        # TODO: Optimize for positive_only = True
+        # Real output was explicitly requested. Fit in full complex arithmetic,
+        # then report — rather than silently discard — a non-negligible
+        # imaginary part, which means the coefficients are genuinely complex.
         temp_output = Array{ComplexF64,N}(undef, size(output)...)
         ret = C_API.spir_sampling_fit_zz(
             sampling.ptr, backend, order, ndim, input_dims, target_dim, al, temp_output)
-        ret == C_API.SPIR_COMPUTATION_SUCCESS ||
-            error("Failed to fit sampling: status=$ret")
+        _check_status(ret, "spir_sampling_fit_zz")
+        max_imag = isempty(temp_output) ? 0.0 : maximum(abs ∘ imag, temp_output)
+        scale = isempty(temp_output) ? 0.0 : maximum(abs ∘ real, temp_output)
+        tol = _imag_tolerance(sampling)
+        if max_imag > tol * max(scale, one(scale))
+            throw(ArgumentError("real output requested, but the fitted coefficients are \
+                                 genuinely complex (max |imag| = $max_imag, max |real| = \
+                                 $scale, tolerance = $(tol * max(scale, one(scale)))). \
+                                 Fit into a ComplexF64 array instead."))
+        end
         output .= real.(temp_output)
         return output
     else
-        error("Type combination not supported for MatsubaraSampling fit: input=$Tin, output=$Tout")
+        throw(ArgumentError("Type combination not supported for MatsubaraSampling fit!: input=$Tin, output=$Tout"))
     end
+end
 
-    ret in [
-        C_API.SPIR_INPUT_DIMENSION_MISMATCH,
-        C_API.SPIR_OUTPUT_DIMENSION_MISMATCH,
-        C_API.SPIR_INVALID_DIMENSION
-    ] && throw(DimensionMismatch("Failed to fit sampling: status=$ret"))
-    return output
+# Coefficients are compared against the accuracy the basis was built for, not
+# against machine epsilon: a basis with target accuracy `eps` only resolves
+# quantities down to `eps`.
+function _imag_tolerance(sampling::MatsubaraSampling)
+    acc = accuracy(sampling.basis)
+    return max(isfinite(acc) ? 10 * acc : 1e-8, 1e-12)
 end
 
 # Convenience property accessors (similar to SparseIR.jl)

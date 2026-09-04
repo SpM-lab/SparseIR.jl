@@ -31,7 +31,9 @@ the variables.
     Note that we expect reduced frequencies, which are simply even/odd
     numbers for bosonic/fermionic objects. To obtain a single basis
     function, a slice or a subset `l`, you can use `uhat[l]`.
+
   - `s`: Vector of singular values of the continuation kernel
+
   - `v::PiecewiseLegendrePolyVector`:
     Set of IR basis functions on the real frequency (`w`) axis.
     These functions are stored as piecewise Legendre polynomials.
@@ -142,38 +144,39 @@ end
 function default_tau_sampling_points(basis::FiniteTempBasis; use_positive_taus::Bool=true)
     n_points = Ref{Int32}(-1)
     ret = spir_basis_get_n_default_taus(basis.ptr, n_points)
-    ret == SPIR_COMPUTATION_SUCCESS || error("Failed to get number of default tau points")
+    _check_status(ret, "spir_basis_get_n_default_taus")
     points_array = Vector{Float64}(undef, n_points[])
     ret = spir_basis_get_default_taus(basis.ptr, points_array)
-    ret == SPIR_COMPUTATION_SUCCESS || error("Failed to get default tau points")
-    
+    _check_status(ret, "spir_basis_get_default_taus")
+
     if use_positive_taus
         points_array = mod.(points_array, β(basis))
         sort!(points_array)
     end
-    
+
     return points_array
 end
 
 function default_matsubara_sampling_points(basis::FiniteTempBasis; positive_only=false)
     n_points = Ref{Int32}(0)
     ret = spir_basis_get_n_default_matsus(basis.ptr, positive_only, n_points)
-    ret == SPIR_COMPUTATION_SUCCESS ||
-        error("Failed to get number of default matsubara points")
-    n_points[] > 0 || error("No default matsubara points found")
+    _check_status(ret, "spir_basis_get_n_default_matsus")
+    n_points[] > 0 ||
+        throw(SparseIRError("spir_basis_get_n_default_matsus returned no default points"))
 
     points_array = Vector{Int64}(undef, n_points[])
     ret = spir_basis_get_default_matsus(basis.ptr, positive_only, points_array)
-    ret == SPIR_COMPUTATION_SUCCESS || error("Failed to get default matsubara points")
+    _check_status(ret, "spir_basis_get_default_matsus")
     return points_array
 end
 
 function default_omega_sampling_points(basis::FiniteTempBasis)
     n_points = Ref{Int32}(-1)
     ret = spir_basis_get_n_default_ws(basis.ptr, n_points)
-    ret == SPIR_COMPUTATION_SUCCESS || error("Failed to get number of default omega points")
+    _check_status(ret, "spir_basis_get_n_default_ws")
     points_array = Vector{Float64}(undef, n_points[])
     ret = spir_basis_get_default_ws(basis.ptr, points_array)
+    _check_status(ret, "spir_basis_get_default_ws")
     return points_array
 end
 
@@ -217,10 +220,12 @@ which implies a different UV cutoff ``ωmax`` since ``Λ`` stays constant.
 A new `FiniteTempBasis` with the same statistics type and accuracy but different temperature.
 """
 function rescale(basis::FiniteTempBasis{S}, new_beta::Real) where {S}
-    # Rescale basis to new temperature
-    new_lambda = Λ(basis) * new_beta / β(basis)
-    kernel = LogisticKernel(new_lambda)
-    return FiniteTempBasis{S}(kernel, new_beta, ωmax(basis), accuracy(basis))
+    new_beta > 0 || throw(DomainError(new_beta, "new_beta must be positive"))
+    # Λ = β * ωmax is held fixed, so the kernel — and hence the SVE result —
+    # can be reused unchanged and only ωmax moves.
+    new_wmax = Λ(basis) / new_beta
+    return FiniteTempBasis{S}(basis.kernel, basis.sve_result, Float64(new_beta),
+        new_wmax, basis.epsilon, length(basis))
 end
 
 # Additional utility functions
