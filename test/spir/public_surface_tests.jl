@@ -105,6 +105,16 @@ end
         ("DiscreteLehmannRepresentation.uhat", dlr.uhat,
             FermionicFreq(3), false, :matsubara)]
 
+    # The documented accessors return the fields.
+    @testset "accessors" begin
+        @test SparseIR.s(bf) == bf.s
+        @test SparseIR.v(bf) === bf.v
+        for b in (bf, aug, dlr)
+            @test SparseIR.u(b) === b.u
+            @test SparseIR.uhat(b) === b.uhat
+        end
+    end
+
     @testset "$label" for (label, fs, x, has_deriv, kind) in sets
         values = fs(x)
         n = length(fs)

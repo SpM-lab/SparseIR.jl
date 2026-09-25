@@ -109,6 +109,9 @@ function DiscreteLehmannRepresentation(basis::AbstractBasis, poles...)
                          got $(nameof(typeof(basis)))"))
 end
 
+u(dlr::DiscreteLehmannRepresentation) = dlr.u
+uhat(dlr::DiscreteLehmannRepresentation) = dlr.uhat
+
 """
     from_IR(dlr::DiscreteLehmannRepresentation, gl::AbstractArray, dims=1)
 

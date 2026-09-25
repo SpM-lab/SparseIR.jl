@@ -284,6 +284,11 @@ end
 # Additional utility functions
 significance(basis::FiniteTempBasis) = basis.s ./ first(basis.s)
 
+s(basis::FiniteTempBasis) = basis.s
+u(basis::FiniteTempBasis) = basis.u
+v(basis::FiniteTempBasis) = basis.v
+uhat(basis::FiniteTempBasis) = basis.uhat
+
 function range_to_length(range::AbstractRange)
     isone(first(range)) ||
         throw(ArgumentError("basis truncation must start at 1, got the range $range"))

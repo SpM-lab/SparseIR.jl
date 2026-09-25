@@ -133,6 +133,8 @@ function AugmentedBasis(basis::AbstractBasis, augmentations...)
 end
 
 naug(basis::AugmentedBasis) = length(basis.augmentations)
+u(basis::AugmentedBasis) = basis.u
+uhat(basis::AugmentedBasis) = basis.uhat
 
 function Base.getindex(basis::AugmentedBasis, index::AbstractRange)
     stop = range_to_length(index)
