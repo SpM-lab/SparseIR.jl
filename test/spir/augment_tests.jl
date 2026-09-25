@@ -163,13 +163,12 @@
                 @test tc_b(-0.0) == 1 / sqrt(β)  # Negative zero, periodic
             end
 
-            # Test anti-periodicity for Fermionic
-            @testset "Fermionic anti-periodicity" begin
-                tc_f = TauConst{Fermionic}(β)
-                @test tc_f(β / 2) == 1 / sqrt(β)
-                @test tc_f(-β / 2) == -1 / sqrt(β)  # Anti-periodic
-                @test tc_f(0.0) == 1 / sqrt(β)
-                @test tc_f(-0.0) == -1 / sqrt(β)  # Negative zero, anti-periodic
+            # TauConst is defined for bosons only.
+            @testset "rejects fermions" begin
+                @test_throws ArgumentError TauConst{Fermionic}(β)
+                bf = FiniteTempBasis(Fermionic(), β, 1.0, 1e-6)
+                @test_throws ArgumentError AugmentedBasis(bf, TauConst)
+                @test_throws ArgumentError AugmentedBasis(bf, TauConst{Fermionic})
             end
         end
 
@@ -197,14 +196,12 @@
                 @test val_neg ≈ val_wrapped
             end
 
-            # Test anti-periodicity for Fermionic
-            @testset "Fermionic anti-periodicity" begin
-                tl_f = TauLinear{Fermionic}(β)
-                val_pos = tl_f(β / 4)
-                val_neg = tl_f(-β / 4)
-                # Anti-periodic: tl(τ + β) = -tl(τ), so tl(-β/4) wraps to -tl(3β/4)
-                val_wrapped = tl_f(3 * β / 4)
-                @test val_neg ≈ -val_wrapped
+            # TauLinear is defined for bosons only.
+            @testset "rejects fermions" begin
+                @test_throws ArgumentError TauLinear{Fermionic}(β)
+                bf = FiniteTempBasis(Fermionic(), β, 1.0, 1e-6)
+                @test_throws ArgumentError AugmentedBasis(bf, TauLinear)
+                @test_throws ArgumentError AugmentedBasis(bf, TauLinear{Fermionic})
             end
         end
 

@@ -385,17 +385,17 @@ function normalize_tau(::Type{S}, tau::Real, beta::Real) where {S<:Statistics}
 end
 
 """
-    TauConst{S} <: AbstractAugmentation{S}
+    TauConst{Bosonic} <: AbstractAugmentation{Bosonic}
 
-Constant function in imaginary time with statistics-dependent periodicity.
+Constant function in imaginary time, `1/√β` on `[0, β]` and periodic, whose
+Matsubara transform is `√β` at `ν = 0` and zero at every other frequency.
 
-# Type Parameters
-
-  - `S`: Statistics type (Fermionic or Bosonic)
+Defined for bosons only: `TauConst{Fermionic}` throws `ArgumentError`.
 """
 struct TauConst{S<:Statistics} <: AbstractAugmentation{S}
     β::Float64
     function TauConst{S}(β) where {S<:Statistics}
+        S === Bosonic || throw(ArgumentError("TauConst is defined for bosons only, got $S"))
         β > 0 || throw(DomainError(β, "Temperature must be positive."))
         return new{S}(β)
     end
@@ -404,7 +404,8 @@ end
 # Backward compatibility: TauConst(β) defaults to Bosonic
 TauConst(β) = TauConst{Bosonic}(β)
 
-create(::Type{TauConst}, basis::AbstractBasis{Bosonic}) = TauConst{Bosonic}(β(basis))
+# The statistics of the basis; the constructor rejects fermions.
+create(::Type{TauConst}, basis::AbstractBasis{S}) where {S} = TauConst{S}(β(basis))
 function create(::Type{TauConst{S}}, basis::AbstractBasis{S}) where {S<:Statistics}
     TauConst{S}(β(basis))
 end
@@ -424,18 +425,20 @@ function deriv(aug::TauConst, (::Val{n})=Val(1)) where {n}
 end
 
 """
-    TauLinear{S} <: AbstractAugmentation{S}
+    TauLinear{Bosonic} <: AbstractAugmentation{Bosonic}
 
-Linear function in imaginary time, antisymmetric around β/2, with statistics-dependent periodicity.
+Linear function in imaginary time, `√(3/β) (2τ/β - 1)` on `[0, β]`, antisymmetric
+around `β/2` and periodic, whose Matsubara transform is `2√(3/β)/(iν)` and zero
+at `ν = 0`.
 
-# Type Parameters
-
-  - `S`: Statistics type (Fermionic or Bosonic)
+Defined for bosons only: `TauLinear{Fermionic}` throws `ArgumentError`.
 """
 struct TauLinear{S<:Statistics} <: AbstractAugmentation{S}
     β::Float64
     norm::Float64
     function TauLinear{S}(β) where {S<:Statistics}
+        S === Bosonic ||
+            throw(ArgumentError("TauLinear is defined for bosons only, got $S"))
         β > 0 || throw(DomainError(β, "Temperature must be positive."))
         norm = sqrt(3 / β)
         return new{S}(β, norm)
@@ -445,7 +448,8 @@ end
 # Backward compatibility: TauLinear(β) defaults to Bosonic
 TauLinear(β) = TauLinear{Bosonic}(β)
 
-create(::Type{TauLinear}, basis::AbstractBasis{Bosonic}) = TauLinear{Bosonic}(β(basis))
+# The statistics of the basis; the constructor rejects fermions.
+create(::Type{TauLinear}, basis::AbstractBasis{S}) where {S} = TauLinear{S}(β(basis))
 function create(::Type{TauLinear{S}}, basis::AbstractBasis{S}) where {S<:Statistics}
     TauLinear{S}(β(basis))
 end
