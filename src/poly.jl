@@ -54,7 +54,7 @@ function Base.size(ptr::Ptr{spir_funcs})
     return Int(sz[])
 end
 
-Base.size(polys::PiecewiseLegendrePolyVector) = size(polys.ptr)
+Base.size(polys::PiecewiseLegendrePolyVector) = (length(polys),)
 
 """
     PiecewiseLegendreFTVector
@@ -140,8 +140,9 @@ end
 
 `length(polys) × length(x)` matrix of the functions at the points `x`.
 """
-function (polys::PiecewiseLegendrePolyVector)(x::AbstractVector{<:Real})
+function (polys::PiecewiseLegendrePolyVector)(x::AbstractVector)
     for xi in x
+        xi isa Real || throw(ArgumentError("evaluation points must be real, got $xi"))
         _check_domain(xi, polys.xmin, polys.xmax)
     end
     result = Matrix{Float64}(undef, length(polys), length(x))
@@ -156,8 +157,9 @@ end
 
 Values of the single function `poly` at the points `x`.
 """
-function (poly::PiecewiseLegendrePoly)(x::AbstractVector{<:Real})
+function (poly::PiecewiseLegendrePoly)(x::AbstractVector)
     for xi in x
+        xi isa Real || throw(ArgumentError("evaluation points must be real, got $xi"))
         _check_domain(xi, poly.xmin, poly.xmax)
     end
     return Float64[poly(xi) for xi in x]
@@ -182,7 +184,7 @@ function (poly::PiecewiseLegendreFT)(x::AbstractVector)
     return ComplexF64[poly(n) for n in ns]
 end
 
-Base.size(polys::PiecewiseLegendreFTVector) = size(polys.ptr)
+Base.size(polys::PiecewiseLegendreFTVector) = (length(polys),)
 Base.length(polys::PiecewiseLegendreFTVector) = length(polys.ptr)
 Base.firstindex(::PiecewiseLegendreFTVector) = 1
 Base.lastindex(polys::PiecewiseLegendreFTVector) = length(polys)
@@ -226,6 +228,9 @@ function Base.getindex(funcs::Ptr{spir_funcs}, i::Int)
 end
 
 function Base.getindex(funcs::Ptr{spir_funcs}, indices::Vector{Int})
+    # The C library panics on an empty selection (SpM-lab/sparse-ir-rs#269).
+    isempty(indices) &&
+        throw(ArgumentError("an empty selection of basis functions is not supported"))
     n = length(funcs)
     for i in indices
         1 ≤ i ≤ n || throw(BoundsError(1:n, i))
@@ -246,7 +251,7 @@ end
 
 function Base.getindex(polys::PiecewiseLegendrePolyVector,
         I)::Union{PiecewiseLegendrePoly,PiecewiseLegendrePolyVector}
-    indices = collect(1:size(polys))[I]
+    indices = collect(1:length(polys))[I]
     if indices isa Int
         return PiecewiseLegendrePoly(polys.ptr[indices], polys.xmin, polys.xmax,
             polys.period, polys.default_overlap_range)
@@ -429,20 +434,20 @@ function overlap(
         # instead of being reshaped together.
         results = [overlap(polys[i], f, xmin, xmax;
                        rtol, return_error=true, maxevals, points)
-                   for i in 1:size(polys)]
+                   for i in 1:length(polys)]
         values = first.(results)
         errors = last.(results)
         # `quadgk` reports a single scalar error estimate per integral, so the
         # error array is shaped independently of the value array.
-        value_shape = (size(polys), size(first(values))...)
-        error_shape = (size(polys), size(first(errors))...)
+        value_shape = (length(polys), size(first(values))...)
+        error_shape = (length(polys), size(first(errors))...)
         return reshape(vcat(values...), value_shape),
         reshape(vcat(errors...), error_shape)
     end
     result_ = [overlap(polys[i], f, xmin, xmax;
                    rtol, return_error=false, maxevals, points)
-               for i in 1:size(polys)]
-    result_shape = (size(polys), size(first(result_))...)
+               for i in 1:length(polys)]
+    result_shape = (length(polys), size(first(result_))...)
     return reshape(vcat(result_...), result_shape)
 end
 

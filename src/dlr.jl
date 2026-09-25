@@ -37,12 +37,21 @@ mutable struct DiscreteLehmannRepresentation{S<:Statistics,B<:AbstractBasis{S}} 
         # single-pole functions, not the functions of the underlying IR basis.
         βb = β(basis)
         status = Ref{Int32}(-100)
-        u_ptr = C_API.spir_basis_get_u(ptr, status)
-        _check_status(status[], "spir_basis_get_u")
-        _check_handle(u_ptr, "spir_basis_get_u")
-        uhat_ptr = C_API.spir_basis_get_uhat(ptr, status)
-        _check_status(status[], "spir_basis_get_uhat")
-        _check_handle(uhat_ptr, "spir_basis_get_uhat")
+        u_ptr = uhat_ptr = Ptr{spir_funcs}(C_NULL)
+        try
+            u_ptr = C_API.spir_basis_get_u(ptr, status)
+            _check_status(status[], "spir_basis_get_u")
+            _check_handle(u_ptr, "spir_basis_get_u")
+            uhat_ptr = C_API.spir_basis_get_uhat(ptr, status)
+            _check_status(status[], "spir_basis_get_uhat")
+            _check_handle(uhat_ptr, "spir_basis_get_uhat")
+        catch
+            # Nothing owns the handles yet: release them before rethrowing.
+            u_ptr == C_NULL || spir_funcs_release(u_ptr)
+            uhat_ptr == C_NULL || spir_funcs_release(uhat_ptr)
+            spir_basis_release(ptr)
+            rethrow()
+        end
         u = PiecewiseLegendrePolyVector(u_ptr, -βb, βb, βb, (0.0, βb))
         uhat = PiecewiseLegendreFTVector(uhat_ptr, zeta(S()))
         obj = new{S,B}(ptr, basis, poles, u, uhat)
@@ -65,7 +74,7 @@ reinterpreted as `Float64`. The poles must be finite and pairwise distinct
 (otherwise `ArgumentError`) and lie in `[-ωmax, ωmax]` (otherwise
 `DomainError`).
 """
-function DiscreteLehmannRepresentation(basis::AbstractBasis,
+function DiscreteLehmannRepresentation(basis::FiniteTempBasis,
         poles::AbstractVector{<:Real}=default_omega_sampling_points(basis))
     # Normalize the element type explicitly: the C entry point reads a
     # Ptr{Cdouble}, so the pointer must come from a Vector{Float64} we own.
@@ -90,8 +99,14 @@ function DiscreteLehmannRepresentation(basis::AbstractBasis,
         dlr_ptr, basis, poles_d)
 end
 
-function DiscreteLehmannRepresentation(::AbstractBasis, poles::AbstractVector)
+function DiscreteLehmannRepresentation(::FiniteTempBasis, poles::AbstractVector)
     throw(ArgumentError("poles must be a real-valued vector, got $(typeof(poles))"))
+end
+
+# The DLR is built on the C handle of an IR basis.
+function DiscreteLehmannRepresentation(basis::AbstractBasis, poles...)
+    throw(ArgumentError("a DiscreteLehmannRepresentation is built on a FiniteTempBasis, \
+                         got $(nameof(typeof(basis)))"))
 end
 
 """

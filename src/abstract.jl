@@ -212,7 +212,9 @@ Base.broadcastable(kernel::AbstractKernel) = Ref(kernel)
 
 Base.broadcastable(sampling::AbstractSampling) = Ref(sampling)
 
-function LinearAlgebra.cond(sampling::AbstractSampling)
+LinearAlgebra.cond(sampling::AbstractSampling) = _cond_from_c(sampling)
+
+function _cond_from_c(sampling::AbstractSampling)
     cond_num = Ref{Float64}(-1.0)
     status = spir_sampling_get_cond_num(sampling.ptr, cond_num)
     _check_status(status, "spir_sampling_get_cond_num")

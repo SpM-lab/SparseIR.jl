@@ -122,7 +122,10 @@ function MatsubaraSampling(
         # Get default Matsubara sampling points from basis
         status = Ref{Int32}(-100)
         n_points = Ref{Int32}(-1)
-        basis_ptr = _get_ptr(basis)
+        # A DLR has no default Matsubara points of its own in the C API; it
+        # samples at those of its IR basis, as in the Python wrapper.
+        source = basis isa DiscreteLehmannRepresentation ? basis.basis : basis
+        basis_ptr = _get_ptr(source)
         ret = C_API.spir_basis_get_n_default_matsus(
             basis_ptr, positive_only, n_points)
         _check_status(ret, "spir_basis_get_n_default_matsus")
@@ -175,7 +178,7 @@ function _to_freq(::Type{S}, p::MatsubaraFreq) where {S<:Statistics}
                          $(nameof(typeof(statistics(p)))), but the basis is $(nameof(S))"))
 end
 function _to_freq(::Type{S}, p::Real) where {S<:Statistics}
-    isinteger(p) || throw(ArgumentError(
+    isinteger(p) && typemin(Int) ≤ p ≤ typemax(Int) || throw(ArgumentError(
         "Matsubara sampling points must be integers, got $p (no rounding is performed)"))
     return MatsubaraFreq{S}(Int(p))   # DomainError for the wrong parity
 end
@@ -252,6 +255,7 @@ function evaluate!(output::AbstractArray, sampling::Union{TauSampling,MatsubaraS
         al::AbstractArray; dim=1)
     _check_output_buffer(output)
     al = _as_input_array(al, "basis coefficients")
+    _check_no_alias(output, al)
     _check_sampling_dims(al, dim, length(sampling.basis), "basis coefficients")
     return _evaluate!(output, sampling, al, dim)
 end
@@ -320,6 +324,7 @@ function fit!(output::AbstractArray, sampling::Union{TauSampling,MatsubaraSampli
         al::AbstractArray; dim=1)
     _check_output_buffer(output)
     al = _as_fit_input(sampling, al)
+    _check_no_alias(output, al)
     _check_sampling_dims(al, dim, npoints(sampling), "values at the sampling points")
     return _fit!(output, sampling, al, dim)
 end
@@ -336,6 +341,13 @@ function _check_sampling_dims(a::AbstractArray{<:Any,N}, dim, n, name) where {N}
         throw(ArgumentError("dim $(dim) is invalid: must be in 1:$N"))
     size(a, dim) == n || throw(DimensionMismatch(
         "$name has length $(size(a, dim)) along dimension $dim, expected $n"))
+    return nothing
+end
+
+# The C library reads the input while it writes the output.
+function _check_no_alias(output, input)
+    Base.mightalias(output, input) &&
+        throw(ArgumentError("output must not share memory with the input"))
     return nothing
 end
 
@@ -493,6 +505,20 @@ function _check_real_coefficients(sampling::MatsubaraSampling, al::AbstractArray
          but the coefficients have max |imag| = $max_imag > $tol; use \
          positive_only=false for complex coefficients"))
     return nothing
+end
+
+"""
+    cond(sampling::MatsubaraSampling)
+
+Condition number of the sampling problem. With `positive_only = true` this is
+the condition number of the real least-squares problem `[Re A; Im A] x = [Re g; Im g]`
+that [`fit`](@ref) solves; the C library reports that of the complex matrix `A`
+instead, which understates it (SpM-lab/sparse-ir-rs#270).
+"""
+function LinearAlgebra.cond(sampling::MatsubaraSampling)
+    sampling.positive_only || return _cond_from_c(sampling)
+    A = transpose(sampling.basis.uhat(sampling.sampling_points))
+    return LinearAlgebra.cond(vcat(real(A), imag(A)))
 end
 
 # Convenience property accessors (similar to SparseIR.jl)

@@ -86,12 +86,17 @@ function MatsubaraSampling(
         positive_only=false,
         sampling_points=default_matsubara_sampling_points(basis; positive_only)
 ) where {S}
-    pts = MatsubaraFreq.(collect(sampling_points))
+    # Integers, parity and statistics are checked as for a plain basis.
+    pts = MatsubaraFreq{S}[_to_freq(S, p) for p in sampling_points]
     isempty(pts) && throw(ArgumentError("sampling_points must not be empty"))
     # The C entry point reads Ptr{Int64}; build the Int64 index vector
     # explicitly instead of letting a Vector{<:MatsubaraFreq} be reinterpreted.
     indices = Int64[Int64(Int(p)) for p in pts]
     _check_unique(indices, "sampling_points")
+    if positive_only && any(<(0), indices)
+        throw(ArgumentError("positive_only=true requires non-negative sampling points, \
+                             got $(first(filter(<(0), indices)))π/β"))
+    end
     matrix_raw = eval_matrix(MatsubaraSampling, basis, pts)
     # Ensure column-major contiguous memory layout
     # permutedims may create a non-contiguous view, so we create a new Matrix
@@ -497,6 +502,13 @@ end
 
 function (aug::MatsubaraConst)(::MatsubaraFreq)
     return one(β(aug))
+end
+(aug::TauConst)(n::MatsubaraFreq) = _statistics_mismatch(aug, n)
+(aug::TauLinear)(n::MatsubaraFreq) = _statistics_mismatch(aug, n)
+
+function _statistics_mismatch(aug::AbstractAugmentation{S}, n::MatsubaraFreq) where {S}
+    throw(ArgumentError("the frequency $(Int(n))π/β is $(nameof(typeof(statistics(n)))), \
+                         but $(nameof(typeof(aug))) is $(nameof(S))"))
 end
 
 deriv(aug::MatsubaraConst, _=Val(1)) = aug

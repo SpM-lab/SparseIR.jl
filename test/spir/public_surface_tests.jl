@@ -78,10 +78,9 @@
         @test SMOKE[name]()
     end
 
-    # Every export has a docstring; the three listed have never had one (freq.jl).
-    undocumented = Set([:BosonicFreq, :FermionicFreq, :pioverbeta])
+    # Every export has a docstring.
     documented(name) = haskey(Base.Docs.meta(SparseIR), Base.Docs.Binding(SparseIR, name))
-    @test Set(filter(!documented, collect(exported))) == undocumented
+    @test isempty(filter(!documented, collect(exported)))
 end
 
 @testitem "public surface: function sets of the bases" tags=[:julia, :surface] setup=[SIRTestSetup] begin

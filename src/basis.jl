@@ -74,19 +74,30 @@ mutable struct FiniteTempBasis{S,K} <: AbstractBasis{S}
         _check_status(status[], "spir_basis_new")
         _check_handle(basis, "spir_basis_new")
 
-        basis_size = Ref{Int32}(0)
-        _check_status(spir_basis_get_size(basis, basis_size), "spir_basis_get_size")
-        s = Vector{Float64}(undef, Int(basis_size[]))
-        _check_status(spir_basis_get_svals(basis, s), "spir_basis_get_svals")
-        u_status = Ref{Int32}(-100)
-        u = spir_basis_get_u(basis, u_status)
-        _check_status(u_status[], "spir_basis_get_u")
-        v_status = Ref{Int32}(-100)
-        v = spir_basis_get_v(basis, v_status)
-        _check_status(v_status[], "spir_basis_get_v")
-        uhat_status = Ref{Int32}(-100)
-        uhat = spir_basis_get_uhat(basis, uhat_status)
-        _check_status(uhat_status[], "spir_basis_get_uhat")
+        u = v = uhat = Ptr{spir_funcs}(C_NULL)
+        s = Float64[]
+        try
+            basis_size = Ref{Int32}(0)
+            _check_status(spir_basis_get_size(basis, basis_size), "spir_basis_get_size")
+            s = Vector{Float64}(undef, Int(basis_size[]))
+            _check_status(spir_basis_get_svals(basis, s), "spir_basis_get_svals")
+            u_status = Ref{Int32}(-100)
+            u = spir_basis_get_u(basis, u_status)
+            _check_status(u_status[], "spir_basis_get_u")
+            v_status = Ref{Int32}(-100)
+            v = spir_basis_get_v(basis, v_status)
+            _check_status(v_status[], "spir_basis_get_v")
+            uhat_status = Ref{Int32}(-100)
+            uhat = spir_basis_get_uhat(basis, uhat_status)
+            _check_status(uhat_status[], "spir_basis_get_uhat")
+        catch
+            # Nothing owns the handles yet: release them before rethrowing.
+            for f in (u, v, uhat)
+                f == C_NULL || spir_funcs_release(f)
+            end
+            spir_basis_release(basis)
+            rethrow()
+        end
         result = new{S,K}(
             basis, kernel, sve_result, Float64(β), Float64(ωmax), Float64(ε),
             s,
@@ -108,7 +119,7 @@ or `Bosonic`) and cutoffs `β` and `ωmax`.
 # Arguments
 
   - `β`: Inverse temperature (must be positive)
-  - `ωmax`: Frequency cutoff (must be non-negative)
+  - `ωmax`: Frequency cutoff (must be positive)
   - `ε`: This parameter controls the number of basis functions. Only singular values ≥ ε * s[1] are kept.
     Typical values are 1e-6 to 1e-12 depending on the desired accuracy for your calculations. If ε is smaller than the square root of double precision machine epsilon (≈ 1.49e-8), the library will automatically use higher precision for the singular value decomposition, resulting in longer computation time for basis generation.
 
@@ -122,7 +133,31 @@ function FiniteTempBasis{S}(β::Real, ωmax::Real, ε::Real; kernel=nothing,
     _check_basis_parameters(β, ωmax, ε, max_size)
     kernel === nothing && (kernel = LogisticKernel(β * ωmax))
     sve_result === nothing && (sve_result = SVEResult(kernel, ε))
+    _check_sve_kernel(sve_result, kernel)
     FiniteTempBasis{S}(kernel, sve_result, Float64(β), Float64(ωmax), Float64(ε), max_size)
+end
+
+function _check_sve_kernel(sve_result::SVEResult, kernel::AbstractKernel)
+    sve_result.kernel isa typeof(kernel) || throw(ArgumentError(
+        "sve_result was computed for a $(nameof(typeof(sve_result.kernel))), \
+         but the basis uses a $(nameof(typeof(kernel)))"))
+    return nothing
+end
+
+"""
+    basis[1:n]
+
+Truncate the basis to its `n` most significant singular values and functions.
+The truncated basis shares the kernel and the SVE of `basis`; only ranges
+`1:n` with `1 ≤ n ≤ length(basis)` are supported.
+"""
+function Base.getindex(basis::FiniteTempBasis{S}, range::AbstractRange) where {S}
+    step(range) == 1 ||
+        throw(ArgumentError("basis truncation needs a unit range, got $range"))
+    stop = range_to_length(range)
+    1 ≤ stop ≤ length(basis) || throw(BoundsError(basis, range))
+    return FiniteTempBasis{S}(basis.beta, basis.wmax, basis.epsilon;
+        kernel=basis.kernel, sve_result=basis.sve_result, max_size=stop)
 end
 
 function _check_basis_parameters(β::Real, ωmax::Real, ε::Real, max_size::Integer)
@@ -147,7 +182,7 @@ Construct a finite temperature basis for the given statistics type and cutoffs.
 
   - `stat`: Statistics type (`Fermionic()` or `Bosonic()`)
   - `β`: Inverse temperature (must be positive)
-  - `ωmax`: Frequency cutoff (must be non-negative)
+  - `ωmax`: Frequency cutoff (must be positive)
   - `ε`: Accuracy target for the basis. This parameter controls the number of basis functions. Only singular values ≥ ε * s[1] are kept.
     Typical values are 1e-6 to 1e-12 depending on the desired accuracy for your calculations. If ε is smaller than the square root of double precision machine epsilon (≈ 1.49e-8), the library will automatically use higher precision for the singular value decomposition, resulting in longer computation time for basis generation.
 
@@ -249,7 +284,7 @@ end
 # Additional utility functions
 significance(basis::FiniteTempBasis) = basis.s ./ first(basis.s)
 
-function range_to_length(range::UnitRange)
+function range_to_length(range::AbstractRange)
     isone(first(range)) ||
         throw(ArgumentError("basis truncation must start at 1, got the range $range"))
     return last(range)
@@ -265,7 +300,7 @@ Construct `FiniteTempBasis` objects for fermion and bosons using the same
 # Arguments
 
   - `β`: Inverse temperature (must be positive)
-  - `ωmax`: Frequency cutoff (must be non-negative)
+  - `ωmax`: Frequency cutoff (must be positive)
   - `ε`: This parameter controls the number of basis functions. Only singular values ≥ ε * s[1] are kept.
     Typical values are 1e-6 to 1e-12 depending on the desired accuracy for your calculations. If ε is smaller than the square root of double precision machine epsilon (≈ 1.49e-8), the library will automatically use higher precision for the singular value decomposition, resulting in longer computation time for basis generation.
 
@@ -276,6 +311,7 @@ function finite_temp_bases(β::Real, ωmax::Real, ε::Real;
     _check_basis_parameters(β, ωmax, ε, -1)
     kernel === nothing && (kernel = LogisticKernel(β * ωmax))
     sve_result === nothing && (sve_result = SVEResult(kernel, ε))
+    _check_sve_kernel(sve_result, kernel)
     basis_f = FiniteTempBasis{Fermionic}(β, ωmax, ε; sve_result, kernel)
     basis_b = FiniteTempBasis{Bosonic}(β, ωmax, ε; sve_result, kernel)
     return basis_f, basis_b

@@ -250,3 +250,93 @@ end
         end
     end
 end
+
+@testitem "boundary: function selections, sizes and basis truncation" tags=[
+    :julia, :boundary] setup=[SIRTestSetup] begin
+    using Test
+    using SparseIR
+
+    basis = get_basis(Fermionic(), 10.0, 1.0, 1e-6)
+    L = length(basis)
+    for fs in (basis.u, basis.v, basis.uhat)
+        @test size(fs) == (L,)
+        # The C library panics on an empty selection (SpM-lab/sparse-ir-rs#269).
+        @test_throws ArgumentError fs[1:0]
+        @test_throws ArgumentError fs[Int[]]
+    end
+    # Untyped vectors of real points are accepted.
+    @test basis.u(Any[0.1, 0.2]) == basis.u([0.1, 0.2])
+
+    # basis[1:n] keeps the n most significant singular values and functions.
+    part = basis[1:3]
+    @test part isa FiniteTempBasis
+    @test length(part) == 3
+    @test part.s == basis.s[1:3]
+    @test isapprox(part.u(0.5), basis.u(0.5)[1:3]; rtol=1e-14)
+    @test isapprox(part.uhat(3), basis.uhat(3)[1:3]; rtol=1e-14)
+    @test length(basis[1:L]) == L
+    @test_throws ArgumentError basis[2:3]
+    @test_throws BoundsError basis[1:(L + 1)]
+    @test_throws BoundsError basis[1:0]
+    aug = AugmentedBasis(get_basis(Bosonic(), 10.0, 1.0, 1e-6), TauConst, TauLinear)
+    @test length(aug[1:5]) == 5
+end
+
+@testitem "boundary: augmented and DLR arguments, aliasing, conditioning" tags=[
+    :julia, :boundary] setup=[SIRTestSetup] begin
+    using Test
+    using SparseIR
+    using LinearAlgebra: cond
+    using StableRNGs
+
+    bf = get_basis(Fermionic(), 10.0, 1.0, 1e-6)
+    bb = get_basis(Bosonic(), 10.0, 1.0, 1e-6)
+    aug = AugmentedBasis(bb, TauConst, TauLinear)
+    vertex = AugmentedBasis(bf, MatsubaraConst)
+
+    # The sampling-point checks of a plain basis hold for an augmented one.
+    @test_throws ArgumentError MatsubaraSampling(aug; sampling_points=[1.9])
+    @test_throws DomainError MatsubaraSampling(aug; sampling_points=[1])
+    @test_throws ArgumentError MatsubaraSampling(aug; sampling_points=[FermionicFreq(1)])
+    @test_throws ArgumentError MatsubaraSampling(aug; positive_only=true,
+        sampling_points=[-2, 0, 2])
+    @test_throws ArgumentError MatsubaraSampling(bf; sampling_points=[1e300])
+
+    # Parity and statistics of the augmented functions
+    @test_throws DomainError aug.uhat(1)
+    # MatsubaraConst works identically for both statistics (its docstring);
+    # TauConst and TauLinear are defined for one statistics only.
+    @test vertex.uhat[1](FermionicFreq(3)) == 1
+    @test_throws ArgumentError TauConst(10.0)(FermionicFreq(1))
+    @test_throws ArgumentError TauLinear(10.0)(FermionicFreq(1))
+
+    # A DLR samples at the default points of its IR basis, as in the Python
+    # wrapper (the C API gives a DLR no default Matsubara points of its own),
+    # and is built on an IR basis only.
+    dlr = DiscreteLehmannRepresentation(bf)
+    for positive_only in (false, true)
+        @test sampling_points(MatsubaraSampling(dlr; positive_only)) ==
+              sampling_points(MatsubaraSampling(bf; positive_only))
+    end
+    @test_throws ArgumentError DiscreteLehmannRepresentation(aug)
+
+    # An SVE of another kernel type is rejected like one of another cutoff.
+    sve_rb = SparseIR.SVEResult(RegularizedBoseKernel(10.0), 1e-6)
+    @test_throws ArgumentError FiniteTempBasis(
+        Bosonic(), 10.0, 1.0, 1e-6; sve_result=sve_rb)
+
+    # Output and input must not share memory.
+    smpl = TauSampling(bf)                   # as many points as functions
+    g = randn(StableRNG(5), length(bf))
+    @test_throws ArgumentError evaluate!(g, smpl, g)
+    @test_throws ArgumentError fit!(g, smpl, g)
+
+    # positive_only: cond is that of the real least-squares problem the fit
+    # solves; the C library reports that of the complex matrix
+    # (SpM-lab/sparse-ir-rs#270).
+    for basis in (bf, bb, aug)
+        smpl = MatsubaraSampling(basis; positive_only=true)
+        A = transpose(basis.uhat(sampling_points(smpl)))
+        @test isapprox(cond(smpl), cond(vcat(real(A), imag(A))); rtol=1e-10)
+    end
+end

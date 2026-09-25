@@ -66,7 +66,20 @@ struct MatsubaraFreq{S<:Statistics} <: Number
     end
 end
 
-const BosonicFreq   = MatsubaraFreq{Bosonic}
+"""
+    BosonicFreq(n)
+
+Bosonic Matsubara frequency `n π/β` with even `n`; an alias of
+`MatsubaraFreq{Bosonic}`. An odd `n` throws `DomainError`.
+"""
+const BosonicFreq = MatsubaraFreq{Bosonic}
+
+"""
+    FermionicFreq(n)
+
+Fermionic Matsubara frequency `n π/β` with odd `n`; an alias of
+`MatsubaraFreq{Fermionic}`. An even `n` throws `DomainError`.
+"""
 const FermionicFreq = MatsubaraFreq{Fermionic}
 
 MatsubaraFreq(n::Integer) = MatsubaraFreq(Statistics(mod(n, 2)), n)
@@ -153,6 +166,12 @@ function Base.show(io::IO, ::MIME"text/plain", a::MatsubaraFreq)
     end
 end
 
+"""
+    pioverbeta
+
+The fermionic Matsubara frequency `π/β`, `FermionicFreq(1)`. Multiples give
+other frequencies: `3 * pioverbeta == FermionicFreq(3)`, `2 * pioverbeta == BosonicFreq(2)`.
+"""
 const pioverbeta = MatsubaraFreq(1)
 Base.oneunit(::MatsubaraFreq) = pioverbeta
 
