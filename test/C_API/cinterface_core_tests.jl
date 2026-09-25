@@ -35,7 +35,7 @@
         xmax = Ref{Float64}(0.0)
         ymin = Ref{Float64}(0.0)
         ymax = Ref{Float64}(0.0)
-        domain_status = SparseIR.spir_kernel_domain(kernel, xmin, xmax, ymin, ymax)
+        domain_status = SparseIR.spir_kernel_get_domain(kernel, xmin, xmax, ymin, ymax)
         @test domain_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         # For LogisticKernel, we expect specific domain values
@@ -48,7 +48,7 @@
     end
 end
 
-@testitem "FiniteTempBasis Constructor Tests" begin
+@testitem "FiniteTempBasis Constructor Tests" tags=[:cinterface] begin
     using SparseIR
 
     # Helper function equivalent to C++ _spir_basis_new
@@ -172,7 +172,7 @@ end
     end
 end
 
-@testitem "FiniteTempBasis Basis Functions Tests" begin
+@testitem "FiniteTempBasis Basis Functions Tests" tags=[:cinterface] begin
     using SparseIR
 
     # Helper function equivalent to C++ _spir_basis_new

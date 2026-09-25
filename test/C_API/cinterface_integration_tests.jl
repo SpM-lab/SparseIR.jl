@@ -4,6 +4,7 @@
     using SparseIR
     using Test
     using Random
+    backend = SparseIR._spir_default_backend[]
 
     # Helper function corresponding to _get_dims in cinterface_integration.cxx
     function _get_dims(target_dim_size::Integer, extra_dims::Vector{<:Integer},
@@ -33,6 +34,10 @@
         return complex(real_part, imag_part)
     end
 
+    # The SVE depends only on (Λ, ε) and dominates the run time, so it is
+    # computed once per pair and released at the end of this test item.
+    sve_cache = Dict{Tuple{Float64,Float64},Ptr{SparseIR.C_API.spir_sve_result}}()
+
     # Helper function corresponding to _spir_basis_new in cinterface_integration.cxx
     function _spir_basis_new(statistics::Integer, beta::Float64, omega_max::Float64,
             epsilon::Float64, status::Ref{Cint})
@@ -42,11 +47,15 @@
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
         @test kernel != C_NULL
 
-        # Create SVE result
-        sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, NaN, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
-        @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
-        @test sve != C_NULL
+        # Create (or reuse) the SVE result
+        sve = get!(sve_cache, (beta * omega_max, epsilon)) do
+            sve_status = Ref{Int32}(0)
+            new_sve = SparseIR.spir_sve_result_new(
+                kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
+            @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
+            @test new_sve != C_NULL
+            new_sve
+        end
 
         # Create basis
         basis = SparseIR.spir_basis_new(statistics, beta, omega_max, epsilon, kernel, sve, -1, status)
@@ -54,7 +63,6 @@
         @test basis != C_NULL
 
         # Clean up intermediate objects (like C++ version)
-        SparseIR.spir_sve_result_release(sve)
         SparseIR.spir_kernel_release(kernel)
 
         return basis
@@ -80,25 +88,23 @@
 
     function dlr_to_IR(dlr, order, ndim, dims, target_dim,
             coeffs::AbstractArray{<:Real}, g_IR::AbstractArray{<:Real})
-        backend = _spir_default_backend[]
         SparseIR.spir_dlr2ir_dd(dlr, backend, order, ndim, dims, target_dim, coeffs, g_IR)
     end
 
     function dlr_to_IR(dlr, order, ndim, dims, target_dim,
             coeffs::AbstractArray{<:Complex}, g_IR::AbstractArray{<:Complex})
-        backend = _spir_default_backend[]
         SparseIR.spir_dlr2ir_zz(dlr, backend, order, ndim, dims, target_dim, coeffs, g_IR)
     end
 
     function dlr_from_IR(dlr, order, ndim, dims, target_dim, g_IR::AbstractArray{<:Real},
             g_DLR_reconst::AbstractArray{<:Real})
-        SparseIR.spir_ir2dlr_dd(dlr, order, ndim, dims, target_dim, g_IR, g_DLR_reconst)
+        SparseIR.spir_ir2dlr_dd(dlr, backend, order, ndim, dims, target_dim, g_IR, g_DLR_reconst)
     end
 
     function dlr_from_IR(
             dlr, order, ndim, dims, target_dim, g_IR::AbstractArray{<:Complex},
             g_DLR_reconst::AbstractArray{<:Complex})
-        SparseIR.spir_ir2dlr_zz(dlr, order, ndim, dims, target_dim, g_IR, g_DLR_reconst)
+        SparseIR.spir_ir2dlr_zz(dlr, backend, order, ndim, dims, target_dim, g_IR, g_DLR_reconst)
     end
 
     function compare_tensors_with_relative_error(a, b, tol)
@@ -192,7 +198,7 @@
     function _tau_sampling_evaluate(sampling, order, ndim, dims, target_dim,
             gIR::AbstractArray{<:Real}, gtau::AbstractArray{<:Real})
         status = SparseIR.spir_sampling_eval_dd(
-            sampling, order, ndim, dims, target_dim, gIR, gtau)
+            sampling, backend, order, ndim, dims, target_dim, gIR, gtau)
         @test status == SparseIR.SPIR_COMPUTATION_SUCCESS
         return status
     end
@@ -200,14 +206,13 @@
     function _tau_sampling_evaluate(sampling, order, ndim, dims, target_dim,
             gIR::AbstractArray{<:Complex}, gtau::AbstractArray{<:Complex})
         status = SparseIR.spir_sampling_eval_zz(
-            sampling, order, ndim, dims, target_dim, gIR, gtau)
+            sampling, backend, order, ndim, dims, target_dim, gIR, gtau)
         @test status == SparseIR.SPIR_COMPUTATION_SUCCESS
         return status
     end
 
     function _tau_sampling_fit(sampling, order, ndim, dims, target_dim,
             gtau::AbstractArray{<:Real}, gIR::AbstractArray{<:Real})
-        backend = _spir_default_backend[]
         status = SparseIR.spir_sampling_fit_dd(
             sampling, backend, order, ndim, dims, target_dim, gtau, gIR)
         @test status == SparseIR.SPIR_COMPUTATION_SUCCESS
@@ -217,7 +222,7 @@
     function _tau_sampling_fit(sampling, order, ndim, dims, target_dim,
             gtau::AbstractArray{<:Complex}, gIR::AbstractArray{<:Complex})
         status = SparseIR.spir_sampling_fit_zz(
-            sampling, order, ndim, dims, target_dim, gtau, gIR)
+            sampling, backend, order, ndim, dims, target_dim, gtau, gIR)
         @test status == SparseIR.SPIR_COMPUTATION_SUCCESS
         return status
     end
@@ -225,7 +230,7 @@
     function _matsubara_sampling_evaluate(sampling, order, ndim, dims, target_dim,
             gIR::AbstractArray{<:Real}, giw::AbstractArray{<:Complex})
         status = SparseIR.spir_sampling_eval_dz(
-            sampling, order, ndim, dims, target_dim, gIR, giw)
+            sampling, backend, order, ndim, dims, target_dim, gIR, giw)
         @test status == SparseIR.SPIR_COMPUTATION_SUCCESS
         return status
     end
@@ -233,7 +238,7 @@
     function _matsubara_sampling_evaluate(sampling, order, ndim, dims, target_dim,
             gIR::AbstractArray{<:Complex}, giw::AbstractArray{<:Complex})
         status = SparseIR.spir_sampling_eval_zz(
-            sampling, order, ndim, dims, target_dim, gIR, giw)
+            sampling, backend, order, ndim, dims, target_dim, gIR, giw)
         @test status == SparseIR.SPIR_COMPUTATION_SUCCESS
         return status
     end
@@ -453,12 +458,12 @@
         gtau_from_DLR_sampling = similar(gtau_from_DLR)
         if T <: Real
             status[] = SparseIR.spir_sampling_eval_dd(
-                tau_sampling_dlr, order, ndim,
+                tau_sampling_dlr, backend, order, ndim,
                 _get_dims(npoles, extra_dims, target_dim, ndim),
                 target_dim, coeffs, gtau_from_DLR_sampling)
         elseif T <: Complex
             status[] = SparseIR.spir_sampling_eval_zz(
-                tau_sampling_dlr, order, ndim,
+                tau_sampling_dlr, backend, order, ndim,
                 _get_dims(npoles, extra_dims, target_dim, ndim),
                 target_dim, coeffs, gtau_from_DLR_sampling)
         end
@@ -474,12 +479,12 @@
         giw_from_DLR_sampling = similar(giw_from_DLR)
         if T <: Real
             status[] = SparseIR.spir_sampling_eval_dz(
-                matsubara_sampling_dlr, order, ndim,
+                matsubara_sampling_dlr, backend, order, ndim,
                 _get_dims(npoles, extra_dims, target_dim, ndim),
                 target_dim, coeffs, giw_from_DLR_sampling)
         elseif T <: Complex
             status[] = SparseIR.spir_sampling_eval_zz(
-                matsubara_sampling_dlr, order, ndim,
+                matsubara_sampling_dlr, backend, order, ndim,
                 _get_dims(npoles, extra_dims, target_dim, ndim),
                 target_dim, coeffs, giw_from_DLR_sampling)
         end
@@ -502,7 +507,7 @@
             gIR_work = Array{ComplexF64,ndim}(
                 undef, _get_dims(basis_size, extra_dims, target_dim, ndim)...)
             status[] = SparseIR.spir_sampling_fit_zz(
-                matsubara_sampling, order, ndim, dims_matsubara, target_dim, giw_from_DLR, gIR_work
+                matsubara_sampling, backend, order, ndim, dims_matsubara, target_dim, giw_from_DLR, gIR_work
             )
             @test status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
             if T <: Real
@@ -602,4 +607,6 @@
                 SparseIR.SPIR_ORDER_COLUMN_MAJOR, tol, positive_only)
         end
     end
+
+    foreach(SparseIR.spir_sve_result_release, values(sve_cache))
 end

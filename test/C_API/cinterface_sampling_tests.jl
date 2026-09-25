@@ -3,6 +3,7 @@
 
 @testitem "TauSampling" tags=[:cinterface] begin
     using SparseIR
+    backend = SparseIR._spir_default_backend[]
 
     # Helper function to create tau sampling (corresponds to C++ create_tau_sampling)
     function create_tau_sampling(basis::Ptr{SparseIR.spir_basis})
@@ -135,13 +136,12 @@
         # Test evaluation
         evaluate_output = Vector{Float64}(undef, n_points)
         evaluate_status = SparseIR.spir_sampling_eval_dd(
-            sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim,
+            sampling, backend, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim,
             dims, target_dim, coeffs, evaluate_output)
         @test evaluate_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         # Test fitting
         fit_output = Vector{Float64}(undef, basis_size)
-        backend = _spir_default_backend[]
         fit_status = SparseIR.spir_sampling_fit_dd(
             sampling, backend, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, dims,
             target_dim, evaluate_output, fit_output)
@@ -223,13 +223,12 @@
             # Test evaluation
             evaluate_output = Vector{Float64}(undef, output_total_size)
             evaluate_status = SparseIR.spir_sampling_eval_dd(
-                sampling, SparseIR.SPIR_ORDER_ROW_MAJOR, ndim,
+                sampling, backend, SparseIR.SPIR_ORDER_ROW_MAJOR, ndim,
                 dims, target_dim, coeffs, evaluate_output)
             @test evaluate_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
             # Test fitting
             fit_output = Vector{Float64}(undef, total_size)
-            backend = _spir_default_backend[]
             fit_status = SparseIR.spir_sampling_fit_dd(
                 sampling, backend, SparseIR.SPIR_ORDER_ROW_MAJOR, ndim, output_dims,
                 target_dim, evaluate_output, fit_output)
@@ -312,13 +311,12 @@
             # Test evaluation
             evaluate_output = Vector{Float64}(undef, output_total_size)
             evaluate_status = SparseIR.spir_sampling_eval_dd(
-                sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim,
+                sampling, backend, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim,
                 dims, target_dim, coeffs, evaluate_output)
             @test evaluate_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
             # Test fitting
             fit_output = Vector{Float64}(undef, total_size)
-            backend = _spir_default_backend[]
             fit_status = SparseIR.spir_sampling_fit_dd(
                 sampling, backend, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, output_dims,
                 target_dim, evaluate_output, fit_output)
@@ -403,14 +401,14 @@
             # Test evaluation
             evaluate_output = Vector{ComplexF64}(undef, output_total_size)
             evaluate_status = SparseIR.spir_sampling_eval_zz(
-                sampling, SparseIR.SPIR_ORDER_ROW_MAJOR, ndim,
+                sampling, backend, SparseIR.SPIR_ORDER_ROW_MAJOR, ndim,
                 dims, target_dim, coeffs, evaluate_output)
             @test evaluate_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
             # Test fitting
             fit_output = Vector{ComplexF64}(undef, total_size)
             fit_status = SparseIR.spir_sampling_fit_zz(
-                sampling, SparseIR.SPIR_ORDER_ROW_MAJOR, ndim, output_dims,
+                sampling, backend, SparseIR.SPIR_ORDER_ROW_MAJOR, ndim, output_dims,
                 target_dim, evaluate_output, fit_output)
             @test fit_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
@@ -494,14 +492,14 @@
             # Test evaluation
             evaluate_output = Vector{ComplexF64}(undef, output_total_size)
             evaluate_status = SparseIR.spir_sampling_eval_zz(
-                sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim,
+                sampling, backend, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim,
                 dims, target_dim, coeffs, evaluate_output)
             @test evaluate_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
             # Test fitting
             fit_output = Vector{ComplexF64}(undef, total_size)
             fit_status = SparseIR.spir_sampling_fit_zz(
-                sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, output_dims,
+                sampling, backend, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, output_dims,
                 target_dim, evaluate_output, fit_output)
             @test fit_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
@@ -572,13 +570,13 @@
 
             # Test dimension mismatch for evaluation
             status_dimension_mismatch = SparseIR.spir_sampling_eval_dd(
-                sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim,
+                sampling, backend, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim,
                 dims1, target_dim, coeffs, output_double)
             @test status_dimension_mismatch == SparseIR.SPIR_INPUT_DIMENSION_MISMATCH
 
             # Test dimension mismatch for fitting
             fit_status_dimension_mismatch = SparseIR.spir_sampling_fit_zz(
-                sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, dims1,
+                sampling, backend, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, dims1,
                 target_dim, output_complex, fit_output_complex)
             @test fit_status_dimension_mismatch == SparseIR.SPIR_INPUT_DIMENSION_MISMATCH
         end
@@ -623,7 +621,7 @@
     end
 end
 
-@testitem "MatsubaraSampling" begin
+@testitem "MatsubaraSampling" tags=[:cinterface] begin
     using SparseIR
 
     # Helper function to create matsubara sampling (corresponds to C++ create_matsubara_sampling)
