@@ -48,7 +48,8 @@ end
     # from_IR followed by to_IR must reproduce them to the accuracy of the basis.
     function pole_sum(basis, rng, T, extra...)
         poles = ωmax .* (2 .* rand(rng, 8) .- 1)
-        coeffs = T <: Complex ? randn(rng, ComplexF64, 8, extra...) : randn(rng, 8, extra...)
+        coeffs = T <: Complex ? randn(rng, ComplexF64, 8, extra...) :
+                 randn(rng, 8, extra...)
         return to_IR(DiscreteLehmannRepresentation(basis, poles), coeffs)
     end
 
@@ -124,7 +125,8 @@ end
 
         smpl_τ = TauSampling(basis)
         smpl_τ_for_dlr = TauSampling(dlr; sampling_points=sampling_points(smpl_τ))
-        @test isapprox(evaluate(smpl_τ_for_dlr, g_dlr), evaluate(smpl_τ, Gl); atol=300ε, rtol=0)
+        @test isapprox(
+            evaluate(smpl_τ_for_dlr, g_dlr), evaluate(smpl_τ, Gl); atol=300ε, rtol=0)
     end
 
     @testset "Bosonic pole representation" begin

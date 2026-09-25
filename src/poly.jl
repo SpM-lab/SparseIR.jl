@@ -279,7 +279,8 @@ function knots(poly::Union{PiecewiseLegendrePoly,PiecewiseLegendrePolyVector})
     nknots_ref = Ref{Int32}(-1)
     _check_status(spir_funcs_get_n_knots(poly.ptr, nknots_ref), "spir_funcs_get_n_knots")
     out = Vector{Float64}(undef, nknots_ref[])
-    _check_status(SparseIR.C_API.spir_funcs_get_knots(poly.ptr, out), "spir_funcs_get_knots")
+    _check_status(
+        SparseIR.C_API.spir_funcs_get_knots(poly.ptr, out), "spir_funcs_get_knots")
     return out
 end
 

@@ -37,7 +37,8 @@ end
     end
 end
 
-@testitem "oracle O2/O4: asymptotic regime of uhat (SpM-lab/sparse-ir-rs#265)" tags=[:julia, :oracle] setup=[SIRTestSetup] begin
+@testitem "oracle O2/O4: asymptotic regime of uhat (SpM-lab/sparse-ir-rs#265)" tags=[
+    :julia, :oracle] setup=[SIRTestSetup] begin
     using Test
     using SparseIR
 
@@ -81,7 +82,8 @@ end
     end
 end
 
-@testitem "oracle O4: roots, orthonormality and default sampling points" tags=[:julia, :oracle] setup=[SIRTestSetup] begin
+@testitem "oracle O4: roots, orthonormality and default sampling points" tags=[
+    :julia, :oracle] setup=[SIRTestSetup] begin
     using Test
     using SparseIR
     using LinearAlgebra: Diagonal, I

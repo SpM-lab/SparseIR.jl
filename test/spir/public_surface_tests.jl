@@ -37,13 +37,15 @@
         :iscentrosymmetric => () -> iscentrosymmetric(LogisticKernel(1.0)),
         :AugmentedBasis => () -> length(AugmentedBasis(bb, TauConst, TauLinear)) ==
                                  length(bb) + 2,
-        :TauConst => () -> TauConst(β)(3.0) ≈ 1 / sqrt(β) && TauConst(β)(BosonicFreq(0)) ≈ sqrt(β),
+        :TauConst => () -> TauConst(β)(3.0) ≈ 1 / sqrt(β) &&
+            TauConst(β)(BosonicFreq(0)) ≈ sqrt(β),
         :TauLinear => () -> TauLinear(β)(0.0) ≈ -sqrt(3 / β),
         :MatsubaraConst => () -> isnan(MatsubaraConst(β)(1.0)) &&
-                                 MatsubaraConst(β)(BosonicFreq(4)) == 1,
+            MatsubaraConst(β)(BosonicFreq(4)) == 1,
         :TauSampling => () -> roundtrip(TauSampling(bf)),
         :MatsubaraSampling => () -> roundtrip(MatsubaraSampling(bf)),
-        :evaluate => () -> evaluate(TauSampling(bf), gl) ≈ transpose(bf.u(sampling_points(TauSampling(bf)))) * gl,
+        :evaluate => () -> evaluate(TauSampling(bf), gl) ≈
+                           transpose(bf.u(sampling_points(TauSampling(bf)))) * gl,
         :fit => () -> roundtrip(TauSampling(bf)),
         :evaluate! => () -> begin
             smpl = TauSampling(bf)
@@ -56,15 +58,18 @@
             fit!(out, smpl, evaluate(smpl, gl)) === out && maximum(abs, out - gl) <= 1e-10
         end,
         :sampling_points => () -> issorted(sampling_points(TauSampling(bf))),
-        :npoints => () -> npoints(TauSampling(bf)) == length(sampling_points(TauSampling(bf))),
+        :npoints => () -> npoints(TauSampling(bf)) ==
+                          length(sampling_points(TauSampling(bf))),
         :from_IR => () -> length(from_IR(DiscreteLehmannRepresentation(bf), gl)) ==
                           npoles(DiscreteLehmannRepresentation(bf)),
         :to_IR => () -> length(to_IR(DiscreteLehmannRepresentation(bf),
             ones(npoles(DiscreteLehmannRepresentation(bf))))) == length(bf),
         :npoles => () -> npoles(DiscreteLehmannRepresentation(bf)) ==
                          length(default_omega_sampling_points(bf)),
-        :get_poles => () -> get_poles(DiscreteLehmannRepresentation(bf, [-0.5, 0.5])) == [-0.5, 0.5],
-        :default_omega_sampling_points => () -> all(abs.(default_omega_sampling_points(bf)) .<= ωmax))
+        :get_poles => () -> get_poles(DiscreteLehmannRepresentation(bf, [-0.5, 0.5])) ==
+                            [-0.5, 0.5],
+        :default_omega_sampling_points => () -> all(abs.(default_omega_sampling_points(bf)) .<=
+                                                    ωmax))
 
     exported = Set(n for n in names(SparseIR) if n !== :SparseIR)
     @test Set(keys(SMOKE)) == exported
@@ -93,7 +98,8 @@ end
         ("AugmentedBasis.uhat", aug.uhat, BosonicFreq(2), false, :matsubara),
         ("vertex AugmentedBasis.uhat", vertex.uhat, FermionicFreq(3), false, :matsubara),
         ("DiscreteLehmannRepresentation.u", dlr.u, 0.5, false, :tau),
-        ("DiscreteLehmannRepresentation.uhat", dlr.uhat, FermionicFreq(3), false, :matsubara)]
+        ("DiscreteLehmannRepresentation.uhat", dlr.uhat,
+            FermionicFreq(3), false, :matsubara)]
 
     @testset "$label" for (label, fs, x, has_deriv, kind) in sets
         values = fs(x)

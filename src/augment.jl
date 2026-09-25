@@ -49,7 +49,6 @@ See also: [`MatsubaraConst`](@ref) for vertex basis [^wallerberger2021],
 [`TauLinear`](@ref) for multi-point [^shinaoka2018]
 
 [^wallerberger2021]: https://doi.org/10.1103/PhysRevResearch.3.033168
-
 [^shinaoka2018]: https://doi.org/10.1103/PhysRevB.97.205111
 """
 struct AugmentedBasis{S<:Statistics,B<:FiniteTempBasis{S},A<:AugmentationTuple{S},F,FHAT} <:
@@ -237,7 +236,9 @@ function _truncate(a::AbstractAugmentedFunction, r::AbstractRange)
         throw(ArgumentError("cannot truncate to only the augmentation functions"))
     return fbasis(a)[begin:(stop - naug(a))], faug(a)
 end
-Base.getindex(a::AugmentedFunction, r::AbstractRange) = AugmentedFunction(_truncate(a, r)...)
+function Base.getindex(a::AugmentedFunction, r::AbstractRange)
+    AugmentedFunction(_truncate(a, r)...)
+end
 function Base.getindex(a::AbstractAugmentedFunction, l::Integer)
     1 ≤ l ≤ length(a) || throw(BoundsError(a, l))
     return l ≤ naug(a) ? faug(a)[l] : fbasis(a)[l - naug(a)]
@@ -258,7 +259,9 @@ xmax(aτ::AugmentedTauFunction) = xmax(fbasis(aτ))
 
 # Keep the wrapper type: a plain AugmentedFunction would evaluate integer
 # Matsubara indices as imaginary times.
-Base.getindex(aτ::AugmentedTauFunction, r::AbstractRange) = AugmentedTauFunction(_truncate(aτ, r)...)
+function Base.getindex(aτ::AugmentedTauFunction, r::AbstractRange)
+    AugmentedTauFunction(_truncate(aτ, r)...)
+end
 
 function deriv(aτ::AugmentedTauFunction, n=Val(1))
     # `fbasis(aτ)` is a single `PiecewiseLegendrePolyVector` handle, not an
@@ -387,7 +390,9 @@ end
 TauConst(β) = TauConst{Bosonic}(β)
 
 create(::Type{TauConst}, basis::AbstractBasis{Bosonic}) = TauConst{Bosonic}(β(basis))
-create(::Type{TauConst{S}}, basis::AbstractBasis{S}) where {S<:Statistics} = TauConst{S}(β(basis))
+function create(::Type{TauConst{S}}, basis::AbstractBasis{S}) where {S<:Statistics}
+    TauConst{S}(β(basis))
+end
 
 function (aug::TauConst{S})(τ) where {S<:Statistics}
     tau_normalized, sign = normalize_tau(S, τ, β(aug))
@@ -426,7 +431,9 @@ end
 TauLinear(β) = TauLinear{Bosonic}(β)
 
 create(::Type{TauLinear}, basis::AbstractBasis{Bosonic}) = TauLinear{Bosonic}(β(basis))
-create(::Type{TauLinear{S}}, basis::AbstractBasis{S}) where {S<:Statistics} = TauLinear{S}(β(basis))
+function create(::Type{TauLinear{S}}, basis::AbstractBasis{S}) where {S<:Statistics}
+    TauLinear{S}(β(basis))
+end
 
 function (aug::TauLinear{S})(τ) where {S<:Statistics}
     tau_normalized, sign = normalize_tau(S, τ, β(aug))
@@ -466,8 +473,12 @@ end
 # Backward compatibility: MatsubaraConst(β) - statistics will be inferred from basis
 MatsubaraConst(β) = MatsubaraConst{Bosonic}(β)
 
-create(::Type{MatsubaraConst}, basis::AbstractBasis{S}) where {S} = MatsubaraConst{S}(β(basis))
-create(::Type{MatsubaraConst{S}}, basis::AbstractBasis{S}) where {S<:Statistics} = MatsubaraConst{S}(β(basis))
+function create(::Type{MatsubaraConst}, basis::AbstractBasis{S}) where {S}
+    MatsubaraConst{S}(β(basis))
+end
+function create(::Type{MatsubaraConst{S}}, basis::AbstractBasis{S}) where {S<:Statistics}
+    MatsubaraConst{S}(β(basis))
+end
 
 function (aug::MatsubaraConst)(τ)
     -β(aug) ≤ τ ≤ β(aug) || throw(DomainError(τ, "τ must be in [-β, β]."))

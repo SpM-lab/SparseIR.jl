@@ -77,7 +77,8 @@ function DiscreteLehmannRepresentation(basis::AbstractBasis,
     # (SpM-lab/sparse-ir-rs#266).
     for ω in poles_d
         abs(ω) ≤ ωmax(basis) ||
-            throw(DomainError(ω, "poles must lie in [-ωmax, ωmax] = [$(-ωmax(basis)), $(ωmax(basis))]"))
+            throw(DomainError(
+                ω, "poles must lie in [-ωmax, ωmax] = [$(-ωmax(basis)), $(ωmax(basis))]"))
     end
 
     status = Ref{Int32}(-100)

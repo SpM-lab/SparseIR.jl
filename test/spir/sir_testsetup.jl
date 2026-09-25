@@ -223,11 +223,13 @@ function o3_ratios(stat; reflect=true, swap_reim=false, swap_periodic=false)
     τ = collect(range(0, β; length=101))
     U = basis.u(τ)
     Ur = basis.u(reflect ? β .- τ : τ)
-    u_ratio = maximum(l -> ratio(Ur[l, :], sgn[l] .* U[l, :], 300ε * maximum(abs, U[l, :])), 1:L)
+    u_ratio = maximum(
+        l -> ratio(Ur[l, :], sgn[l] .* U[l, :], 300ε * maximum(abs, U[l, :])), 1:L)
     ω = collect(range(-ωmax, ωmax; length=101))
     V = basis.v(ω)
     Vr = basis.v(-ω)
-    v_ratio = maximum(l -> ratio(Vr[l, :], sgn[l] .* V[l, :], 300ε * maximum(abs, V[l, :])), 1:L)
+    v_ratio = maximum(
+        l -> ratio(Vr[l, :], sgn[l] .* V[l, :], 300ε * maximum(abs, V[l, :])), 1:L)
     ζ = SparseIR.zeta(stat)
     ns = [ζ, 2 + ζ, 10 + ζ, 100 + ζ]
     Up = basis.uhat(freq_of.(Ref(stat), ns))
@@ -237,13 +239,15 @@ function o3_ratios(stat; reflect=true, swap_reim=false, swap_periodic=false)
     # Re uhat_l vanishes for even l and Im uhat_l for odd l; for bosons the
     # other way round.
     real_vanishes(l) = xor(iseven(l - 1) == (stat isa Fermionic), swap_reim)
-    vanishing = [real_vanishes(l) ? real(Up[l, k]) : imag(Up[l, k]) for l in 1:L, k in eachindex(ns)]
+    vanishing = [real_vanishes(l) ? real(Up[l, k]) : imag(Up[l, k])
+                 for l in 1:L, k in eachindex(ns)]
     reim_ratio = ratio(vanishing, 0.0, 300ε * sqrt(β))
     inner = τ[2:(end - 1)]
     s = xor(stat isa Fermionic, swap_periodic) ? -1.0 : 1.0
     ref = s .* basis.u(β .- inner)
     periodic_ratio = ratio(basis.u(-inner), ref, 1e-10 * maximum(abs, ref))
-    return (; u=u_ratio, v=v_ratio, conj=conj_ratio, reim=reim_ratio, periodic=periodic_ratio)
+    return (;
+        u=u_ratio, v=v_ratio, conj=conj_ratio, reim=reim_ratio, periodic=periodic_ratio)
 end
 
 """

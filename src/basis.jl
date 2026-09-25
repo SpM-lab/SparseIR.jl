@@ -31,9 +31,7 @@ the variables.
     Note that we expect reduced frequencies, which are simply even/odd
     numbers for bosonic/fermionic objects. To obtain a single basis
     function, a slice or a subset `l`, you can use `uhat[l]`.
-
   - `s`: Vector of singular values of the continuation kernel
-
   - `v::PiecewiseLegendrePolyVector`:
     Set of IR basis functions on the real frequency (`w`) axis.
     These functions are stored as piecewise Legendre polynomials.

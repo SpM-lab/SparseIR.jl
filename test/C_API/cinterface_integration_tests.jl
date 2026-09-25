@@ -58,7 +58,8 @@
         end
 
         # Create basis
-        basis = SparseIR.spir_basis_new(statistics, beta, omega_max, epsilon, kernel, sve, -1, status)
+        basis = SparseIR.spir_basis_new(
+            statistics, beta, omega_max, epsilon, kernel, sve, -1, status)
         @test status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
         @test basis != C_NULL
 
@@ -98,13 +99,15 @@
 
     function dlr_from_IR(dlr, order, ndim, dims, target_dim, g_IR::AbstractArray{<:Real},
             g_DLR_reconst::AbstractArray{<:Real})
-        SparseIR.spir_ir2dlr_dd(dlr, backend, order, ndim, dims, target_dim, g_IR, g_DLR_reconst)
+        SparseIR.spir_ir2dlr_dd(
+            dlr, backend, order, ndim, dims, target_dim, g_IR, g_DLR_reconst)
     end
 
     function dlr_from_IR(
             dlr, order, ndim, dims, target_dim, g_IR::AbstractArray{<:Complex},
             g_DLR_reconst::AbstractArray{<:Complex})
-        SparseIR.spir_ir2dlr_zz(dlr, backend, order, ndim, dims, target_dim, g_IR, g_DLR_reconst)
+        SparseIR.spir_ir2dlr_zz(
+            dlr, backend, order, ndim, dims, target_dim, g_IR, g_DLR_reconst)
     end
 
     function compare_tensors_with_relative_error(a, b, tol)

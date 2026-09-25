@@ -71,7 +71,8 @@ any call into `libsparseir`.
 """
 function TauSampling(basis::AbstractBasis; sampling_points=nothing, use_positive_taus=true)
     if sampling_points === nothing
-        sampling_points = default_tau_sampling_points(basis; use_positive_taus=use_positive_taus)
+        sampling_points = default_tau_sampling_points(
+            basis; use_positive_taus=use_positive_taus)
     end
     sampling_points isa AbstractVector{<:Real} || throw(ArgumentError(
         "sampling_points must be a real-valued vector, got $(typeof(sampling_points))"))
@@ -326,7 +327,8 @@ end
 _as_fit_input(::TauSampling, al) = _as_input_array(al, "values at the sampling points")
 function _as_fit_input(::MatsubaraSampling, al::AbstractArray{<:Any,N}) where {N}
     # Only the complex C entry point exists; real data is a special case of it.
-    return convert(Array{ComplexF64,N}, _as_input_array(al, "values at the sampling points"))
+    return convert(
+        Array{ComplexF64,N}, _as_input_array(al, "values at the sampling points"))
 end
 
 function _check_sampling_dims(a::AbstractArray{<:Any,N}, dim, n, name) where {N}
@@ -340,8 +342,9 @@ end
 # Output buffers are written by the C library and must be dense arrays of the
 # element type it writes.
 function _check_output_buffer(output)
-    output isa Array{Float64} || output isa Array{ComplexF64} || throw(ArgumentError(
-        "output must be an Array{Float64} or Array{ComplexF64}, got $(typeof(output))"))
+    output isa Array{Float64} || output isa Array{ComplexF64} ||
+        throw(ArgumentError(
+            "output must be an Array{Float64} or Array{ComplexF64}, got $(typeof(output))"))
     return nothing
 end
 

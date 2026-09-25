@@ -88,6 +88,7 @@
     @testset "iω noise with stat = $stat, Λ = $Λ" for stat in (Bosonic(), Fermionic()),
         Λ in (10, 42),
         positive_only in (false, true)
+
         sve_logistic = SparseIR.SVEResult(LogisticKernel(Λ), 1e-10)
         basis = FiniteTempBasis(stat, 1, Λ, 1e-10; sve_result=sve_logistic)
         smpl = MatsubaraSampling(basis; positive_only)
@@ -119,8 +120,8 @@
         @test Gℓ_n == Gℓ_n_inplace
     end
 
-    @testset "complex coefficients roundtrip with stat = $stat" for stat in
-                                                                    (Bosonic(), Fermionic())
+    @testset "complex coefficients roundtrip with stat = $stat" for stat in (
+        Bosonic(), Fermionic())
         # Regression test: the imaginary part of complex expansion coefficients
         # (e.g. off-diagonal Green's functions) must survive fit().
         basis = FiniteTempBasis(stat, 10.0, 10.0, 1e-8)
@@ -163,8 +164,8 @@
         @test sampling_points(smpl) == freqrange
     end
 
-    @testset "default_matsubara_sampling_points with stat = $stat" for stat in
-                                                                        (Fermionic(),
+    @testset "default_matsubara_sampling_points with stat = $stat" for stat in (
+        Fermionic(),
         Bosonic())
         β = 10.0
         ωmax = 1.0

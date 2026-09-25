@@ -13,7 +13,8 @@
     # Finding A: any real element type must be converted to Float64 before the
     # pointer is taken, and must give bit-identical poles -- not silent zeros
     # (Int64) and not a reinterpreted Float32 buffer.
-    @testset "element type $T" for T in (Float64, Float32, Float16, Int64, Int32, Rational{Int})
+    @testset "element type $T" for T in (
+        Float64, Float32, Float16, Int64, Int32, Rational{Int})
         dlr = DiscreteLehmannRepresentation(basis, T[1, -1])
         @test SparseIR.get_poles(dlr) == reference
         @test SparseIR.npoles(dlr) == 2

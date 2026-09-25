@@ -35,7 +35,8 @@
     @test_throws DomainError DiscreteLehmannRepresentation(basis, [-5.0, 0.1, 5.0])
 end
 
-@testitem "boundary: evaluation domains of u, v and the DLR functions" tags=[:julia, :boundary] setup=[SIRTestSetup] begin
+@testitem "boundary: evaluation domains of u, v and the DLR functions" tags=[
+    :julia, :boundary] setup=[SIRTestSetup] begin
     using Test
     using SparseIR
 
@@ -132,7 +133,8 @@ end
 
     # Fewer points than basis functions are accepted for evaluation.
     few = [0.1, 0.4]
-    @test evaluate(TauSampling(basis; sampling_points=few), gl) ≈ transpose(basis.u(few)) * gl
+    @test evaluate(TauSampling(basis; sampling_points=few), gl) ≈
+          transpose(basis.u(few)) * gl
 
     # Matsubara points: integers of the right parity only.
     @test_throws ArgumentError MatsubaraSampling(basis; sampling_points=[1.9, 3.0])
@@ -207,7 +209,8 @@ end
 
     # Output buffers must be dense Float64/ComplexF64 arrays.
     @test_throws ArgumentError evaluate!(zeros(Float32, npoints(τs)), τs, gl)
-    @test_throws ArgumentError evaluate!(view(zeros(2npoints(τs)), 1:2:(2npoints(τs))), τs, gl)
+    @test_throws ArgumentError evaluate!(
+        view(zeros(2npoints(τs)), 1:2:(2npoints(τs))), τs, gl)
     @test_throws ArgumentError fit!(zeros(Float32, L), τs, evaluate(τs, gl))
     @test_throws DimensionMismatch evaluate!(zeros(npoints(τs), 1), τs, gl)
 

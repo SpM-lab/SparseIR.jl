@@ -54,7 +54,6 @@ mutable struct SVEResult{K<:AbstractKernel}
     function SVEResult(
             kernel::K, ε::Real=eps(Float64); lmax::Integer=typemax(Int32),
             n_gauss::Integer=-1, Twork::Integer=SPIR_TWORK_AUTO) where {K<:AbstractKernel}
-
         isfinite(ε) && ε > 0 ||
             throw(DomainError(ε, "accuracy ε must be positive and finite"))
         if Twork ∉ [SPIR_TWORK_AUTO, SPIR_TWORK_FLOAT64, SPIR_TWORK_FLOAT64X2]
@@ -68,7 +67,8 @@ mutable struct SVEResult{K<:AbstractKernel}
         _check_status(status[], "spir_sve_result_new")
         _check_handle(sve_result, "spir_sve_result_new")
         size = Ref{Int32}(0)
-        _check_status(spir_sve_result_get_size(sve_result, size), "spir_sve_result_get_size")
+        _check_status(
+            spir_sve_result_get_size(sve_result, size), "spir_sve_result_get_size")
         s = Vector{Float64}(undef, size[])
         _check_status(spir_sve_result_get_svals(sve_result, s), "spir_sve_result_get_svals")
         result = new{K}(sve_result, kernel, s)
