@@ -149,8 +149,10 @@ julia -e 'using Pkg; Pkg.build()'
 ```
 
 This rebuilds the Rust backend, copies the generated shared library into `deps/`,
-and refreshes `src/C_API.jl`. See [`deps/README.md`](deps/README.md) for the
-developer-oriented build details.
+and generates bindings from its header into `deps/C_API.jl`. The package then
+loads that library with those bindings instead of `libsparseir_jll` and
+`src/C_API.jl`. See [`deps/README.md`](deps/README.md) for the developer-oriented
+build details.
 
 If Julia still appears to load the artifact-provided library after `Pkg.build()`,
 the precompile cache may still be holding the old path. In that case, remove the

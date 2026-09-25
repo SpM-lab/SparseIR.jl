@@ -214,8 +214,16 @@ function default_matsubara_sampling_points(basis::AugmentedBasis; positive_only=
     _check_status(status, "spir_basis_get_n_default_matsus_ext")
     points = zeros(Int64, n_points[])
     n_points_returned = Ref{Cint}(0)
-    status = spir_basis_get_default_matsus_ext(
-        basis_ptr, positive_only, mitigate, n_points[], points, n_points_returned)
+    # SpM-lab/sparse-ir-rs#274 separated the basis size from the buffer
+    # capacity. The loaded bindings match the loaded library (see
+    # src/SparseIR.jl), so their arity tells which form it takes.
+    status = if hasmethod(spir_basis_get_default_matsus_ext, NTuple{7,Any})
+        spir_basis_get_default_matsus_ext(basis_ptr, positive_only, mitigate,
+            length(basis), n_points[], points, n_points_returned)
+    else
+        spir_basis_get_default_matsus_ext(
+            basis_ptr, positive_only, mitigate, n_points[], points, n_points_returned)
+    end
     _check_status(status, "spir_basis_get_default_matsus_ext")
     # Never return entries the C library did not write.
     0 ≤ n_points_returned[] ≤ length(points) ||

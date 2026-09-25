@@ -1,6 +1,19 @@
 module SparseIR
 
-include("C_API.jl") # libsparseir
+import Libdl
+
+# A local libsparseir built by deps/build.jl comes with bindings generated from
+# its own header, deps/C_API.jl; load those with it, so that every ccall
+# signature matches the loaded library. Otherwise use the bindings for
+# libsparseir_jll in src/C_API.jl.
+const _LOCAL_BINDINGS = joinpath(dirname(@__DIR__), "deps", "C_API.jl")
+const _LOCAL_LIBRARY = joinpath(
+    dirname(@__DIR__), "deps", "libsparse_ir_capi.$(Libdl.dlext)")
+if isfile(_LOCAL_BINDINGS) && isfile(_LOCAL_LIBRARY)
+    include(_LOCAL_BINDINGS)
+else
+    include("C_API.jl") # libsparseir
+end
 using .C_API
 
 import LinearAlgebra

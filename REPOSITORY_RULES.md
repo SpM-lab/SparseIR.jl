@@ -49,9 +49,12 @@ that contradicts this file, fix this file in the same PR.
   if a sibling directory `../sparse-ir-rs` exists (i.e. checked out next to
   `SparseIR.jl`, not inside it), it runs
   `cargo build --release --features system-blas` there, copies
-  `libsparse_ir_capi.<dlext>` into `deps/`, and regenerates
-  `src/C_API.jl` by running `utils/generate_C_API.jl`. If `../sparse-ir-rs`
-  does not exist, `deps/build.jl` does nothing and the JLL package is used.
+  `libsparse_ir_capi.<dlext>` into `deps/`, and generates bindings from its
+  header into `deps/C_API.jl` by running `utils/generate_C_API.jl`.
+  `src/SparseIR.jl` includes `deps/C_API.jl` instead of `src/C_API.jl` when
+  both files exist in `deps/`, so the `ccall` signatures always match the
+  loaded library. If `../sparse-ir-rs` does not exist, `deps/build.jl` does
+  nothing and the JLL package with `src/C_API.jl` is used.
   See `development.md` ("Using Local libsparseir for Development") for the
   step-by-step workflow.
 - `SPARSEIR_DEBUG=1` (an actual environment variable read at runtime, see
