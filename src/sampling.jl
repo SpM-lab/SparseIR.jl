@@ -4,7 +4,8 @@ TauSampling{T,B} <: AbstractSampling
 
 Sparse sampling in imaginary time using the C API.
 
-Allows transformation between IR basis coefficients and sampling points in imaginary time.
+Allows transformation between IR basis coefficients `G_l` and the values
+`G(τ_i) = Σ_l G_l U_l(τ_i)` at the sampling points `τ_i` in imaginary time.
 """
 mutable struct TauSampling{T<:Real,B<:AbstractBasis} <: AbstractSampling{T,Float64,Nothing}
     ptr::Ptr{spir_sampling}
@@ -27,7 +28,8 @@ MatsubaraSampling{T,B} <: AbstractSampling
 
 Sparse sampling in Matsubara frequencies using the C API.
 
-Allows transformation between IR basis coefficients and sampling points in Matsubara frequencies.
+Allows transformation between IR basis coefficients `G_l` and the values
+`G(iν_i) = Σ_l G_l Û_l(iν_i)` at the sampling frequencies `ν_i = n_i π/β`.
 """
 mutable struct MatsubaraSampling{T<:MatsubaraFreq,B<:AbstractBasis} <:
                AbstractSampling{T,ComplexF64,Nothing}
@@ -55,11 +57,21 @@ const MatsubaraSampling64B = MatsubaraSampling{
     TauSampling(basis::AbstractBasis; sampling_points=nothing, use_positive_taus=true)
 
 Construct a `TauSampling` object from a basis. If `sampling_points` is not provided,
-the default tau sampling points from the basis are used.
+the default tau sampling points from the basis are used: the roots of `U_L`,
+the first basis function beyond a basis of size `L` (see
+[`default_tau_sampling_points`](@ref)).
 
-If `use_positive_taus=true`, the sampling points are folded to the positive tau domain [0, β) [default].
+If `use_positive_taus=true`, the sampling points are folded into `(0, β)` and sorted [default].
 
-If `use_positive_taus=false`, the sampling points are in the range [-β/2, β/2].
+If `use_positive_taus=false`, the sampling points are unfolded, in `(-β/2, β/2]`
+and symmetric about 0.
+
+For an [`AugmentedBasis`](@ref) there is no `use_positive_taus` keyword: its
+default points, the roots of `U_L` for `L = length(basis)`, are always folded
+into `(0, β)`.
+
+Given points are read as for `basis.u`: `τ < 0` stands for `τ + β` with the
+sign `(-1)^ζ`, and `-0.0` is `0⁻` (see [`FiniteTempBasis`](@ref)).
 
 `sampling_points`, when given, may be any real-valued `AbstractVector`
 (including `Vector{Int}` and `Vector{Float32}`); it is converted to
@@ -100,18 +112,28 @@ function TauSampling(basis::AbstractBasis; sampling_points=nothing, use_positive
 end
 
 """
-    MatsubaraSampling(basis::AbstractBasis; positive_only=false, sampling_points=nothing, factorize=true)
+    MatsubaraSampling(basis::AbstractBasis; positive_only=false, sampling_points=nothing)
 
 Construct a `MatsubaraSampling` object from a basis. If `sampling_points` is not provided,
-the default Matsubara sampling points from the basis are used.
+the default Matsubara sampling points from the basis are used: the sign changes of
+the first discarded transform `Û_l`, with `l ≥ L = length(basis)` chosen to fit
+the parity (see [`default_matsubara_sampling_points`](@ref)). Bosonic sets always
+include `n = 0`.
+
+`sampling_points`, when given, are reduced frequencies `n` (integers of the
+parity of the statistics: odd for fermions, even for bosons) or
+[`MatsubaraFreq`](@ref)s of the statistics of the basis; they are stored, and
+returned by [`sampling_points`](@ref), as a `Vector{FermionicFreq}` or
+`Vector{BosonicFreq}`.
 
 `positive_only = true` asserts that the caller's data satisfies the symmetry
-`g(-iω) = conj(g(iω))`, i.e. that the underlying quantity is real in imaginary
-time; the sampling object then holds only the non-negative frequencies. It is a
-statement about the data, not a display option, and its default is `false` (the
-general case). The assertion is **not** checked and cannot be checked from the
-sampled values alone — see the warning in [`fit`](@ref) — so data violating it
-is fitted to silently meaningless coefficients.
+`G(-iν) = conj(G(iν))`, i.e. that the underlying quantity is real in imaginary
+time; the sampling object then holds only the non-negative frequencies, `n ≥ 0`
+(for bosons including `n = 0`). It is a statement about the data, not a display
+option, and its default is `false` (the general case). The assertion is **not**
+checked and cannot be checked from the sampled values alone — see the warning in
+[`fit`](@ref) — so data violating it is fitted to silently meaningless
+coefficients.
 
 The sampling points must be non-empty and pairwise distinct; otherwise an
 `ArgumentError` is thrown before any call into `libsparseir`.
@@ -230,6 +252,9 @@ wrong length along `dim` throw before the call.
 For a `MatsubaraSampling` built with `positive_only = true`, genuinely complex
 coefficients violate its assumption of real coefficients and throw
 `ArgumentError`.
+
+The result holds `G(τ_i) = Σ_l G_l U_l(τ_i)` for a `TauSampling` and
+`G(iν_i) = Σ_l G_l Û_l(iν_i)` for a `MatsubaraSampling`.
 """
 function evaluate(
         sampling::Union{TauSampling,MatsubaraSampling}, al::AbstractArray{<:Any,N};
@@ -265,6 +290,10 @@ end
 
 Fit basis coefficients from values at sampling points using the C API.
 
+This is the least-squares inverse of [`evaluate`](@ref): it returns the IR
+coefficients `G_l` whose values `Σ_l G_l U_l(τ_i)` or `Σ_l G_l Û_l(iν_i)` best
+match the given values at the sampling points.
+
 For multidimensional arrays, `dim` specifies which dimension corresponds to the sampling points.
 
 # Element type of the result
@@ -283,7 +312,7 @@ call.
 # `positive_only`
 
 When `sampling` was built with `positive_only = true`, the caller asserts the
-symmetry `g(-iω) = conj(g(iω))` — equivalently, that the underlying quantity is
+symmetry `G(-iν) = conj(G(iν))` — equivalently, that the underlying quantity is
 real in imaginary time, so that its IR coefficients are real. Only the
 non-negative frequencies are then sampled, and each complex sampling point
 contributes two real equations, so the fit solves an exactly determined *real*
@@ -292,7 +321,7 @@ system and always returns coefficients whose imaginary part is exactly zero.
 !!! warning "`positive_only = true` is an unchecked contract"
 
     Because the default point set makes the real system exactly determined, data
-    that violates `g(-iω) = conj(g(iω))` is fitted with a vanishing residual and
+    that violates `G(-iν) = conj(G(iν))` is fitted with a vanishing residual and
     produces silently meaningless coefficients: the violation cannot be detected
     from the sampled values alone, and neither this wrapper nor `libsparseir`
     raises. Use `positive_only = true` only for a quantity you know to be real
@@ -521,7 +550,7 @@ function LinearAlgebra.cond(sampling::MatsubaraSampling)
     return LinearAlgebra.cond(vcat(real(A), imag(A)))
 end
 
-# Convenience property accessors (similar to SparseIR.jl)
+# Convenience property accessors: `.tau` and `.ωn` return the sampling points
 function Base.getproperty(s::TauSampling, p::Symbol)
     p === :tau ? sampling_points(s) :
     getfield(s, p)

@@ -1,51 +1,53 @@
 """
-    SVEResult(kernel::AbstractKernel;
-        Twork=nothing, ε=nothing, lmax=typemax(Int),
-        n_gauss=nothing, svd_strat=:auto,
-        sve_strat=iscentrosymmetric(kernel) ? CentrosymmSVE : SamplingSVE
-    )
+    SVEResult(kernel::AbstractKernel, ε=eps(Float64);
+        lmax=typemax(Int32), n_gauss=-1, Twork=SPIR_TWORK_AUTO)
 
-Perform truncated singular value expansion of a kernel.
+Perform the singular value expansion (SVE) of a kernel, computed by
+`libsparseir`.
 
-Perform a truncated singular value expansion (SVE) of an integral
-kernel `kernel : [xmin, xmax] x [ymin, ymax] -> ℝ`:
+The SVE of an integral kernel `kernel : [xmin, xmax] x [ymin, ymax] -> ℝ` in
+the dimensionless variables `x` and `y` reads
 
-    kernel(x, y) == sum(s[l] * u[l](x) * v[l](y) for l in (1, 2, 3, ...)),
+    kernel(x, y) == sum(s[l+1] * u_l(x) * v_l(y) for l in 0, 1, 2, ...),
 
-where `s[l]` are the singular values, which are ordered in non-increasing
-fashion, `u[l](x)` are the left singular functions, which form an
-orthonormal system on `[xmin, xmax]`, and `v[l](y)` are the right
-singular functions, which form an orthonormal system on `[ymin, ymax]`.
+where `s[l+1]` is the singular value `s_l`, ordered in non-increasing fashion,
+the left singular functions `u_l(x)` form an orthonormal system on
+`[xmin, xmax]`, and the right singular functions `v_l(y)` form an orthonormal
+system on `[ymin, ymax]` (both `[-1, 1]` for the kernels of this package). A
+[`FiniteTempBasis`](@ref) built from the result scales them to `U_l(τ)`,
+`S_l` and `V_l(ω)`.
 
 The SVE is mapped onto the singular value decomposition (SVD) of a matrix
-by expanding the kernel in piecewise Legendre polynomials (by default by
-using a collocation).
+by expanding the kernel in piecewise Legendre polynomials.
 
 # Arguments
 
-  - `K::AbstractKernel`: Integral kernel to take SVE from.
+  - `kernel::AbstractKernel`: Integral kernel to take SVE from.
 
-  - `ϵ::Real`: Relative cutoff for the singular values. Only singular values
-    with relative magnitude ≥ `cutoff` are kept. Defaults to `eps(Float64)` (≈ 2.22e-16).
-  - `cutoff::Real`: Accuracy target for the basis. Controls the precision to which
-    singular values and singular vectors are computed. Defaults to `NaN` (uses internal default).
-  - `lmax::Integer`: Maximum basis size. If given, only at most the `lmax` most
-    significant singular values and associated singular functions are returned.
-  - `n_gauss (int): Order of Legendre polynomials. Defaults to kernel hinted value.
-  - `Twork::Integer`: Working data type. Defaults to `SPIR_TWORK_AUTO` which automatically selects the appropriate precision based on the accuracy requirements.
-    Available options:
+  - `ε::Real`: Accuracy target (positive and finite). It selects the working
+    precision (see `Twork`) and the discretization. It does not truncate the
+    expansion: the result keeps the singular values down to about twice the
+    machine epsilon of the working precision relative to the largest one (for
+    example 38 values for `LogisticKernel(80.0)` and `ε = 1e-6`). The
+    truncation to `s_l/s_0 ≥ ε` is done by [`FiniteTempBasis`](@ref). Defaults
+    to `eps(Float64)` (≈ 2.22e-16).
+  - `lmax::Integer`: Maximum number of singular values. Passed to
+    `libsparseir`, which currently ignores it.
+  - `n_gauss::Integer`: Number of Gauss points of the discretization; `-1`
+    lets the library choose. Passed to `libsparseir`, which currently ignores
+    it and always chooses the number itself.
+  - `Twork::Integer`: Working precision. Available options:
 
-      + `SPIR_TWORK_AUTO`: Automatically select the best precision (default)
+      + `SPIR_TWORK_AUTO` (default): double precision for `ε ≥ 1e-8`,
+        extended precision below
       + `SPIR_TWORK_FLOAT64`: Use double precision (64-bit)
-      + `SPIR_TWORK_FLOAT64X2`: Use extended precision (128-bit)
-  - `sve_strat::AbstractSVE`: SVE to SVD translation strategy. Defaults to `SamplingSVE`,
-    optionally wrapped inside of a `CentrosymmSVE` if the kernel is centrosymmetric.
-  - `svd_strat` ('fast' or 'default' or 'accurate'): SVD solver. Defaults to fast
-    (ID/RRQR) based solution when accuracy goals are moderate, and more accurate
-    Jacobi-based algorithm otherwise.
+      + `SPIR_TWORK_FLOAT64X2`: Use extended precision (128-bit, double-double)
+
+    The constants are available as `SparseIR.SPIR_TWORK_AUTO` etc.
 
 Returns:
-An `SVEResult` containing the truncated singular value expansion.
+An `SVEResult`, whose field `s` holds the singular values `s_l` of the
+dimensionless expansion.
 """
 mutable struct SVEResult{K<:AbstractKernel}
     ptr::Ptr{spir_sve_result}

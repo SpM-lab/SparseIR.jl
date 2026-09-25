@@ -1,24 +1,41 @@
 """
     DiscreteLehmannRepresentation{S,B} <: AbstractBasis{S}
 
-Discrete Lehmann representation (DLR) with poles selected according to extrema of IR.
+Discrete Lehmann representation (DLR), with the poles by default at the roots
+of `V_L`, the first real-frequency basis function beyond the IR basis.
 
-This type wraps the C API DLR functionality. The DLR basis is a variant of the IR basis
-that uses a "sketching" approach - representing functions as a linear combination of
-poles on the real-frequency axis:
+This type wraps the C API DLR functionality. The DLR basis is a variant of the
+IR basis that represents the spectral function, for both statistics, by poles
+`ω̄_p` on the real-frequency axis,
 
-    G(iv) == sum(a[i] / (iv - w[i]) for i in 1:npoles)
+    ρ(ω) = Σ_p c_p δ(ω - ω̄_p),
+
+where `ρ` is the weighted spectral function of [`FiniteTempBasis`](@ref)
+(`ρ = A` for fermions, `ρ = A/tanh(βω/2)` for bosons) and the `c_p` are the
+DLR coefficients. Then
+
+    G(τ) = Σ_p c_p u_p(τ),     u_p(τ) = -exp(-τ ω̄_p) / (1 + exp(-β ω̄_p)),
+    G(iν) = Σ_p c_p û_p(iν),
+
+where `u_p(τ)` is minus the logistic kernel at `ω = ω̄_p` and
+
+    û_p(iν) = 1/(iν - ω̄_p)                 for fermions,
+    û_p(iν) = tanh(β ω̄_p/2)/(iν - ω̄_p)     for bosons.
+
+So `G(iν) = Σ_p c_p/(iν - ω̄_p)` holds for fermions only; for bosons the
+spectral weights are `A(ω) = Σ_p c_p tanh(β ω̄_p/2) δ(ω - ω̄_p)`.
 
 # Fields
 
   - `ptr::Ptr{spir_basis}`: Pointer to the C DLR object
   - `basis::B`: The underlying IR basis
-  - `poles::Vector{Float64}`: Pole locations on the real-frequency axis
-  - `u`: the DLR basis functions in imaginary time, `u[i](τ)` being the
-    single-pole function `-exp(-τ ω_i) / (1 + exp(-β ω_i))`, so that
-    `transpose(dlr.u(τ)) * g_dlr` evaluates DLR coefficients `g_dlr`
-  - `uhat`: their Fourier transforms, `1/(iν - ω_i)` for fermions and
-    `tanh(β ω_i / 2)/(iν - ω_i)` for bosons
+  - `poles::Vector{Float64}`: Pole locations `ω̄_p` on the real-frequency axis
+  - `u`: the DLR basis functions `u_p(τ)` in imaginary time, so that
+    `transpose(dlr.u(τ)) * c` evaluates the DLR coefficients `c`. They accept
+    `τ ∈ [-β, β]`, with the extension to negative `τ` and the endpoint rules of
+    `FiniteTempBasis.u` (see [`FiniteTempBasis`](@ref)).
+  - `uhat`: their Fourier transforms `û_p(iν)`, called with the reduced
+    frequency `n` (`ν = nπ/β`) or a [`MatsubaraFreq`](@ref)
 
 The DLR basis functions are not piecewise polynomials: `deriv`, `knots` and
 `overlap` are not supported for them and throw [`SparseIRError`](@ref).
@@ -65,7 +82,8 @@ end
 
 Construct a DLR basis from an IR basis.
 
-If `poles` is not provided, uses the default omega sampling points from the IR basis.
+If `poles` is not provided, uses the default omega sampling points from the IR
+basis: the roots of `V_L` (see [`default_omega_sampling_points`](@ref)).
 
 `poles` may be any real-valued `AbstractVector` (including `Vector{Int}` and
 `Vector{Float32}`); it is converted to `Vector{Float64}` — the element type the
@@ -115,7 +133,9 @@ uhat(dlr::DiscreteLehmannRepresentation) = dlr.uhat
 """
     from_IR(dlr::DiscreteLehmannRepresentation, gl::AbstractArray, dims=1)
 
-Transform from IR basis coefficients to DLR coefficients.
+Transform from IR basis coefficients `G_l` to DLR coefficients `c_p`, the
+inverse of [`to_IR`](@ref): for the default poles,
+`from_IR(dlr, to_IR(dlr, c)) ≈ c`.
 
 # Arguments
 
@@ -142,7 +162,12 @@ end
 """
     to_IR(dlr::DiscreteLehmannRepresentation, g_dlr::AbstractArray, dims=1)
 
-Transform from DLR coefficients to IR basis coefficients.
+Transform from DLR coefficients `c_p` to IR basis coefficients, for both
+statistics
+
+    G_l = -S_l Σ_p V_l(ω̄_p) c_p,
+
+i.e. `to_IR(dlr, c) ≈ -dlr.basis.s .* (dlr.basis.v(dlr.poles) * c)`.
 
 # Arguments
 
@@ -205,7 +230,7 @@ end
 """
     get_poles(dlr::DiscreteLehmannRepresentation)
 
-Get the pole locations for the DLR basis.
+Get the pole locations `ω̄_p` for the DLR basis.
 
 Returns a vector of pole locations on the real-frequency axis.
 """
@@ -223,8 +248,8 @@ end
 
 Get the default real-frequency sampling points for a basis.
 
-These are the extrema of the highest-order basis function on the real-frequency axis,
-which provide near-optimal conditioning for the DLR.
+These are the roots of `V_L`, the first real-frequency basis function beyond a
+basis of size `L`. They are the default poles of the DLR.
 """
 function default_omega_sampling_points(basis::AbstractBasis)
     n_points = Ref{Int32}(-1)

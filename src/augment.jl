@@ -37,12 +37,28 @@ Augmented basis on the imaginary-time/frequency axis.
 
 Groups a set of additional functions, `augmentations`, with a given
 `basis`. The augmented functions then form the first basis
-functions, while the rest is provided by the regular basis, i.e.:
+functions, while the rest is provided by the regular basis, i.e. with Julia's
+1-based index `i`:
 
-    u[l](x) == l < naug ? augmentations[l](x) : basis.u[l-naug](x),
+    u[i](τ) == i ≤ naug ? augmentations[i](τ) : basis.u[i-naug](τ),
+    uhat[i](n) == i ≤ naug ? augmentations[i](n) : basis.uhat[i-naug](n),
 
 where `naug = length(augmentations)` is the number of added basis functions
-through augmentation. Similar expressions hold for Matsubara frequencies.
+through augmentation, `τ ∈ [-β, β]` and `n` is a reduced frequency (or a
+[`MatsubaraFreq`](@ref)).
+
+`AugmentedBasis(basis, augmentations...)` takes each augmentation as a type
+(`TauConst`, `TauLinear`, `MatsubaraConst`), which is then built for the β and
+the statistics of `basis`, or as an instance, which must have the β of `basis`
+and, except for a `MatsubaraConst`, its statistics (`ArgumentError` otherwise).
+[`TauConst`](@ref) and [`TauLinear`](@ref) exist for bosons only;
+[`MatsubaraConst`](@ref) works for both statistics, and an instance of it adopts
+the statistics of the basis.
+
+The default sampling points are those for `L = naug + length(basis)`
+functions, the size of the augmented basis: the roots of `U_L` in imaginary
+time, always folded into `(0, β)`, and the sign changes of the first discarded
+`Û_l` (`l ≥ L`) in Matsubara frequency.
 
 Augmentation is useful in constructing bases for vertex-like quantities
 such as self-energies [^wallerberger2021] and when constructing a two-point kernel
@@ -346,10 +362,13 @@ Handles boundary conditions based on statistics:
   - Fermions: Anti-periodic G(τ + β) = -G(τ)
   - Bosons: Periodic G(τ + β) = G(τ)
 
+The endpoints are read as one-sided limits, as by `basis.u`: `0.0` is `0⁺` and
+`β` is `β⁻` (both returned unchanged), `-0.0` is `0⁻` and `-β` is `(-β)⁺`.
+
 # Arguments
 
   - `S`: Statistics type (Fermionic or Bosonic)
-  - `tau`: Imaginary time in range [-β, β]
+  - `tau`: Imaginary time in range [-β, β]; `DomainError` outside
   - `beta`: Inverse temperature
 
 # Returns
@@ -361,12 +380,14 @@ Handles boundary conditions based on statistics:
 For Fermionic statistics:
 
   - `tau = -0.0` (negative zero) → `(tau_normalized = β, sign = -1.0)`
-  - `tau ∈ [-β, 0)` → wraps to [0, β] with `sign = -1.0`
+  - `tau ∈ [-β, 0)` → wraps to `tau + β ∈ [0, β)` with `sign = -1.0`; in
+    particular `tau = -β` → `(0.0, -1.0)`
 
 For Bosonic statistics:
 
   - `tau = -0.0` (negative zero) → `(tau_normalized = β, sign = 1.0)`
-  - `tau ∈ [-β, 0)` → wraps to [0, β] with `sign = 1.0`
+  - `tau ∈ [-β, 0)` → wraps to `tau + β ∈ [0, β)` with `sign = 1.0`; in
+    particular `tau = -β` → `(0.0, 1.0)`
 """
 function normalize_tau(::Type{S}, tau::Real, beta::Real) where {S<:Statistics}
     tau_f = Float64(tau)
@@ -491,12 +512,16 @@ end
 """
     MatsubaraConst{S} <: AbstractAugmentation{S}
 
-Constant in Matsubara, undefined in imaginary time.
+Constant in Matsubara, undefined in imaginary time: its value is `1` at every
+Matsubara frequency, and it returns `NaN` for `τ ∈ [-β, β]` (`DomainError`
+outside).
 
 # Type Parameters
 
   - `S`: Statistics type (Fermionic or Bosonic). This is required for type consistency,
-    though MatsubaraConst works identically for both statistics.
+    though MatsubaraConst works identically for both statistics. `MatsubaraConst(β)`
+    is bosonic; as an augmentation, both the bare type and an instance take the
+    statistics of the basis they augment.
 """
 struct MatsubaraConst{S<:Statistics} <: AbstractAugmentation{S}
     β::Float64

@@ -7,38 +7,67 @@ For a continuation kernel `K` from real frequencies, `ω ∈ [-ωmax, ωmax]`, t
 imaginary time, `τ ∈ [0, β]`, this type stores the truncated singular
 value expansion or IR basis:
 
-    K(τ, ω) ≈ sum(u[l](τ) * s[l] * v[l](ω) for l in 1:L)
+    K(τ, ω) ≈ sum(U_l(τ) * S_l * V_l(ω) for l in 0:L-1),
+
+where `L = length(basis)`, `S_0 ≥ S_1 ≥ … > 0`, and Julia's `basis.u[l+1]`,
+`basis.s[l+1]` and `basis.v[l+1]` are `U_l`, `S_l` and `V_l`. The `U_l` are
+orthonormal on `[0, β]`, the `V_l` on `[-ωmax, ωmax]`, and their sign is fixed
+by `U_l(β⁻) > 0`. The basis keeps the functions with `S_l/S_0 ≥ ε`.
 
 This basis is inferred from a reduced form by appropriate scaling of
-the variables.
+the variables: with `x = 2τ/β - 1` and `y = ω/ωmax`, the dimensionless SVE
+`K(x, y) = Σ_l s_l u_l(x) v_l(y)` (see [`SVEResult`](@ref)) of the default
+[`LogisticKernel`](@ref) gives
+
+    U_l(τ) = √(2/β) u_l(x),    V_l(ω) = √(1/ωmax) v_l(y),    S_l = √(β ωmax/2) s_l.
+
+With the `LogisticKernel`, fermions and bosons share `U_l`, `S_l` and `V_l`;
+only `uhat` differs. A Green's function is expanded as
+
+    G(τ) ≈ Σ_l G_l U_l(τ),    G(iν) ≈ Σ_l G_l Û_l(iν),
+    G_l = -S_l ρ_l,           ρ_l = ∫ dω ρ(ω) V_l(ω),
+
+where `ρ(ω) = A(ω)` for fermions and `ρ(ω) = A(ω)/tanh(βω/2)` for bosons, and
+`A(ω)` is the spectral function (see [`LogisticKernel`](@ref)).
 
 # Fields
 
   - `u::PiecewiseLegendrePolyVector`:
-    Set of IR basis functions on the imaginary time (`tau`) axis.
+    Set of IR basis functions `U_l(τ)` on the imaginary time (`tau`) axis.
     These functions are stored as piecewise Legendre polynomials.
 
-    To obtain the value of all basis functions at a point or a array of
-    points `x`, you can call the function `u(x)`. To obtain a single
-    basis function, a slice or a subset `l`, you can use `u[l]`.
+    To obtain the value of all basis functions at a point or an array of
+    points `τ`, you can call the function `u(τ)`. `u[l+1]` is the single
+    basis function `U_l`, and `u[range]` a subset.
+
+    `u` accepts `τ ∈ [-β, β]` and throws `DomainError` outside. For `τ < 0` it
+    returns `u(τ) = (-1)^ζ u(τ + β)`, where the parity `ζ` is 1 for fermions and
+    0 for bosons. The endpoints are read as one-sided limits: `+0.0` is `0⁺`,
+    `β` is `β⁻`, `-0.0` is `0⁻` (the value `(-1)^ζ U_l(β⁻)`) and `-β` is `(-β)⁺`
+    (the value `(-1)^ζ U_l(0⁺)`).
 
   - `uhat::PiecewiseLegendreFTVector`:
-    Set of IR basis functions on the Matsubara frequency (`wn`) axis.
-    These objects are stored as a set of Bessel functions.
+    Set of IR basis functions `Û_l(iν)` on the Matsubara frequency axis, the
+    Fourier transforms
+
+        Û_l(iν) = ∫₀^β dτ exp(iντ) U_l(τ),    ν = nπ/β.
 
     To obtain the value of all basis functions at a Matsubara frequency
-    or a array of points `wn`, you can call the function `uhat(wn)`.
-    Note that we expect reduced frequencies, which are simply even/odd
-    numbers for bosonic/fermionic objects. To obtain a single basis
-    function, a slice or a subset `l`, you can use `uhat[l]`.
-  - `s`: Vector of singular values of the continuation kernel
+    or an array of frequencies, you can call the function `uhat(n)`.
+    Note that we expect reduced frequencies `n`, which are simply even/odd
+    numbers for bosonic/fermionic objects, or [`MatsubaraFreq`](@ref)s.
+    `uhat[l+1]` is the single function `Û_l`, and `uhat[range]` a subset.
+    For fermions, `Û_l(iν)` is purely imaginary for even `l` and real for odd
+    `l`; for bosons it is the other way round.
+  - `s`: Vector of singular values `S_l` of the continuation kernel
   - `v::PiecewiseLegendrePolyVector`:
-    Set of IR basis functions on the real frequency (`w`) axis.
-    These functions are stored as piecewise Legendre polynomials.
+    Set of IR basis functions `V_l(ω)` on the real frequency axis,
+    `ω ∈ [-ωmax, ωmax]`. These functions are stored as piecewise Legendre
+    polynomials.
 
-    To obtain the value of all basis functions at a point or a array of
-    points `w`, you can call the function `v(w)`. To obtain a single
-    basis function, a slice or a subset `l`, you can use `v[l]`.
+    To obtain the value of all basis functions at a point or an array of
+    points `ω`, you can call the function `v(ω)`. `v[l+1]` is the single
+    basis function `V_l`, and `v[range]` a subset.
 """
 mutable struct FiniteTempBasis{S,K} <: AbstractBasis{S}
     ptr::Ptr{spir_basis}
@@ -114,14 +143,18 @@ end
     FiniteTempBasis{S}(β, ωmax, ε; kernel=LogisticKernel(β * ωmax), sve_result=SVEResult(kernel, ε), max_size=-1)
 
 Construct a finite temperature basis suitable for the given `S` (`Fermionic`
-or `Bosonic`) and cutoffs `β` and `ωmax`.
+or `Bosonic`), inverse temperature `β` and frequency cutoff `ωmax`.
 
 # Arguments
 
   - `β`: Inverse temperature (must be positive)
-  - `ωmax`: Frequency cutoff (must be positive)
-  - `ε`: This parameter controls the number of basis functions. Only singular values ≥ ε * s[1] are kept.
-    Typical values are 1e-6 to 1e-12 depending on the desired accuracy for your calculations. If ε is smaller than the square root of double precision machine epsilon (≈ 1.49e-8), the library will automatically use higher precision for the singular value decomposition, resulting in longer computation time for basis generation.
+  - `ωmax`: Frequency cutoff (must be positive). The spectral function must
+    vanish outside `[-ωmax, ωmax]`.
+  - `ε`: This parameter controls the number of basis functions. Only the singular values with `S_l/S_0 ≥ ε` are kept.
+    Typical values are 1e-6 to 1e-12 depending on the desired accuracy for your calculations. If ε is smaller than 1e-8, the library will automatically use higher (double-double) precision for the singular value expansion, resulting in longer computation time for basis generation.
+  - `kernel`: The kernel; its cutoff must be `Λ = β * ωmax` (otherwise `ArgumentError`).
+  - `sve_result`: The SVE of `kernel`, or of a kernel of the same type and `Λ`.
+  - `max_size`: Maximum number of basis functions, `-1` for no limit.
 
 The number of basis functions grows logarithmically as log(1/ε) log (β * ωmax).
 """
@@ -174,17 +207,19 @@ end
 """
     FiniteTempBasis(stat::Statistics, β, ωmax, ε; kernel=LogisticKernel(β * ωmax), sve_result=SVEResult(kernel, ε), max_size=-1)
 
-Convenience constructor that matches SparseIR.jl signature.
+Convenience constructor, the same as
+`FiniteTempBasis{typeof(stat)}(β, ωmax, ε; kernel, sve_result, max_size)`.
 
-Construct a finite temperature basis for the given statistics type and cutoffs.
+Construct a finite temperature basis for the given statistics, inverse
+temperature and frequency cutoff.
 
 # Arguments
 
-  - `stat`: Statistics type (`Fermionic()` or `Bosonic()`)
+  - `stat`: Statistics instance (`Fermionic()` or `Bosonic()`)
   - `β`: Inverse temperature (must be positive)
   - `ωmax`: Frequency cutoff (must be positive)
-  - `ε`: Accuracy target for the basis. This parameter controls the number of basis functions. Only singular values ≥ ε * s[1] are kept.
-    Typical values are 1e-6 to 1e-12 depending on the desired accuracy for your calculations. If ε is smaller than the square root of double precision machine epsilon (≈ 1.49e-8), the library will automatically use higher precision for the singular value decomposition, resulting in longer computation time for basis generation.
+  - `ε`: Accuracy target for the basis. This parameter controls the number of basis functions. Only the singular values with `S_l/S_0 ≥ ε` are kept.
+    Typical values are 1e-6 to 1e-12 depending on the desired accuracy for your calculations. If ε is smaller than 1e-8, the library will automatically use higher (double-double) precision for the singular value expansion, resulting in longer computation time for basis generation.
 
 The number of basis functions grows logarithmically as log(1/ε) log (β * ωmax).
 """
@@ -261,7 +296,8 @@ Return a basis for different temperature.
 
 Creates a new basis with the same accuracy ``ε`` but different temperature.
 The new kernel is constructed with the same cutoff parameter ``Λ = β * ωmax``,
-which implies a different UV cutoff ``ωmax`` since ``Λ`` stays constant.
+which implies a different frequency cutoff `ωmax = Λ / new_beta` since ``Λ``
+stays constant.
 
 # Arguments
 
@@ -300,14 +336,16 @@ end
                       kernel=LogisticKernel(β * ωmax), sve_result=SVEResult(kernel, ε))
 
 Construct `FiniteTempBasis` objects for fermion and bosons using the same
-`LogisticKernel` instance.
+`LogisticKernel` instance and SVE. The two bases share `U_l`, `S_l` and
+`V_l`; the bosonic IR coefficients are those of `ρ(ω) = A(ω)/tanh(βω/2)`
+(see [`FiniteTempBasis`](@ref)).
 
 # Arguments
 
   - `β`: Inverse temperature (must be positive)
   - `ωmax`: Frequency cutoff (must be positive)
-  - `ε`: This parameter controls the number of basis functions. Only singular values ≥ ε * s[1] are kept.
-    Typical values are 1e-6 to 1e-12 depending on the desired accuracy for your calculations. If ε is smaller than the square root of double precision machine epsilon (≈ 1.49e-8), the library will automatically use higher precision for the singular value decomposition, resulting in longer computation time for basis generation.
+  - `ε`: This parameter controls the number of basis functions. Only the singular values with `S_l/S_0 ≥ ε` are kept.
+    Typical values are 1e-6 to 1e-12 depending on the desired accuracy for your calculations. If ε is smaller than 1e-8, the library will automatically use higher (double-double) precision for the singular value expansion, resulting in longer computation time for basis generation.
 
 The number of basis functions grows logarithmically as log(1/ε) log (β * ωmax).
 """

@@ -11,7 +11,9 @@ mutable struct PiecewiseLegendrePoly
     ptr::Ptr{spir_funcs}
     xmin::Float64
     xmax::Float64
-    period::Float64 # 0.0 for a non-periodic function, the period for a periodic function
+    # 0.0 for a function of ω; β for a function of τ, whose knots repeat with
+    # period β while the function obeys f(τ + β) = (-1)^ζ f(τ)
+    period::Float64
     default_overlap_range::Tuple{Float64,Float64} # Default range for overlap calculations
     function PiecewiseLegendrePoly(
             funcs::Ptr{spir_funcs}, xmin::Float64, xmax::Float64, period::Float64,
@@ -35,7 +37,9 @@ mutable struct PiecewiseLegendrePolyVector
     ptr::Ptr{spir_funcs}
     xmin::Float64
     xmax::Float64
-    period::Float64 # 0.0 for a non-periodic function, the period for a periodic function
+    # 0.0 for a function of ω; β for a function of τ, whose knots repeat with
+    # period β while the function obeys f(τ + β) = (-1)^ζ f(τ)
+    period::Float64
     default_overlap_range::Tuple{Float64,Float64} # Default range for overlap calculations
     function PiecewiseLegendrePolyVector(
             funcs::Ptr{spir_funcs}, xmin::Float64, xmax::Float64, period::Float64,
@@ -62,9 +66,12 @@ Base.size(polys::PiecewiseLegendrePolyVector) = (length(polys),)
 Fourier transforms of a set of piecewise Legendre polynomials, evaluated at
 Matsubara frequencies.
 
-For a reduced frequency `n`, the transform of the basis function `u_l` is
+For a reduced frequency `n`, i.e. the Matsubara frequency `ν = nπ/β`, the
+transform of the basis function `U_l` is
 
-    û_l(n) == ∫₀^β dτ exp(iπnτ/β) u_l(τ).
+    Û_l(iν) == ∫₀^β dτ exp(iντ) U_l(τ),
+
+and `polys[l+1](n)` returns `Û_l(iν)`.
 
 The object knows the statistics of its basis: it accepts `MatsubaraFreq`s of
 that statistics or integers of the matching parity (odd for fermions, even for
@@ -138,7 +145,8 @@ end
 """
     (polys::PiecewiseLegendrePolyVector)(x::AbstractVector)
 
-`length(polys) × length(x)` matrix of the functions at the points `x`.
+`length(polys) × length(x)` matrix of the functions at the points `x`
+(imaginary times for `basis.u`, real frequencies for `basis.v`).
 """
 function (polys::PiecewiseLegendrePolyVector)(x::AbstractVector)
     for xi in x
@@ -348,11 +356,14 @@ end
 
 Evaluate overlap integral of `poly` with arbitrary function `f` using default range.
 
-Given the function `f`, evaluate the integral
+Given the function `f`, evaluate the integral of `f` times `poly` over the
+default integration range, using adaptive Gauss-Legendre quadrature:
 
-    ∫ dx f(x) poly(x)
+    ∫₀^β dτ f(τ) U_l(τ)                   for poly = basis.u[l+1],
+    ∫_{-ωmax}^{ωmax} dω f(ω) V_l(ω)       for poly = basis.v[l+1].
 
-using adaptive Gauss-Legendre quadrature with the default integration range.
+The default range of a function of imaginary time is `[0, β]`, not its
+evaluation domain `[-β, β]`.
 
 `points` is a sequence of break points in the integration interval where local
 difficulties of the integrand may occur (e.g. singularities, discontinuities).
@@ -373,9 +384,10 @@ Evaluate overlap integral of `poly` with arbitrary function `f`.
 
 Given the function `f`, evaluate the integral
 
-    ∫ dx f(x) poly(x)
+    ∫_{xmin}^{xmax} dt f(t) poly(t)
 
-using adaptive Gauss-Legendre quadrature.
+using adaptive Gauss-Legendre quadrature, where `t` is the variable of `poly`
+(`τ` for `basis.u`, `ω` for `basis.v`) and `[xmin, xmax]` must lie in its domain.
 
 `points` is a sequence of break points in the integration interval where local
 difficulties of the integrand may occur (e.g. singularities, discontinuities).
@@ -412,9 +424,12 @@ Evaluate overlap integral of `polys` with arbitrary function `f` using default r
 
 Given the function `f`, evaluate the integral
 
-    ∫ dx f(x) polys[i](x)
+    ∫ dt f(t) polys[i](t)
 
-for each polynomial in the vector using adaptive Gauss-Legendre quadrature with the default integration range.
+for each polynomial in the vector using adaptive Gauss-Legendre quadrature with
+the default integration range: `[0, β]` for `basis.u` (so that
+`overlap(basis.u, f)[l+1]` is `∫₀^β dτ f(τ) U_l(τ)`) and `[-ωmax, ωmax]` for
+`basis.v`.
 """
 function overlap(
         polys::PiecewiseLegendrePolyVector, f::F;

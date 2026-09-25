@@ -3,20 +3,20 @@
 
 Abstract base class for bases on the imaginary-time axis.
 
-Let `basis` be an abstract basis. Then we can expand a two-point
-propagator  `G(τ)`, where `τ` is imaginary time, into a set of basis
-functions:
+Let `basis` be an abstract basis with `L = length(basis)` functions. Then we can
+expand a two-point propagator `G(τ)`, where `τ` is imaginary time, into the
+basis functions `U_l(τ)`, `l = 0, …, L-1`:
 
-    G(τ) == sum(basis.u[l](τ) * g[l] for l in 1:length(basis)) + ϵ(τ),
+    G(τ) ≈ sum(basis.u[l+1](τ) * g[l+1] for l in 0:L-1),
 
-where `basis.u[l]` is the `l`-th basis function, `g[l]` is the associated
-expansion coefficient and `ϵ(τ)` is an error term. Similarly, the Fourier
-transform `Ĝ(n)`, where `n` is now a Matsubara frequency, can be expanded
-as follows:
+where Julia's `basis.u[l+1]` is `U_l` and `g[l+1]` is the associated expansion
+coefficient `G_l`; the difference is the truncation error of the basis.
+Similarly, the Fourier transform `G(iν)`, where `ν = nπ/β` is a Matsubara
+frequency with reduced frequency `n`, can be expanded as follows:
 
-    Ĝ(n) == sum(basis.uhat[l](n) * g[l] for l in 1:length(basis)) + ϵ(n),
+    G(iν) ≈ sum(basis.uhat[l+1](n) * g[l+1] for l in 0:L-1),
 
-where `basis.uhat[l]` is now the Fourier transform of the basis function.
+where `basis.uhat[l+1]` is `Û_l`, the Fourier transform of `U_l`.
 """
 abstract type AbstractBasis{S<:Statistics} end
 
@@ -25,8 +25,9 @@ abstract type AbstractBasis{S<:Statistics} end
 
 Integral kernel `K(x, y)`.
 
-Abstract base type for an integral kernel, i.e. a AbstractFloat binary function
-``K(x, y)`` used in a Fredhold integral equation of the first kind:
+Abstract base type for an integral kernel, i.e. a real-valued function
+``K(x, y)`` of the dimensionless variables ``x`` and ``y``, used in a Fredholm
+integral equation of the first kind:
 ```math
     u(x) = ∫ K(x, y) v(y) dy
 ```
@@ -35,11 +36,12 @@ where ``x ∈ [x_\mathrm{min}, x_\mathrm{max}]`` and
 the kernel must be square-integrable, for its singular values to decay
 exponentially, it must be smooth.
 
-In general, the kernel is applied to a scaled spectral function ``ρ'(y)`` as:
+In general, the kernel is applied to a weighted spectral function ``ρ(y)`` as:
 ```math
-    ∫ K(x, y) ρ'(y) dy,
+    ∫ K(x, y) ρ(y) dy,
 ```
-where ``ρ'(y) = w(y) ρ(y)``.
+where ``ρ(y) = w(y) A(y)`` is the spectral function ``A`` times a weight ``w``
+that depends on the kernel and the statistics (see [`LogisticKernel`](@ref)).
 """
 abstract type AbstractKernel end
 
@@ -62,8 +64,9 @@ abstract type AbstractSVEHints end
 Abstract type for sparse sampling.
 
 Encodes the "basis transformation" of a propagator from the truncated IR
-basis coefficients `G_ir[l]` to time/frequency sampled on sparse points
-`G(x[i])` together with its inverse, a least squares fit:
+basis coefficients `G_l` to its values `G(τ_i)` or `G(iν_i)` on sparse sampling
+points in imaginary time or Matsubara frequency, together with its inverse, a
+least squares fit:
 
          ________________                   ___________________
         |                |    evaluate     |                   |
@@ -89,66 +92,84 @@ Base.length(basis::AbstractBasis) = length(basis.s)
 Accuracy of the basis.
 
 Upper bound to the relative error of representing a propagator with
-the given number of basis functions (number between 0 and 1).
+the given number of basis functions (number between 0 and 1). For an IR basis
+of size `L` it is `S_L/S_0`, the first discarded singular value relative to the
+largest one.
 """
 function accuracy end
 
 """
     significance(basis::AbstractBasis)
 
-Return vector `σ`, where `0 ≤ σ[i] ≤ 1` is the significance level of the `i`-th
-basis function. If `ϵ` is the desired accuracy to which to represent a
-propagator, then any basis function where `σ[i] < ϵ` can be neglected.
+Return vector `σ`, where `0 ≤ σ[l+1] ≤ 1` is the significance level of the
+basis function `U_l`. If `ε` is the desired accuracy to which to represent a
+propagator, then any basis function where `σ[l+1] < ε` can be neglected.
 
-For the IR basis, we simply have that `σ[i] = s[i] / first(s)`.
+For the IR basis, we simply have that `σ[l+1] = S_l / S_0`.
 """
 function significance end
 
 """
     s(basis::AbstractBasis)
 
-Get the singular values of the basis.
+Get the singular values `S_l` of the basis, `basis.s`; `s(basis)[l+1]` is `S_l`.
 """
 function s end
 
 """
     u(basis::AbstractBasis)
 
-Get the u basis functions (imaginary time).
+Get the basis functions in imaginary time, `basis.u`: for an IR basis the
+`U_l(τ)`, with `u(basis)[l+1]` being `U_l`. They accept `τ ∈ [-β, β]`; see
+[`FiniteTempBasis`](@ref) for the extension to negative `τ` and the endpoints.
 """
 function u end
 
 """
     v(basis::AbstractBasis)
 
-Get the v basis functions (real frequency).
+Get the basis functions `V_l(ω)` in real frequency, `basis.v`, for
+`ω ∈ [-ωmax, ωmax]`; `v(basis)[l+1]` is `V_l`.
 """
 function v end
 
 """
     uhat(basis::AbstractBasis)
 
-Get the uhat basis functions (Matsubara frequency).
+Get the basis functions in Matsubara frequency, `basis.uhat`, the Fourier
+transforms of those of [`u`](@ref): for an IR basis the `Û_l(iν)`, with
+`uhat(basis)[l+1]` being `Û_l`. They take the reduced frequency `n`
+(`ν = nπ/β`) or a [`MatsubaraFreq`](@ref).
 """
 function uhat end
 
 """
-    default_tau_sampling_points(basis::AbstractBasis)
+    default_tau_sampling_points(basis::AbstractBasis; use_positive_taus=true)
 
-Default sampling points on the imaginary time/x axis.
+Default sampling points in imaginary time: the roots of `U_L`, the first basis
+function beyond a basis of size `L = length(basis)`.
+
+With `use_positive_taus=true` (the default) the points are folded into `(0, β)`
+and sorted. With `use_positive_taus=false` they are returned unfolded, in
+`(-β/2, β/2]` and symmetric about 0. A DLR uses the points of its IR basis.
 """
 function default_tau_sampling_points end
 
 """
     default_matsubara_sampling_points(basis::AbstractBasis; positive_only=false)
 
-Default sampling points on the imaginary frequency axis.
+Default sampling points on the imaginary frequency axis, as a `Vector{Int}` of
+reduced frequencies `n` (`ν = nπ/β`, odd for fermions, even for bosons).
+
+The points are the sign changes of the first discarded transform `Û_l`, with
+`l ≥ L = length(basis)` chosen to fit the parity. Bosonic sets always include
+`n = 0`. A DLR uses the points of its IR basis.
 
 # Arguments
 
-  - `positive_only::Bool`: Only return non-negative frequencies. This is useful if the
-    object to be fitted is symmetric in Matsubura frequency, `ĝ(ω) == conj(ĝ(-ω))`,
-    or, equivalently, real in imaginary time.
+  - `positive_only::Bool`: Only return non-negative frequencies, `n ≥ 0`. This is
+    useful if the object to be fitted is symmetric in Matsubara frequency,
+    `G(-iν) == conj(G(iν))`, or, equivalently, real in imaginary time.
 """
 function default_matsubara_sampling_points end
 
@@ -163,7 +184,7 @@ statistics(::AbstractBasis{S}) where {S<:Statistics} = S()
     Λ(basis::AbstractBasis)
     lambda(basis::AbstractBasis)
 
-Basis cutoff parameter, `Λ = β * ωmax`, or None if not present
+Basis cutoff parameter, `Λ = β * ωmax`.
 """
 function Λ end
 const lambda = Λ
@@ -172,7 +193,8 @@ const lambda = Λ
     ωmax(basis::AbstractBasis)
     wmax(basis::AbstractBasis)
 
-Real frequency cutoff or `nothing` if unscaled basis.
+Real frequency cutoff `ωmax` of the basis: the spectral function is represented
+on `[-ωmax, ωmax]`.
 """
 function ωmax end
 const wmax = ωmax
@@ -224,7 +246,9 @@ end
 """
     sampling_points(sampling::AbstractSampling)
 
-Return sampling points.
+Return sampling points: a `Vector{Float64}` of imaginary times `τ` for a
+[`TauSampling`](@ref), a `Vector{FermionicFreq}` or `Vector{BosonicFreq}` for a
+[`MatsubaraSampling`](@ref). For a DLR, `sampling_points(dlr)` returns its poles.
 """
 sampling_points(sampling::AbstractSampling) = sampling.sampling_points
 

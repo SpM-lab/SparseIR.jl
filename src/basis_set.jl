@@ -10,19 +10,24 @@ and associated sparse-sampling objects.
 
   - basis_f::FiniteTempBasis: Fermion basis
   - basis_b::FiniteTempBasis: Boson basis
-  - tau::Vector{Float64}: Sampling points in the imaginary-time domain
-  - wn_f::Vector{Int}: Sampling fermionic frequencies
-  - wn_b::Vector{Int}: Sampling bosonic frequencies
+  - tau::Vector{Float64}: Sampling points in the imaginary-time domain (those of
+    `smpl_tau_f`; the default points of both bases are the same)
+  - wn_f::Vector{FermionicFreq}: Sampling fermionic frequencies
+  - wn_b::Vector{BosonicFreq}: Sampling bosonic frequencies
   - smpl_tau_f::TauSampling: Sparse sampling for tau & fermion
   - smpl_tau_b::TauSampling: Sparse sampling for tau & boson
   - smpl_wn_f::MatsubaraSampling: Sparse sampling for Matsubara frequency & fermion
   - smpl_wn_b::MatsubaraSampling: Sparse sampling for Matsubara frequency & boson
   - sve_result::SVEResult: Result of the singular value expansion shared by both bases
 
+The Matsubara samplers use the full default point sets (`positive_only = false`).
+
 # Getters
 
-  - beta::Float64: Inverse temperature
-  - ωmax::Float64: Cut-off frequency
+These are functions, not properties:
+
+  - `SparseIR.β(bset)` or `SparseIR.beta(bset)`: Inverse temperature
+  - `SparseIR.ωmax(bset)` or `SparseIR.wmax(bset)`: Cut-off frequency
 """
 struct FiniteTempBasisSet
     basis_f    :: FiniteTempBasis{Fermionic}
@@ -33,10 +38,14 @@ struct FiniteTempBasisSet
     smpl_wn_b  :: MatsubaraSampling64B
 
     """
-        FiniteTempBasisSet(β, ωmax[, ε]; [sve_result])
+        FiniteTempBasisSet(β, ωmax, ε; sve_result=nothing, use_positive_taus=true)
 
     Create basis sets for fermion and boson and associated sampling objects.
-    Fermion and bosonic bases are constructed by SVE of the logistic kernel.
+    Both bases are built from one SVE of the logistic kernel
+    `LogisticKernel(β * ωmax)` (or from `sve_result`) with the accuracy `ε`, so
+    they share `U_l`, `S_l` and `V_l`; the bosonic IR coefficients are those of
+    `ρ(ω) = A(ω)/tanh(βω/2)` (see [`FiniteTempBasis`](@ref)).
+    `use_positive_taus` is passed to both [`TauSampling`](@ref) objects.
     """
     function FiniteTempBasisSet(β::Real, ωmax::Real, ε::Real;
             sve_result=nothing, use_positive_taus=true)
