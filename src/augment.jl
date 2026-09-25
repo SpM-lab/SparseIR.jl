@@ -174,12 +174,16 @@ function default_matsubara_sampling_points(basis::AugmentedBasis; positive_only=
     status = spir_basis_get_n_default_matsus_ext(
         basis_ptr, positive_only, mitigate, length(basis), n_points)
     _check_status(status, "spir_basis_get_n_default_matsus_ext")
-    points = Vector{Int64}(undef, n_points[])
+    points = zeros(Int64, n_points[])
     n_points_returned = Ref{Cint}(0)
     status = spir_basis_get_default_matsus_ext(
         basis_ptr, positive_only, mitigate, n_points[], points, n_points_returned)
     _check_status(status, "spir_basis_get_default_matsus_ext")
-    return points
+    # Never return entries the C library did not write.
+    0 ≤ n_points_returned[] ≤ length(points) ||
+        throw(SparseIRError("spir_basis_get_default_matsus_ext reported \
+                             $(n_points_returned[]) points for a buffer of $(length(points))"))
+    return points[1:n_points_returned[]]
 end
 
 function iswellconditioned(basis::AugmentedBasis)
