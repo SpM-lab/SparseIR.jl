@@ -18,7 +18,7 @@ intermediate representation of correlation functions. It provides:
 > Refer also to the accompanying paper:<br>
 > **[sparse-ir: Optimal compression and sparse sampling of many-body propagators](https://doi.org/10.1016/j.softx.2022.101266)**
 
-This is a Julia wrapper for the [libsparseir](https://github.com/SpM-lab/libsparseir) C library.
+This is a Julia wrapper for the libsparseir C library, built from [sparse-ir-rs](https://github.com/SpM-lab/sparse-ir-rs).
 
 Installation
 ------------
@@ -55,10 +55,10 @@ Lichtenstein formula, FLEX, ... - are presented.
 Refer to the [API documentation] for more details on how to work
 with the Julia library.
 
-This library is built upon the [libsparseir C library](https://github.com/SpM-lab/libsparseir) with Fortran bindings.
+This library is built upon the libsparseir C library from [sparse-ir-rs](https://github.com/SpM-lab/sparse-ir-rs), which also provides Fortran bindings.
 There is also a [Python library].
 
-[comprehensive tutorial]: https://spm-lab.github.io/sparse-ir-tutorial
+[comprehensive tutorial]: https://spm-lab.github.io/sparse-ir-tutorial-v2/
 [API documentation]: https://spm-lab.github.io/SparseIR.jl/stable/
 [Python library]: https://github.com/SpM-lab/sparse-ir
 [Fortran library]: https://github.com/SpM-lab/sparse-ir-fortran
