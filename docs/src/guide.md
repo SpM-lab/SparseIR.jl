@@ -8,9 +8,11 @@ Expressing a propagator in terms of either basis--by an ordinary least squares f
 In combination with a prescription for constructing sparse sets of sampling points on each axis, we have a method for optimally compressing propagators.
 
 `SparseIR.jl` implements the intermediate representation, providing on-the-fly computation of basis functions and singular values accurate to full precision along with routines for sparse sampling.
+It is a Julia wrapper over `libsparseir`, the C library built from [sparse-ir-rs](https://github.com/SpM-lab/sparse-ir-rs), which does the numerical work; `SparseIR.jl` checks the arguments, manages the C objects and provides the Julia interface.
 It is further fully unit tested, featuring near-complete code coverage.
-Here, we will explain its inner structure by means of an example use case.
-In preparing this document, `SparseIR.jl` version `1.0.18` and Julia version `1.11.1` were used.
+Here, we will explain how it works by means of an example use case.
+The notation follows the [notation page](https://spm-lab.github.io/sparse-ir-doc/src/notation.html) shared by the Julia, Python and Rust libraries; in particular, the index ``l`` of the basis functions counts from 0, so that Julia's `basis.u[l+1]` is ``U_l``.
+In preparing this document, `SparseIR.jl` version `2.1.5` (with `libsparseir_jll` version `0.8.4`) and Julia version `1.12.5` were used.
 
 ## Problem statement
 We take a problem to be solved from the `sparse-ir` paper [Wallerberger2023](@cite).
@@ -33,7 +35,7 @@ using SparseIR
 # Construct the IR basis and sparse sampling for fermionic propagators
 basis = FiniteTempBasis{Fermionic}(β, ωmax, ε)
 sτ = TauSampling(basis)
-siω = MatsubaraSampling(basis; positive_only=true)
+siν = MatsubaraSampling(basis; positive_only=true)
 
 # Solve the single impurity Anderson model coupled to a bath with a
 # semicircular density of states with unit half bandwidth.
@@ -49,38 +51,39 @@ G₀l = -basis.s .* ρ₀l
 Gl = copy(G₀l)
 Σl = zero(Gl)
 Gl_prev = zero(Gl)
-G₀iω = evaluate(siω, G₀l)
+G₀iν = evaluate(siν, G₀l)
 while !isapprox(Gl, Gl_prev, rtol=ε)
     Gl_prev = copy(Gl)
     Gτ = evaluate(sτ, Gl)
     Στ = @. U^2 * Gτ^3
     Σl = fit(sτ, Στ)
-    Σiω = evaluate(siω, Σl)
-    Giω = @. (G₀iω^-1 - Σiω)^-1
-    Gl = fit(siω, Giω)
+    Σiν = evaluate(siν, Σl)
+    Giν = @. (G₀iν^-1 - Σiν)^-1
+    Gl = fit(siν, Giν)
 end
 ```
 Note that this script as presented is optimized for readability instead of performance; in practice, you would want to make minor adjustments to ensure maximum type inferrability and full type stability, among other things putting the code in a function instead of executing in global scope.
-Such an performance-optimized version is provided in [Appendix: Optimized script](@ref optimized-script).
+It is meant to be entered in the REPL or a notebook: in a file run with `julia script.jl`, Julia's scoping rules make the assignments inside the `while` loop local to the loop, so there the code has to be put in a function.
+Such a performance-optimized version is provided in [Appendix: Optimized script](@ref optimized-script).
 The following is a detailed explanation of what happens here under the hood and why.
 
 # Treatment
 
-If we take the second-order expression for the self-energy, which at half filling is simply 
+If we take the second-order expression for the self-energy, which at half filling is simply
 ```math
     \Sigma(\tau) = U^2 \pqty{G(\tau)}^3
 ```
 and the Dyson equation
 ```math
-    \hat G(\mathrm{i}\omega) = \pqty{\pqty{\hat G_0(\mathrm{i}\omega)}^{-1} - \hat\Sigma(\mathrm{i}\omega)}^{-1}
+    G(\mathrm{i}\nu) = \pqty{\pqty{G_0(\mathrm{i}\nu)}^{-1} - \Sigma(\mathrm{i}\nu)}^{-1}
 ```
 we have a system of two coupled equations.
-The first one is diagonal in ``\tau`` and the second is diagonal in ``\mathrm{i}\omega``, so we need a way of converting efficiently between these two axes.
+The first one is diagonal in ``\tau`` and the second is diagonal in ``\mathrm{i}\nu``, so we need a way of converting efficiently between these two axes.
 
 ## Basis construction
 
 We first import `SparseIR` and construct an appropriate basis.
-To do so, we must first choose an appropriate UV frequency cutoff ``\omega_\mathrm{max}``, representing the maximum bandwidth our basis can capture.
+To do so, we must first choose an appropriate frequency cutoff ``\omega_\mathrm{max}``: the basis can only represent spectral functions that vanish outside ``[-\omega_\mathrm{max}, \omega_\mathrm{max}]``.
 The non-interacting density of states in our problem is semi-elliptic with half-bandwidth 1.
 Once we introduce interactions via the interaction strength ``U``, this band splits into the lower and the upper Hubbard bands, centered around ``\omega = \pm U/2`` respectively.
 So the bandwidth should be around ``3.2`` at a minimum, but we choose more than twice that with ``\omega_\mathrm{max} = 8`` to be safe.
@@ -89,74 +92,82 @@ julia> using SparseIR
 
 julia> β = 10.0; ωmax = 8.0; ε = 1e-6;
 
-julia> basis = FiniteTempBasis{Fermionic}(β, ωmax, ε)
-20-element FiniteTempBasis{Fermionic} with β = 10.0, ωmax = 8.0 and singular values:
- 1.4409730317545617
- 1.2153954454510802
- 0.7652662478347486
- 0.49740673945822533
- 0.288562095623106
- 0.1639819552743817
- 0.08901271087151318
- 0.046837974354297436
- 0.023857653233506308
- 0.01179373309602762
- 0.005662400021411787
- 0.0026427291749051072
- 0.0011996720525663963
- 0.0005299554043095754
- 0.00022790287514550545
- 9.544046906619884e-5
- 3.8931895383167936e-5
- 1.5472919567017398e-5
- 5.992753725069063e-6
- 2.2623276239584257e-6
+julia> basis = FiniteTempBasis{Fermionic}(β, ωmax, ε);
+
+julia> length(basis)
+20
+
+julia> basis.s
+20-element Vector{Float64}:
+ 1.4409730317545628
+ 1.2153954454510794
+ 0.7652662478347483
+ 0.4974067394582253
+ 0.2885620956231058
+ 0.1639819552743816
+ 0.08901271087151333
+ 0.046837974354297485
+ 0.02385765323350631
+ 0.011793733096027626
+ 0.0056624000214117835
+ 0.0026427291749051094
+ 0.0011996720525663934
+ 0.0005299554043095777
+ 0.00022790287514550304
+ 9.5440469066198e-5
+ 3.893189538316344e-5
+ 1.5472919567018e-5
+ 5.992753725069417e-6
+ 2.2623276239588636e-6
 ```
 There is quite a lot happening behind the scenes in this first innocuous-looking statement, so we will break it down:
 
 ### Kernel
 Consider a propagator/Green's function defined on the imaginary-time axis
 ```math
-    G(\tau) \equiv -\ev{T_\tau A(\tau) B(0)}
+    G(\tau) \equiv -\ev{T_\tau c(\tau) c^\dagger(0)}
 ```
-and the associated spectral function in real frequency ``\rho(\omega) = -(1/\pi) \;\mathrm{Im}\;G(\omega)``.
+and the associated spectral function in real frequency ``A(\omega) = -(1/\pi) \;\mathrm{Im}\;G^\mathrm{R}(\omega)``, where ``G^\mathrm{R}`` is the retarded Green's function.
+For fermions, as here, the weight ``\rho(\omega)`` below is the spectral function ``A(\omega)`` itself; for bosons it would be ``A(\omega)/\tanh(\beta\omega/2)``.
 These are related via
 ```math
-    G(\tau) = -\int_{-\omega_\mathrm{max}}^{+\omega_\mathrm{max}} \dd{\omega} \tilde K(\tau, \omega) \rho(\omega)
+    G(\tau) = -\int_{-\omega_\mathrm{max}}^{+\omega_\mathrm{max}} \dd{\omega} K^\mathrm{L}(\tau, \omega) \rho(\omega)
 ```
-with the integral kernel
+with the logistic kernel
 ```math
-    \tilde K(\tau, \omega) = \frac{e^{-\tau\omega}}{e^{-\beta\omega} + 1}
+    K^\mathrm{L}(\tau, \omega) = \frac{e^{-\tau\omega}}{1 + e^{-\beta\omega}}
 ```
 mediating between them.
 If we perform an SVE on this kernel, yielding the decomposition
 ```math
-    \tilde K(\tau, \omega) = \sum_{\ell=1}^\infty U_\ell(\tau) S_\ell V_\ell(\omega),
+    K^\mathrm{L}(\tau, \omega) = \sum_{l=0}^\infty U_l(\tau) S_l V_l(\omega),
 ```
-with the ``U_\ell``s and ``V_\ell``s each forming an orthonormal system, we can write
+with the ``U_l``s orthonormal on ``[0, \beta]`` and the ``V_l``s orthonormal on ``[-\omega_\mathrm{max}, \omega_\mathrm{max}]``, we can write
 ```math
-    G(\tau) = \sum_{\ell=1}^\infty U_\ell(\tau) G_\ell = \sum_{\ell=1}^L U_\ell(\tau) G_\ell + \epsilon_{L+1}(\tau)
+    G(\tau) = \sum_{l=0}^\infty U_l(\tau) G_l = \sum_{l=0}^{L-1} U_l(\tau) G_l + r_L(\tau)
 ```
 with expansion coefficients given by
 ```math
-    G_\ell = -\int_{-\omega_\mathrm{max}}^{+\omega_\mathrm{max}} \dd{\omega}  S_\ell V_\ell(\omega) \rho(\omega).
+    G_l = -\int_{-\omega_\mathrm{max}}^{+\omega_\mathrm{max}} \dd{\omega}  S_l V_l(\omega) \rho(\omega).
 ```
-The singular values decay at least exponentially with ``\log S_\ell = \order{-\ell / \log(\beta\omega_\mathrm{max})}``.
-Hence, the error ``\epsilon_{L+1}(\tau)`` we incur by representing the Green's function in this way and cutting off the sum after ``L`` terms does, too.
-If we know its expansion coefficients, we can easily compute the propagator's Fourier transform by 
+The singular values decay at least exponentially with ``\log S_l = \order{-l / \log(\beta\omega_\mathrm{max})}``.
+Hence, the error ``r_L(\tau)`` we incur by representing the Green's function in this way and cutting off the sum after ``L`` terms does, too.
+If we know its expansion coefficients, we can easily compute the propagator's Fourier transform by
 ```math
-    \hat G(\mathrm{i}\omega) = \int_0^\beta \dd{\tau} e^{\mathrm{i}\omega\tau} G(\tau) \approx \sum_{\ell=1}^L \hat U_\ell(\mathrm{i}\omega) G_\ell,
+    G(\mathrm{i}\nu) = \int_0^\beta \dd{\tau} e^{\mathrm{i}\nu\tau} G(\tau) \approx \sum_{l=0}^{L-1} \hat U_l(\mathrm{i}\nu) G_l,
+    \qquad
+    \hat U_l(\mathrm{i}\nu) = \int_0^\beta \dd{\tau} e^{\mathrm{i}\nu\tau} U_l(\tau),
 ```
-where ``\mathrm{i}\omega = (2n+1)\mathrm{i}\pi/\beta`` with ``n \in \mathbb Z`` is a Matsubara frequency.
+where ``\nu = n\pi/\beta`` is a fermionic Matsubara frequency: `SparseIR.jl` takes the reduced frequency ``n``, an odd integer (``n = 2m + 1`` with the ordinary Matsubara index ``m \in \mathbb Z``).
 The representation in terms of these expansion coefficients is called the intermediate representation, which `SparseIR.jl` is concerned with.
 
 To standardize our variables, we define ``x \in [-1,+1]`` and ``y \in [-1,+1]`` by
-```math 
+```math
     \tau = \beta (x+1)/2 \qand \omega = \omega_\mathrm{max} y
 ```
 so that the kernel can be written
 ```math
-    K(x, y) = \frac{e^{-\Lambda y (x + 1) / 2}}{e^{-\Lambda y} + 1},
+    K^\mathrm{L}(x, y) = \frac{e^{-\Lambda y (x + 1) / 2}}{1 + e^{-\Lambda y}},
 ```
 with ``\Lambda = \beta\omega_\mathrm{max} = 80``.
 This is represented by the object `LogisticKernel(80.0)`, which `FiniteTempBasis` uses internally.
@@ -164,30 +175,33 @@ This is represented by the object `LogisticKernel(80.0)`, which `FiniteTempBasis
 
 ### Singular value expansion
 
-Central is the _singular value expansion_ [Hansen2010](@cite), which is handled by the function `SVEResult`:
+Central is the _singular value expansion_ [Hansen2010](@cite), which `FiniteTempBasis` obtains from `libsparseir` through `SVEResult(kernel, ε)`.
 Its purpose is to construct the decomposition
 ```math
-    K(x, y) \approx \sum_{\ell = 0}^L U_\ell(x) S_\ell V_\ell(y)
+    K(x, y) \approx \sum_{l \ge 0} u_l(x) s_l v_l(y)
 ```
-where ``U_\ell(x)`` and ``V_\ell(y)`` are called ``K``'s left and right singular functions respectively and ``S_\ell`` are its singular values.
+where ``u_l(x)`` and ``v_l(y)`` are called ``K``'s left and right singular functions respectively and ``s_l`` are its singular values.
+We write them in lowercase to tell them apart from the ``U_l(\tau)``, ``S_l`` and ``V_l(\omega)`` of the physical variables above.
 By construction, the singular functions form an orthonormal basis, i.e.
 ```math
-    \int \dd{x} U_\ell(x) U_{\ell'}(x) = \delta_{\ell\ell'} = \int \dd{y} V_\ell(y) V_{\ell'}(y).
+    \int \dd{x} u_l(x) u_{l'}(x) = \delta_{ll'} = \int \dd{y} v_l(y) v_{l'}(y).
 ```
 and thus above equation is equivalent to a pair of eigenvalue equations
 ```math
 \begin{aligned}
-    S_\ell U_\ell(x) &= \int \dd{y} K(x, y) V_\ell(y) \\
-    S_\ell V_\ell(y) &= \int \dd{x} K(x, y) U_\ell(x)
+    s_l u_l(x) &= \int \dd{y} K(x, y) v_l(y) \\
+    s_l v_l(y) &= \int \dd{x} K(x, y) u_l(x)
 \end{aligned}
 ```
 Here and in what follows, unless otherwise indicated, integrals are taken to be over the interval ``[-1,+1]`` (because we rescaled to ``x`` and ``y`` variables).
+`libsparseir` computes the SVE in the following steps.
 
-1. The function first calls the `choose_accuracy` helper and thereby sets the appropriate working precision.
-   Because we did not specify a working accuracy ``\varepsilon^2``, it chooses machine precision `eps(Float64)`, i.e. ``\varepsilon \approx 2.2 \times 10^{-16}`` and working type `Float64x2` - a 128 bits floating point type provided by the MultiFloats.jl package - because in computing the SVD we incur a precision loss of about half our input bits.
-   This leaves us with full double accuracy results only if we use quad precision during the computation.
+1. It first chooses the working precision.
+   A result accurate to ``\varepsilon`` needs a working precision of about ``\varepsilon^2``, because in computing the SVD we incur a precision loss of about half our input digits.
+   `FiniteTempBasis` passes on the ``\varepsilon = 10^{-6}`` we gave it, and with the default working type `SPIR_TWORK_AUTO` the SVE is computed in double precision (`Float64`), which suffices for ``\varepsilon \geq 10^{-8}``.
+   For a smaller ``\varepsilon``, `libsparseir` switches to double-double arithmetic, a 128 bits floating point type with about 32 significant digits.
 
-2. Then - by calling out to the `CentrosymmSVE` constructor - a support grid ``\{x_i\} \times \{y_j\}`` for the kernel to be evaluated later on is built.
+2. Then a support grid ``\{x_i\} \times \{y_j\}`` for the kernel to be evaluated later on is built.
    Along with these support points, weights ``\{w_i\}`` and ``\{z_j\}`` are computed.
    These points and weights consist of repeated scaled Gauss integration rules, such that
    ```math
@@ -195,9 +209,9 @@ Here and in what follows, unless otherwise indicated, integrals are taken to be 
        \quad\text{and}\quad
        \int \dd{y} g(y) \approx \sum_j g(y_j) z_j.
    ```
-   To get an idea regarding the distribution of these sampling points, refer to Fig. 2.2, which shows ``\{x_i\} \times \{y_j\}`` for ``\Lambda = 80``:
+   To get an idea regarding the distribution of these sampling points, refer to the following figure, which shows ``\{x_i\} \times \{y_j\}`` for ``\Lambda = 80``:
    ![Sampling point distribution resulting from a Cartesian product of Gauss integration rules.](assets/img/sve_grid.png)
-   
+
    #### Note:
    The points do not cover ``[-1, 1] \times [-1, 1]`` but only ``[0, 1] \times [0, 1]``.
    This is actually a special case as we exploit the kernel's centrosymmetry, i.e. ``K(x, y) = K(-x, -y)``.
@@ -214,40 +228,40 @@ Here and in what follows, unless otherwise indicated, integrals are taken to be 
    Using the integration rules allows us to approximate
    ```math
    \begin{aligned}
-       S_\ell U_\ell(x_i) &\approx \sum_j K(x_i, y_j) V_\ell(y_j) z_j &&\forall i \\
-       S_\ell V_\ell(y_j) &\approx \sum_i K(x_i, y_j) U_\ell(x_i) w_i &&\forall j
+       s_l u_l(x_i) &\approx \sum_j K(x_i, y_j) v_l(y_j) z_j &&\forall i \\
+       s_l v_l(y_j) &\approx \sum_i K(x_i, y_j) u_l(x_i) w_i &&\forall j
    \end{aligned}
    ```
    which we now multiply by ``\sqrt{w_i}`` and ``\sqrt{z_j}`` respectively to normalize our basis functions, yielding
    ```math
    \begin{aligned}
-       S_\ell \sqrt{w_i} U_\ell(x_i) &\approx \sum_j \sqrt{w_i} K(x_i, y_j) \sqrt{z_j} \sqrt{z_j} V_\ell(y_j) \\
-       S_\ell \sqrt{z_j} V_\ell(y_j) &\approx \sum_i \sqrt{w_i} K(x_i, y_j) \sqrt{z_j} \sqrt{w_i} U_\ell(x_i)
+       s_l \sqrt{w_i} u_l(x_i) &\approx \sum_j \sqrt{w_i} K(x_i, y_j) \sqrt{z_j} \sqrt{z_j} v_l(y_j) \\
+       s_l \sqrt{z_j} v_l(y_j) &\approx \sum_i \sqrt{w_i} K(x_i, y_j) \sqrt{z_j} \sqrt{w_i} u_l(x_i)
    \end{aligned}
    ```
-   If we now define vectors ``\vec u_\ell``, ``\vec v_\ell`` and a matrix ``K`` with entries ``u_{\ell, i} \equiv \sqrt{w_i} U_\ell(x_i)``, ``v_{\ell, j} \equiv \sqrt{z_j} V_\ell(y_j)`` and ``K_{ij} \equiv \sqrt{w_i} K(x_i, y_j) \sqrt{z_j}``, we obtain
+   If we now define vectors ``\vec u_l``, ``\vec v_l`` and a matrix ``K`` with entries ``(\vec u_l)_i \equiv \sqrt{w_i} u_l(x_i)``, ``(\vec v_l)_j \equiv \sqrt{z_j} v_l(y_j)`` and ``K_{ij} \equiv \sqrt{w_i} K(x_i, y_j) \sqrt{z_j}``, we obtain
    ```math
    \begin{aligned}
-       S_\ell u_{\ell, i} &\approx \sum_j K_{ij} v_{\ell, j} \\
-       S_\ell v_{\ell, j} &\approx \sum_i K_{ij} u_{\ell, i}
+       s_l (\vec u_l)_i &\approx \sum_j K_{ij} (\vec v_l)_j \\
+       s_l (\vec v_l)_j &\approx \sum_i K_{ij} (\vec u_l)_i
    \end{aligned}
    ```
    or
    ```math
    \begin{aligned}
-       S_\ell \vec u_\ell &\approx K^{\phantom{\mathrm{T}}} \vec v_\ell \\
-       S_\ell \vec v_\ell &\approx K^\mathrm{T} \vec u_\ell.
+       s_l \vec u_l &\approx K^{\phantom{\mathrm{T}}} \vec v_l \\
+       s_l \vec v_l &\approx K^\mathrm{T} \vec u_l.
    \end{aligned}
    ```
-   Together with the property ``\vec u_\ell^\mathrm{T} \vec u_{\ell'} \approx \delta_{\ell\ell'} \approx \vec v_\ell^\mathrm{T} \vec v_{\ell'}`` we have successfully translated the original SVE problem into an SVD, because
+   Together with the property ``\vec u_l^\mathrm{T} \vec u_{l'} \approx \delta_{ll'} \approx \vec v_l^\mathrm{T} \vec v_{l'}`` we have successfully translated the original SVE problem into an SVD, because
    ```math
-       K = \sum_\ell S_\ell \vec u_\ell \vec v_\ell^\mathrm{T}.
+       K = \sum_l s_l \vec u_l \vec v_l^\mathrm{T}.
    ```
 
-3. The next step is calling the `matrices` function which computes the matrix ``K`` derived in the previous step.
+3. The next step is computing the matrix ``K`` derived in the previous step.
 
    !!! note
-       The function is named in the plural because in the centrosymmetric case it actually returns two matrices ``K_+`` and ``K_-``, one for the even and one for the odd kernel.
+       In the centrosymmetric case there are actually two matrices ``K_+`` and ``K_-``, one for the even and one for the odd kernel.
        The SVDs of these matrices are later concatenated, so for simplicity, we will refer to ``K`` from here on out.
 
    !!! info
@@ -257,46 +271,53 @@ Here and in what follows, unless otherwise indicated, integrals are taken to be 
    Furthermore, elements with absolute values smaller than 10\% of the maximum have been omitted to emphasize the structure; this should however not be taken to mean that there is any sparsity to speak of we could exploit in the next step.](assets/img/kernel_red_matrices.png)
 
 4. Take the truncated singular value decomposition (trSVD) of ``K``, or rather, of ``K_+`` and ``K_-``.
-   We use here a custom trSVD routine written by Markus Wallerberger which combines a homemade rank-revealing QR decomposition with `GenericLinearAlgebra.svd!`.
-   This is necessary because there is currently no trSVD for quad precision types available.
+   `libsparseir` first applies a rank-revealing QR decomposition with column pivoting and then an SVD, both carried out in the working precision.
 
-5. Via the function `truncate`, we throw away superfluous terms in our expansion.
-   More specifically, we choose the basis size ``L`` such that ``S_\ell / S_0 > \varepsilon`` for all ``\ell \leq L``.
-   Here ``\varepsilon`` is our selected precision, in our case it's equal to the double precision machine epsilon, ``2^{-52} \approx 2.22 \times 10^{-16}``.
+5. Then we throw away superfluous terms in our expansion.
+   The SVE keeps the singular values down to about twice the machine epsilon of the working precision relative to ``s_0``; for our kernel and ``\varepsilon = 10^{-6}`` these are 38 values, more than the basis needs.
+   The truncation to the accuracy ``\varepsilon`` we asked for is done when the basis is built (see below).
 
-6. Finally, we need a postprocessing step implemented in `postprocess` which performs some technical manipulation to turn the SVD result into the SVE we actually want.
+6. Finally, a postprocessing step turns the SVD result into the SVE we actually want.
    The functions are represented as piecewise Legendre polynomials, which model a function on the interval ``[x_\mathrm{min}, x_\mathrm{max}]`` as a set of segments on the intervals ``[a_i, a_{i+1}]``, where on each interval the function is expanded in scaled Legendre polynomials.
    The interval endpoints are chosen such that they reflect the approximate position of roots of a high-order singular function in ``x``.
 
 ### Finishing touches
 
 The difficult part of constructing the `FiniteTempBasis` is now over.
-Next we truncate the left and right singular functions by discarding ``U_\ell`` and ``V_\ell`` with indices ``\ell > L`` to match the ``S_\ell``.
+Next we truncate the expansion to the basis size ``L``, the number of singular values with ``s_l / s_0 \geq \varepsilon``, by discarding ``u_l`` and ``v_l`` with indices ``l \geq L``.
+For ``\varepsilon = 10^{-6}`` this gives ``L = 20``: ``s_{19}/s_0 \approx 1.6 \times 10^{-6}`` is kept and ``s_{20}/s_0 \approx 5.8 \times 10^{-7}`` is not.
 The functions are now scaled to imaginary-time and frequency according to
 ```math
-    \tau = \beta/2 (x + 1) \qand \omega = \omega_\mathrm{max} y.
+    \tau = \beta/2 (x + 1) \qand \omega = \omega_\mathrm{max} y,
 ```
-This means the singular values need to be multiplied by ``\sqrt{(\beta/2)\omega_\mathrm{max}}``, because ``K(x,y) \sqrt{\dd x\dd y} = K(\tau,\omega) \sqrt{\dd\tau\dd\omega}``.
-We also add to our basis ``\hat{U}_\ell(\mathrm{i}\omega)``, the Fourier transforms of the left singular functions, defined on the fermionic Matsubara frequencies ``\mathrm{i}\omega = \mathrm{i}(2n+1)\beta/\pi`` (with integer ``n``).
-This is particularly simple, because the Legendre polynomials' Fourier transforms are known analytically and given by spherical Bessel functions, for which we can rely on `Bessels.jl` [Helton2022](@cite).
+that is,
+```math
+    U_l(\tau) = \sqrt{2/\beta}\, u_l(x), \qquad
+    V_l(\omega) = \sqrt{1/\omega_\mathrm{max}}\, v_l(y), \qquad
+    S_l = \sqrt{\beta\omega_\mathrm{max}/2}\, s_l.
+```
+The singular values need to be multiplied by ``\sqrt{(\beta/2)\omega_\mathrm{max}}`` so that the ``U_l`` and ``V_l`` are orthonormal on ``[0, \beta]`` and ``[-\omega_\mathrm{max}, \omega_\mathrm{max}]`` while ``\sum_l U_l(\tau) S_l V_l(\omega)`` is still the same kernel.
+We also add to our basis ``\hat{U}_l(\mathrm{i}\nu)``, the Fourier transforms of the left singular functions, defined on the fermionic Matsubara frequencies ``\nu = n\pi/\beta`` with odd ``n``.
+This is particularly simple, because the Legendre polynomials' Fourier transforms are known analytically and given by spherical Bessel functions; `libsparseir` uses them for small ``|n|`` and an asymptotic expansion for large ``|n|``.
 
-We can now take a look at our basis functions to get a feel for them:
+We can now take a look at our basis functions to get a feel for them.
+The legends of the figures give Julia's index ``l + 1`` of the functions, and the Matsubara frequency axis is labelled ``\omega`` for ``\nu``.
 
 ![First 6 left singular basis functions on the imaginary-time axis.](assets/img/u_basis.pdf)
 
 ![First 6 right singular basis functions on the frequency axis.](assets/img/v_basis.pdf)
 
-Looking back at the image of the kernel ``K(x,y)`` we can imagine how it is reconstructed by multiplying and summing (including a factor ``S_\ell``) ``U_\ell(\tau)`` and ``V_\ell(\omega)``.
-An important property of the left singular functions is interlacing, i.e. ``U_\ell`` interlaces ``U_{\ell+1}``.
-A function ``g`` with roots ``\alpha_{n-1} \leq \ldots \leq \alpha_1`` interlaces a function ``f`` with roots ``\beta_n \leq \ldots \leq \beta_1`` if
+Looking back at the image of the kernel ``K(x,y)`` we can imagine how it is reconstructed by multiplying and summing (including a factor ``S_l``) ``U_l(\tau)`` and ``V_l(\omega)``.
+An important property of the left singular functions is interlacing, i.e. ``U_l`` interlaces ``U_{l+1}``.
+A function ``g`` with roots ``a_{k-1} \leq \ldots \leq a_1`` interlaces a function ``f`` with roots ``b_k \leq \ldots \leq b_1`` if
 ```math
-    \beta_n \leq \alpha_{n-1} \leq \beta_{n-1} \leq \ldots \leq \beta_1.
+    b_k \leq a_{k-1} \leq b_{k-1} \leq \ldots \leq b_1.
 ```
 We will use this property for constructing our sparse sampling set.
 
 ![First 8 Fourier transformed basis functions on the Matsubara frequency axis.](assets/img/uhat_basis.pdf)
 
-As for the Matsubara basis functions, we plot only the non-zero components, i.e. ``\mathrm{Im}\;\hat U_\ell\,(\mathrm{i}\omega)`` with odd ``\ell`` and  ``\mathrm{Re}\;\hat U_\ell\,(\mathrm{i}\omega)`` with even ``\ell``.
+As for the Matsubara basis functions, we plot only the non-zero components, i.e. ``\mathrm{Im}\;\hat U_l\,(\mathrm{i}\nu)`` with even ``l`` and  ``\mathrm{Re}\;\hat U_l\,(\mathrm{i}\nu)`` with odd ``l``; for bosons it would be the other way round.
 
 ## Constructing the samplers
 
@@ -305,37 +326,40 @@ With our basis complete, we construct sparse sampling objects for fermionic prop
 julia> sτ = TauSampling(basis);
 
 julia> show(sampling_points(sτ))
-[0.018885255323127792, 0.10059312563754808, 0.25218900406693556, 0.4822117319309194, 0.8042299148252774, 1.2376463941125326, 1.8067997157763205, 2.535059399842931, 3.4296355795122793, 4.45886851573216, 5.541131484267839, 6.570364420487721, 7.464940600157068, 8.19320028422368, 8.762353605887466, 9.195770085174722, 9.51778826806908, 9.747810995933065, 9.899406874362452, 9.981114744676873]
+[0.018885255322830252, 0.10059312563924505, 0.2521890040678587, 0.48221173192287026, 0.8042299148202525, 1.2376463941117466, 1.8067997157665194, 2.535059399859393, 3.4296355795046067, 4.458868515730588, 5.541131484269412, 6.570364420495394, 7.464940600140607, 8.19320028423348, 8.762353605888254, 9.195770085179747, 9.51778826807713, 9.747810995932142, 9.899406874360754, 9.98111474467717]
 
-julia> siω = MatsubaraSampling(basis; positive_only=true);
+julia> siν = MatsubaraSampling(basis; positive_only=true);
 
-julia> show(sampling_points(siω))
+julia> show(sampling_points(siν))
 FermionicFreq[FermionicFreq(1), FermionicFreq(3), FermionicFreq(5), FermionicFreq(7), FermionicFreq(9), FermionicFreq(11), FermionicFreq(17), FermionicFreq(27), FermionicFreq(49), FermionicFreq(153)]
 ```
 Both functions first determine a suitable set of sampling points on their respective axis.
-In the case of `TauSampling`, the sampling points ``\{\tau_i\}`` are chosen as the extrema of the highest-order basis function in imaginary-time; this works because ``U_\ell`` has exactly ``\ell`` roots.
+In the case of `TauSampling`, the sampling points ``\{\tau_i\}`` are chosen as the roots of ``U_L``, the first basis function beyond the basis, folded into ``(0, \beta)``; this works because ``U_l`` has exactly ``l`` roots in ``(0, \beta)``.
 This turns out to be close to optimal with respect to conditioning for this size (within a few percent).
-Similarly, `MatsubaraSampling` chooses sampling points ``\{\mathrm{i}\omega_n\}`` as the (discrete) extrema of the highest-order basis function in Matsubara.
+Similarly, `MatsubaraSampling` chooses sampling points ``\{\mathrm{i}\nu_k\}`` as the sign changes of the first discarded Matsubara basis function ``\hat U_l``, with ``l \geq L`` chosen to fit the parity (here ``\hat U_{20}``).
+The points are returned as `FermionicFreq`s of the reduced frequencies ``n``.
 By setting `positive_only=true`, one assumes that functions to be fitted are symmetric in
 Matsubara frequency, i.e.
 ```math
-    \hat G(\mathrm{i}\omega) = \qty(\hat G(-\mathrm{i}\omega))^*.
+    G(-\mathrm{i}\nu) = \qty(G(\mathrm{i}\nu))^*,
 ```
-In this case, sparse sampling is performed over non-negative frequencies only, cutting away half of the necessary sampling space, so we get only 10 sampling points instead of the 20 in the imaginary-time case.
+or, equivalently, real in imaginary time.
+In this case, sparse sampling is performed over non-negative frequencies ``n \geq 0`` only, cutting away half of the necessary sampling space, so we get only 10 sampling points instead of the 20 in the imaginary-time case.
 
-Then, both compute design matrices by ``E^\tau_{i\ell} = u_\ell(\tau_i)`` and ``E^\omega_{n\ell} = \hat{u}_\ell(i\omega_n)`` as well as their SVDs.
+Then, both compute design matrices by ``E^\tau_{il} = U_l(\tau_i)`` and ``E^\nu_{kl} = \hat{U}_l(\mathrm{i}\nu_k)`` as well as their SVDs.
 We are now able to get the IR basis coefficients of a function that is known on the imaginary-time sampling points by solving the fitting problem
 ```math
-    G_\ell = \mathrm{arg\,min}_{G_\ell} \sum_{\{\tau_i\}} \norm{G(\tau_i) - \sum_\ell E^\tau_{i\ell} G_\ell}^2,
+    G_l = \mathrm{arg\,min}_{G_l} \sum_{\{\tau_i\}} \norm{G(\tau_i) - \sum_l E^\tau_{il} G_l}^2,
 ```
 which can be done efficiently once the SVD is known.
 The same can be done on the Matsubara axis
 ```math
-    G_\ell = \mathrm{arg\,min}_{G_\ell} \sum_{\{\mathrm{i}\omega_n\}} \norm{\hat{G}(\mathrm{i}\omega_n) - \sum_\ell E^\omega_{n\ell} G_\ell}^2
+    G_l = \mathrm{arg\,min}_{G_l} \sum_{\{\mathrm{i}\nu_k\}} \norm{G(\mathrm{i}\nu_k) - \sum_l E^\nu_{kl} G_l}^2
 ```
 and taken together we now have a way of moving efficiently between both.
 In solving these problems, we need to take their conditioning into consideration; in the case of the Matsubara axis, the problem is somewhat worse conditioned than on the imaginary-time axis due to its discrete nature.
-We augment it therefore with 4 additional sampling frequencies.
+For our basis, `cond(sτ)` is about 4.7 and `cond(siν)` about 12.6 (`cond` is from `LinearAlgebra`).
+The default fermionic set of Matsubara points has as many points as the basis has functions, 20 here; a bosonic basis of the same size gets 21 points, since bosonic sets always include ``n = 0``.
 
 ![Scaling behavior of the fitting problem conditioning.](assets/img/condscaling.pdf)
 
@@ -343,9 +367,9 @@ We augment it therefore with 4 additional sampling frequencies.
 
 Because the non-interacting density of states is given ``\rho_0(\omega) = \frac{2}{\pi}\sqrt{1 - \omega^2}``, we can easily get the IR basis coefficients for the non-interacting propagator
 ```math
-    {G_0}_\ell = -S_\ell {\rho_0}_\ell = -S_\ell \int \dd{\omega} V_\ell(\omega) \rho_0(\omega)
+    {G_0}_l = -S_l {\rho_0}_l = -S_l \int \dd{\omega} V_l(\omega) \rho_0(\omega)
 ```
-by utilizing the `overlap` function, which implements integration.
+by utilizing the `overlap` function, which implements integration (over ``[-\omega_\mathrm{max}, \omega_\mathrm{max}]`` for `basis.v`).
 ```julia-repl
 julia> U = 1.2
 1.2
@@ -355,58 +379,66 @@ julia> ρ₀(ω) = 2/π * √(1 - clamp(ω, -1, +1)^2)
 
 julia> ρ₀l = overlap(basis.v, ρ₀)
 20-element Vector{Float64}:
-  0.601244316541724
-  1.3444106938820255e-17
- -0.3114509472896204
+  0.6012443165417244
+ -7.806255641895632e-18
+ -0.31145094728962053
   ⋮
- -4.553649124439119e-18
- -0.04700635138837371
-  1.734723475976807e-18
+ -8.239936510889834e-18
+ -0.047006351388363926
+ -2.3852447794681098e-18
 
 julia> G₀l = -basis.s .* ρ₀l
 20-element Vector{Float64}:
- -0.8663768456323275
- -1.6339906341599403e-17
+ -0.8663768456323286
+  9.487687553186743e-18
   0.23834289781690587
   ⋮
-  7.045824663886568e-23
-  2.816974873845819e-7
- -3.924512839631511e-24
+  1.2749587487033335e-22
+  2.8169748738453986e-7
+  5.3962051544943725e-24
 ```
 The coefficients of the full Green's function are then initialized with those of the non-interacting one.
 Also, we will need the non-interacting propagator in Matsubara for the Dyson equation, so we `evaluate` with the `MatsubaraSampling` object created before.
 ```julia-repl
 julia> Gl = copy(G₀l)
 20-element Vector{Float64}:
- -0.8663768456323275
- -1.6339906341599403e-17
+ -0.8663768456323286
+  9.487687553186743e-18
+  0.23834289781690587
   ⋮
-  2.816974873845819e-7
- -3.924512839631511e-24
+  1.2749587487033335e-22
+  2.8169748738453986e-7
+  5.3962051544943725e-24
 
 julia> Σl = zero(Gl)
-20-element Vector{ComplexF64}:
- 0.0 + 0.0im
- 0.0 + 0.0im
-     ⋮
- 0.0 + 0.0im
- 0.0 + 0.0im
-
-julia> Gl_prev = zero(Gl)
 20-element Vector{Float64}:
+ 0.0
  0.0
  0.0
  ⋮
  0.0
  0.0
+ 0.0
 
-julia> G₀iω = evaluate(siω, G₀l)
+julia> Gl_prev = zero(Gl)
+20-element Vector{Float64}:
+ 0.0
+ 0.0
+ 0.0
+ ⋮
+ 0.0
+ 0.0
+ 0.0
+
+julia> G₀iν = evaluate(siν, G₀l)
 10-element Vector{ComplexF64}:
- 1.0546844383198476e-16 - 1.468055523701327im
- 1.6747120525708993e-16 - 0.8633270688082162im
-                        ⋮
-  1.627612150170272e-17 - 0.06489281188294724im
-  6.134766817544449e-19 - 0.020802317001514643im
+    7.74581076866081e-17 - 1.4680555237013286im
+  -2.387594600001887e-17 - 0.8633270688082166im
+ -1.2380603588528934e-17 - 0.5825991240254584im
+                         ⋮
+ -1.1534220135646405e-17 - 0.11748573816801787im
+ -2.0808101233386505e-18 - 0.06489281188294711im
+   -3.57527202836115e-19 - 0.020802317001514338im
 ```
 
 ## Self-consistency loop
@@ -417,12 +449,12 @@ We are now ready to tackle the coupled equations from the start, and will restat
 ```
 and the Dyson equation
 ```math
-    \hat G(\mathrm{i}\omega) = \pqty{\pqty{\hat G_0(\mathrm{i}\omega)}^{-1} - \hat\Sigma(\mathrm{i}\omega)}^{-1}.
+    G(\mathrm{i}\nu) = \pqty{\pqty{G_0(\mathrm{i}\nu)}^{-1} - \Sigma(\mathrm{i}\nu)}^{-1}.
 ```
-The first one is diagonal in ``\tau`` and the second is diagonal in ``\mathrm{i}\omega``, so we employ the IR basis to efficiently convert between the two bases.
-Starting with our approximation to ``G_\ell`` we evaluate in the ``\tau``-basis to get ``G(\tau)``, from which we can compute the self-energy on the sampling points ``\Sigma(\tau)`` according to the first equation.
-This can now be fitted to the ``\tau``-basis to get ``\Sigma_\ell``, and from there ``\hat\Sigma(\mathrm{i}\omega)`` via evaluation in the ``\mathrm{i}\omega``-basis.
-Now the Dyson equation is used to get ``\hat G(\mathrm{i}\omega)`` on the sampling frequencies, which is then fitted to the ``\mathrm{i}\omega``-basis yielding ``G_\ell`` and completing the loop.
+The first one is diagonal in ``\tau`` and the second is diagonal in ``\mathrm{i}\nu``, so we employ the IR basis to efficiently convert between the two bases.
+Starting with our approximation to ``G_l`` we evaluate in the ``\tau``-basis to get ``G(\tau)``, from which we can compute the self-energy on the sampling points ``\Sigma(\tau)`` according to the first equation.
+This can now be fitted to the ``\tau``-basis to get ``\Sigma_l``, and from there ``\Sigma(\mathrm{i}\nu)`` via evaluation in the ``\mathrm{i}\nu``-basis.
+Now the Dyson equation is used to get ``G(\mathrm{i}\nu)`` on the sampling frequencies, which is then fitted to the ``\mathrm{i}\nu``-basis yielding ``G_l`` and completing the loop.
 This is now performed until convergence.
 ```julia-repl
 julia> while !isapprox(Gl, Gl_prev, rtol=ε)
@@ -430,71 +462,76 @@ julia> while !isapprox(Gl, Gl_prev, rtol=ε)
            Gτ = evaluate(sτ, Gl)
            Στ = @. U^2 * Gτ^3
            Σl = fit(sτ, Στ)
-           Σiω = evaluate(siω, Σl)
-           Giω = @. (G₀iω^-1 - Σiω)^-1
-           Gl = fit(siω, Giω)
+           Σiν = evaluate(siν, Σl)
+           Giν = @. (G₀iν^-1 - Σiν)^-1
+           Gl = fit(siν, Giν)
        end
 ```
 This is what one iteration looks like spelled out in equations:
 ```math
 \begin{aligned}
-    G^\mathrm{prev}_\ell &= G_\ell \\
-    G(\tau_i) &= \sum_\ell U_\ell(\tau_i) G_\ell \\
+    G^\mathrm{prev}_l &= G_l \\
+    G(\tau_i) &= \sum_l U_l(\tau_i) G_l \\
     \Sigma(\tau_i) &= U^2 \pqty{G(\tau_i)}^3 \\
-    \Sigma_\ell &= \mathrm{arg\,min}_{\Sigma_\ell} \sum_{\{\tau_i\}} \norm{\Sigma(\tau_i) - \sum_\ell U_\ell(\tau_i) \Sigma_\ell}^2 \\
-    \hat\Sigma(\mathrm{i}\omega_n) &= \sum_\ell \hat U_\ell(\mathrm{i}\omega_n) \Sigma_\ell \\
-    \hat G(\mathrm{i}\omega_n) &= \pqty{\pqty{\hat G_0(\mathrm{i}\omega_n)}^{-1} - \hat\Sigma(\mathrm{i}\omega_n)}^{-1} \\
-    G_\ell &= \mathrm{arg\,min}_{G_\ell} \sum_{\{\mathrm{i}\omega_n\}} \norm{\hat G(\mathrm{i}\omega_n) - \sum_\ell \hat U_\ell(\mathrm{i}\omega_n) G_\ell}^2
+    \Sigma_l &= \mathrm{arg\,min}_{\Sigma_l} \sum_{\{\tau_i\}} \norm{\Sigma(\tau_i) - \sum_l U_l(\tau_i) \Sigma_l}^2 \\
+    \Sigma(\mathrm{i}\nu_k) &= \sum_l \hat U_l(\mathrm{i}\nu_k) \Sigma_l \\
+    G(\mathrm{i}\nu_k) &= \pqty{\pqty{G_0(\mathrm{i}\nu_k)}^{-1} - \Sigma(\mathrm{i}\nu_k)}^{-1} \\
+    G_l &= \mathrm{arg\,min}_{G_l} \sum_{\{\mathrm{i}\nu_k\}} \norm{G(\mathrm{i}\nu_k) - \sum_l \hat U_l(\mathrm{i}\nu_k) G_l}^2
 \end{aligned}
 ```
 We consider the iteration converged when the difference between subsequent iterations does not exceed the basis accuracy, i.e. when
 ```math
-    \norm{G_\ell - G^\mathrm{prev}_\ell} \leq \varepsilon \max\Bqty{\norm{G_\ell}, \norm{G^\mathrm{prev}_\ell}},
+    \norm{G_l - G^\mathrm{prev}_l} \leq \varepsilon \max\Bqty{\norm{G_l}, \norm{G^\mathrm{prev}_l}},
 ```
-where the norm is ``\norm{G_\ell}^2 = \sum_{\ell=1}^L G_\ell^2``.
+where the norm is ``\norm{G_l}^2 = \sum_{l=0}^{L-1} \abs{G_l}^2``.
 
-The entire script, as presented in [Appendix: Optimized script](@ref optimized-script), takes around 60ms to run on a laptop CPU from 2019 (Intel Core i7-9750H) and allocates roughly 19MB in the process.
+The entire script, as presented in [Appendix: Optimized script](@ref optimized-script), takes around 70ms to run (after compilation) on the machine used for this document (an AMD EPYC 7713P) and allocates roughly 6MB in the process.
 
 ## Visualizing the solution
 
 To plot our solution for the self-energy, we create a `MatsubaraSampling` object on a dense box of sampling frequencies.
-In this case, we only need it for expanding, i.e. multiplying a vector, hence there is no need for constructing the SVD, so we pass `factorize=false`.
+In this case, we only need it for expanding with `evaluate`, i.e. multiplying a vector.
 ```julia-repl
 julia> box = FermionicFreq.(1:2:79)
 40-element Vector{FermionicFreq}:
   π/β
   3π/β
+  5π/β
                  ⋮
+ 75π/β
  77π/β
  79π/β
 
-julia> siω_box = MatsubaraSampling(basis; sampling_points=box, factorize=false);
+julia> siν_box = MatsubaraSampling(basis; sampling_points=box);
 
-julia> Σiω_box = evaluate(siω_box, Σl)
+julia> Σiν_box = evaluate(siν_box, Σl)
 40-element Vector{ComplexF64}:
- -6.067770915322836e-17 - 0.09325923974719101im
- 2.0279596075077236e-17 - 0.1225916020773678im
-                        ⋮
- -6.624594477591435e-17 - 0.014786512975659354im
-  -7.08391512971528e-17 - 0.01441676347590391im
+   3.768526689708544e-17 - 0.0932592397471911im
+ -2.4704997587431176e-17 - 0.12259160207736851im
+   2.220463254211873e-17 - 0.11744985472120795im
+                         ⋮
+   5.372677127761545e-17 - 0.01517559774305718im
+   5.291518286524916e-17 - 0.014786512975659341im
+  5.3450988249441747e-17 - 0.014416763475903835im
 ```
-We are now in a position to visualize the results of our calculation in Fig 2.9:
+We are now in a position to visualize the results of our calculation in the figure below:
 - In the main plot, the imaginary part of the self-energy in Matsubara alongside the sampling points on which it was computed.
   This illustrates very nicely one of the main advantages of our method: During the entire course of the iteration we only ever need to store and calculate the values of all functions on the sparse set of sampling points and are still able to expand the result on a dense frequency set in the end.
 - In the inset, the IR basis coefficients of the self-energy and of the propagator are shown, along with the basis singular values.
-  We only plot the non-vanishing basis coefficients, which are those at odd values of ``\ell`` because the real parts of ``\hat G(\mathrm{i}\omega)`` and ``\hat \Sigma(\mathrm{i}\omega)`` are almost zero.
-  The singular values ``S_\ell/S_1`` are the bound for ``\abs{G_l / G_1}`` and ``\abs{\Sigma_\ell / \Sigma_1}``.
+  We only plot the non-vanishing basis coefficients, which are those at even values of ``l`` because the real parts of ``G(\mathrm{i}\nu)`` and ``\Sigma(\mathrm{i}\nu)`` are almost zero.
+  The singular values ``S_l/S_0`` are the bound for ``\abs{G_l / G_0}`` and ``\abs{\Sigma_l / \Sigma_0}``.
+  The inset labels the coefficients by Julia's index ``l + 1``, so that its ``|G_\ell/G_1|`` is ``|G_l/G_0|`` here.
 ![Self-energy calculated in the self-consistency iteration. The inset shows the IR basis coefficients corresponding to the self-energy and the propagator.](assets/img/result.pdf)
 
 # Summary and outlook
 
-We introduced `SparseIR.jl`, a full featured implementation of the intermediate representation in the Julia programming language.
+We introduced `SparseIR.jl`, a full featured Julia interface to the intermediate representation, built on the `libsparseir` C library.
 By means of a simple example, we explained in detail how to use it and the way it works internally.
 In this example, we solved an Anderson impurity model with elliptical density of states to second order perturbation theory in the interaction via a self-consistent loop.
 We successfully obtained the self-energy (accurate to second order) with minimal computational effort.
 
 Regarding further work, perhaps the single most obvious direction is the extension to multi-particle quantities; And indeed, Refs. [Shinaoka2018,Wallerberger2021](@cite) did exactly this, with Markus Wallerberger writing the as of yet unpublished Julia library `OvercompleteIR.jl` which builds upon `SparseIR.jl`.
-So, as a transitive dependency, the library of the present thesis has already found applications in solving the parquet equations for the Hubbard model and for the Anderson impurity model [Michalek2024](@cite).
+So, as a transitive dependency, `SparseIR.jl` has already found applications in solving the parquet equations for the Hubbard model and for the Anderson impurity model [Michalek2024](@cite).
 
 # References
 
@@ -514,7 +551,7 @@ function main(; β=10.0, ωmax=8.0, ε=1e-6)
     # Construct the IR basis and sparse sampling for fermionic propagators
     basis = FiniteTempBasis{Fermionic}(β, ωmax, ε)
     sτ = TauSampling(basis)
-    siω = MatsubaraSampling(basis; positive_only=true)
+    siν = MatsubaraSampling(basis; positive_only=true)
 
     # Solve the single impurity Anderson model coupled to a bath with a
     # semicircular density of states with unit half bandwidth.
@@ -528,14 +565,14 @@ function main(; β=10.0, ωmax=8.0, ε=1e-6)
     # Self-consistency loop: alternate between second-order expression for the
     # self-energy and the Dyson equation until convergence.
     Gl = complex(G₀l)
-    G₀iω = evaluate(siω, G₀l)
+    G₀iν = evaluate(siν, G₀l)
 
     # Preallocate arrays for the self-energy and the Green's function
     Σl = similar(Gl)
     Στ = similar(Gl, ComplexF64, length(sampling_points(sτ)))
-    Σiω = similar(G₀iω)
+    Σiν = similar(G₀iν)
     Gτ = similar(Στ)
-    Giω = similar(G₀iω)
+    Giν = similar(G₀iν)
 
     Gl_prev = zero(Gl)
     while !isapprox(Gl, Gl_prev, rtol=ε)
@@ -543,9 +580,9 @@ function main(; β=10.0, ωmax=8.0, ε=1e-6)
         evaluate!(Gτ, sτ, Gl)
         @. Στ = U^2 * Gτ^3
         fit!(Σl, sτ, Στ)
-        evaluate!(Σiω, siω, Σl)
-        @. Giω = (G₀iω^-1 - Σiω)^-1
-        fit!(Gl, siω, Giω)
+        evaluate!(Σiν, siν, Σl)
+        @. Giν = (G₀iν^-1 - Σiν)^-1
+        fit!(Gl, siν, Giν)
     end
     return basis, Σl
 end
