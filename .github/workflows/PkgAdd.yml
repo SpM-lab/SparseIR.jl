@@ -36,6 +36,10 @@ jobs:
           - version: '1'
             os: macOS-latest
             arch: arm64
+          # Intel macOS (#138)
+          - version: '1'
+            os: macos-15-intel
+            arch: x64
     steps:
       - name: Install OpenBLAS
         run: |

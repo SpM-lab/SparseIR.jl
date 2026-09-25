@@ -89,8 +89,10 @@ that contradicts this file, fix this file in the same PR.
 
 - `.github/workflows/CI.yml` — the main CI workflow. Runs on push/PR to
   `main`/`develop_v2xx`, weekly on a schedule, and on manual dispatch. Matrix:
-  Julia `lts` and `1` on `ubuntu-latest`/x64 and `macOS-latest`/arm64
-  (Windows is commented out — "libsparseir is not yet tested on Windows").
+  Julia `lts` and `1` on `ubuntu-latest`/x64 and `macOS-latest`/arm64, plus
+  Julia `1` on `macos-15-intel`/x64 for Intel macOS (#138; `PkgAdd.yml` has
+  the same extra entry) (Windows is commented out — "libsparseir is not yet
+  tested on Windows").
   Steps: `julia-actions/julia-buildpkg`, `julia-actions/julia-runtest`,
   coverage via `julia-actions/julia-processcoverage` +
   `codecov/codecov-action`. This job builds against the released
