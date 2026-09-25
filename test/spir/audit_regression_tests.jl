@@ -332,15 +332,5 @@ end
     @test isapprox(out2, gl; atol=1e-8)
 end
 
-@testitem "audit: no exported symbol fails with MethodError/UndefVarError" tags=[
-    :julia, :sparseir] begin
-    using Test
-    using SparseIR
-
-    # Every exported name must resolve to a defined object.
-    for name in names(SparseIR)
-        name === :SparseIR && continue
-        @test isdefined(SparseIR, name)
-        @test getproperty(SparseIR, name) !== nothing
-    end
-end
+# The check that every exported name resolves now lives in
+# public_surface_tests.jl, which also calls each export once.
