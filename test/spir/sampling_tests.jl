@@ -92,11 +92,6 @@
         basis = FiniteTempBasis(stat, 1, Λ, 1e-10; sve_result=sve_logistic)
         smpl = MatsubaraSampling(basis; positive_only)
         @test basis === SparseIR.basis(smpl)
-        #=if !positive_only
-            @test smpl isa
-                (stat == Fermionic() ? MatsubaraSampling64F : MatsubaraSampling64B)
-        end
-        =#
         @test issorted(smpl.sampling_points)
         Random.seed!(1312 + 161)
 
@@ -148,17 +143,16 @@
         @test imag(gl_iw) ≈ imag(gl)
     end
 
-    #==
     @testset "errors with stat = $stat, $sampling" for stat in (Bosonic(), Fermionic()),
-        sampling in (TauSampling,
-            MatsubaraSampling)
+        sampling in (TauSampling, MatsubaraSampling)
 
         basis = FiniteTempBasis(stat, 3, 3, 1e-6)
         smpl = sampling(basis)
+        out = sampling === TauSampling ? rand(100) : rand(ComplexF64, 100)
         @test_throws DimensionMismatch evaluate(smpl, rand(100))
-        @test_throws DimensionMismatch evaluate!(rand(100), smpl, rand(100))
-        @test_throws Exception fit(smpl, rand(100))
-        @test_throws DimensionMismatch fit!(rand(100), smpl, rand(100))
+        @test_throws DimensionMismatch evaluate!(out, smpl, rand(100))
+        @test_throws DimensionMismatch fit(smpl, rand(100))
+        @test_throws DimensionMismatch fit!(out, smpl, rand(100))
     end
 
     @testset "frequency range" begin
@@ -169,14 +163,16 @@
         @test sampling_points(smpl) == freqrange
     end
 
-    @testset "default_matsubara_sampling_points" begin
+    @testset "default_matsubara_sampling_points with stat = $stat" for stat in
+                                                                        (Fermionic(),
+        Bosonic())
         β = 10.0
         ωmax = 1.0
         ε = 1e-10
-        kernel = LogisticKernel(β * ωmax)
-        basis = FiniteTempBasis(Fermionic(), β, ωmax, ε; kernel)
+        basis = FiniteTempBasis(stat, β, ωmax, ε; kernel=LogisticKernel(β * ωmax))
         points = SparseIR.default_matsubara_sampling_points(basis)
-        @test length(points) > 0
+        @test length(points) >= length(basis)
+        @test all(n -> mod(n, 2) == SparseIR.zeta(stat), points)
+        @test sort(points) == sort(-points)
     end
-    ==#
 end

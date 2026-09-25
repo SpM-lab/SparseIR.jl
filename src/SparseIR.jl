@@ -112,6 +112,28 @@ function _check_all_finite(A::AbstractArray, name::AbstractString)
 end
 
 """
+    _as_input_array(a, name)
+
+`a` as an `Array{Float64}` (real element types) or `Array{ComplexF64}` (complex
+element types), the element types the C entry points read. The conversion is
+explicit, so `Float32`, integer or `Rational` input and views, transposes or
+other wrappers are copied into a new array; an `Array` that already has the
+right element type is returned as is. Throws `ArgumentError` for other element
+types and for non-finite entries.
+"""
+function _as_input_array(a::AbstractArray{T,N}, name::AbstractString) where {T,N}
+    b = if T <: Real
+        convert(Array{Float64,N}, a)
+    elseif T <: Complex
+        convert(Array{ComplexF64,N}, a)
+    else
+        throw(ArgumentError("$name must have a real or complex element type, got $T"))
+    end
+    _check_all_finite(b, name)
+    return b
+end
+
+"""
     _check_unique(points, name)
 
 Throw `ArgumentError` if `points` contains an exact duplicate. Duplicated

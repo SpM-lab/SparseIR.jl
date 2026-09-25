@@ -108,3 +108,142 @@ end
     @test err isa SparseIR.SparseIRError
     @test err.status == SparseIR.C_API.SPIR_NOT_SUPPORTED
 end
+
+@testitem "boundary: sampling points" tags=[:julia, :boundary] setup=[SIRTestSetup] begin
+    using Test
+    using SparseIR
+
+    β, ωmax, ε = 10.0, 1.0, 1e-6
+    basis = get_basis(Fermionic(), β, ωmax, ε)
+    L = length(basis)
+
+    # Order is kept, and evaluate follows it.
+    points = reverse(collect(range(0.1, 9.9; length=L + 3)))
+    smpl = TauSampling(basis; sampling_points=points)
+    @test sampling_points(smpl) == points
+    gl = [sin(0.7l) for l in 1:L]
+    @test maximum(abs, evaluate(smpl, gl) - transpose(basis.u(points)) * gl) <=
+          1e-13 * maximum(abs, evaluate(smpl, gl))
+
+    # Views and wrappers of the points give the same sampling.
+    for (label, v) in strided_views(points)
+        @test sampling_points(TauSampling(basis; sampling_points=v)) == points
+    end
+
+    # Fewer points than basis functions are accepted for evaluation.
+    few = [0.1, 0.4]
+    @test evaluate(TauSampling(basis; sampling_points=few), gl) ≈ transpose(basis.u(few)) * gl
+
+    # Matsubara points: integers of the right parity only.
+    @test_throws ArgumentError MatsubaraSampling(basis; sampling_points=[1.9, 3.0])
+    @test_throws DomainError MatsubaraSampling(basis; sampling_points=[1, 2])
+    @test_throws ArgumentError MatsubaraSampling(basis; sampling_points=[BosonicFreq(2)])
+    @test sampling_points(MatsubaraSampling(basis; sampling_points=[1.0, -3.0])) ==
+          [FermionicFreq(1), FermionicFreq(-3)]
+    @test_throws ArgumentError MatsubaraSampling(basis; positive_only=true,
+        sampling_points=[-1, 1, 3])
+end
+
+@testitem "boundary: positive_only rejects complex coefficients" tags=[:julia, :boundary] setup=[SIRTestSetup] begin
+    using Test
+    using SparseIR
+
+    basis = get_basis(Fermionic(), 10.0, 1.0, 1e-6)
+    L = length(basis)
+    smpl = MatsubaraSampling(basis; positive_only=true)
+    gl = [cos(0.3l) for l in 1:L]
+    @test_throws ArgumentError evaluate(smpl, gl .+ 1im .* gl)
+    # A real quantity is accepted, also in a complex array such as a fit result.
+    giv = evaluate(smpl, gl)
+    fitted = fit(smpl, giv)
+    @test fitted isa Vector{ComplexF64}
+    @test maximum(abs, evaluate(smpl, fitted) - giv) <= 1e-12 * maximum(abs, giv)
+end
+
+@testitem "boundary: element types, wrappers and non-finite input" tags=[:julia, :boundary] setup=[SIRTestSetup] begin
+    using Test
+    using SparseIR
+
+    basis = get_basis(Fermionic(), 10.0, 1.0, 1e-6)
+    L = length(basis)
+    dlr = DiscreteLehmannRepresentation(basis)
+    τs = TauSampling(basis)
+    iω = MatsubaraSampling(basis)
+    gl = [(-1)^l * 0.5^l for l in 1:L]
+    gl32 = Float32.(gl)          # exactly representable: conversion is exact
+    reference(f, x) = f(x isa AbstractArray{<:Complex} ? ComplexF64.(x) : Float64.(x))
+
+    transforms = ["TauSampling evaluate" => x -> evaluate(τs, x),
+        "TauSampling fit" => x -> fit(τs, x),
+        "MatsubaraSampling evaluate" => x -> evaluate(iω, x),
+        "from_IR" => x -> from_IR(dlr, x)]
+    @testset "$name" for (name, f) in transforms
+        for x in (gl32, ComplexF32.(gl32 .+ 1im .* gl32), round.(Int, 8 .* gl32),
+            Float16.(gl32), Rational{Int}.(round.(Int, 8 .* gl32)))
+            @test f(x) == reference(f, x)
+        end
+        for (label, v) in strided_views(gl)
+            @test f(v) == f(gl)
+        end
+        @test_throws ArgumentError f([gl[1:(end - 1)]; NaN])
+        @test_throws ArgumentError f(fill("a", L))
+    end
+    @testset "to_IR" begin
+        g_dlr = from_IR(dlr, gl)
+        @test to_IR(dlr, Float32.(g_dlr)) == to_IR(dlr, Float64.(Float32.(g_dlr)))
+        for (label, v) in strided_views(g_dlr)
+            @test to_IR(dlr, v) == to_IR(dlr, g_dlr)
+        end
+        @test_throws ArgumentError to_IR(dlr, [g_dlr[1:(end - 1)]; Inf])
+    end
+    @testset "MatsubaraSampling fit" begin
+        giv = evaluate(iω, gl)
+        @test fit(iω, ComplexF32.(giv)) == fit(iω, ComplexF64.(ComplexF32.(giv)))
+        @test fit(iω, real.(giv)) == fit(iω, ComplexF64.(real.(giv)))
+        for (label, v) in strided_views(giv)
+            @test fit(iω, v) == fit(iω, giv)
+        end
+    end
+
+    # Output buffers must be dense Float64/ComplexF64 arrays.
+    @test_throws ArgumentError evaluate!(zeros(Float32, npoints(τs)), τs, gl)
+    @test_throws ArgumentError evaluate!(view(zeros(2npoints(τs)), 1:2:(2npoints(τs))), τs, gl)
+    @test_throws ArgumentError fit!(zeros(Float32, L), τs, evaluate(τs, gl))
+    @test_throws DimensionMismatch evaluate!(zeros(npoints(τs), 1), τs, gl)
+
+    # Wrong lengths are reported before the call.
+    @test_throws DimensionMismatch evaluate(τs, rand(L + 1))
+    @test_throws DimensionMismatch fit(τs, rand(npoints(τs) + 1))
+    @test_throws DimensionMismatch evaluate!(zeros(npoints(τs) + 1), τs, gl)
+    @test_throws DimensionMismatch from_IR(dlr, rand(L + 1))
+    @test_throws ArgumentError evaluate(τs, gl; dim=2)
+end
+
+@testitem "boundary: dim on three-dimensional input" tags=[:julia, :boundary] setup=[SIRTestSetup] begin
+    using Test
+    using SparseIR
+
+    @testset "$(nameof(typeof(stat)))" for stat in (Fermionic(), Bosonic())
+        basis = get_basis(stat, 10.0, 1.0, 1e-6)
+        L = length(basis)
+        dlr = DiscreteLehmannRepresentation(basis)
+        pairs = ["TauSampling" => (x, d) -> evaluate(TauSampling(basis), x; dim=d),
+            "TauSampling fit" => (x, d) -> fit(TauSampling(basis),
+                evaluate(TauSampling(basis), x; dim=d); dim=d),
+            "MatsubaraSampling" => (x, d) -> evaluate(MatsubaraSampling(basis), x; dim=d),
+            "MatsubaraSampling(positive_only)" => (x, d) -> fit(
+                MatsubaraSampling(basis; positive_only=true),
+                evaluate(MatsubaraSampling(basis; positive_only=true), x; dim=d); dim=d),
+            "from_IR" => (x, d) -> from_IR(dlr, x, d),
+            "to_IR(from_IR)" => (x, d) -> to_IR(dlr, from_IR(dlr, x, d), d)]
+        data1 = [sin(1.3i + 0.7j - 0.2k) for i in 1:L, j in 1:3, k in 1:5]   # basis axis first
+        for (name, f) in pairs, d in 1:3
+            perm = d == 1 ? (1, 2, 3) : d == 2 ? (2, 1, 3) : (2, 3, 1)
+            data = permutedims(data1, perm)          # basis axis at d
+            out = f(data, d)
+            ref = f(data1, 1)
+            @test maximum(abs, permutedims(out, invperm(perm)) - ref) <=
+                  1e-12 * maximum(abs, ref)
+        end
+    end
+end

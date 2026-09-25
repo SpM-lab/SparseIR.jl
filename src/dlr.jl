@@ -94,7 +94,7 @@ function DiscreteLehmannRepresentation(::AbstractBasis, poles::AbstractVector)
 end
 
 """
-    from_IR(dlr::DiscreteLehmannRepresentation, gl::Array, dims=1)
+    from_IR(dlr::DiscreteLehmannRepresentation, gl::AbstractArray, dims=1)
 
 Transform from IR basis coefficients to DLR coefficients.
 
@@ -108,66 +108,20 @@ Transform from IR basis coefficients to DLR coefficients.
 
 DLR coefficients with the same shape as input, but with size `length(dlr)` along dimension `dims`.
 
-The element type of the result equals the element type of `gl`: `Float64` in,
-`Float64` out; `ComplexF64` in, `ComplexF64` out. Only `Float64` and
-`ComplexF64` input are supported — narrower element types (`Float32`,
-`ComplexF32`, integers) throw `ArgumentError` rather than being reinterpreted
-as `Float64`/`ComplexF64` at the C boundary.
+`gl` may be any `AbstractArray` with a real or complex element type. It is
+converted to `Array{Float64}` or `Array{ComplexF64}` — the element types the C
+entry points read — before the call, so `Float32`, `ComplexF32` or integer input
+contributes only its own precision. The result is `Float64` for real input and
+`ComplexF64` for complex input. Non-finite entries throw `ArgumentError`, a
+wrong length along `dims` `DimensionMismatch`.
 """
-function from_IR(dlr::DiscreteLehmannRepresentation, gl::Array{T,N}, dims=1) where {T,N}
-    # Validate the element type before any ccall: the C entry points read
-    # Ptr{Cdouble} / Ptr{Complex64} (i.e. ComplexF64), and a narrower element
-    # type handed to them reads out of bounds.
-    T === Float64 || T === ComplexF64 ||
-        throw(ArgumentError("from_IR supports Float64 and ComplexF64 input, got $T"))
-
-    # Validate target dimension
-    if dims < 1 || dims > N
-        throw(ArgumentError("Invalid target dimension: $dims. Must be in range [1, $N]"))
-    end
-
-    # Check dimensions
-    size(gl, dims) == length(dlr.basis) ||
-        throw(DimensionMismatch("Input array has wrong size along dimension $dims"))
-
-    # Prepare output dimensions
-    output_dims = collect(size(gl))
-    output_dims[dims] = length(dlr)
-
-    # Determine output type
-    output_type = T
-    output = Array{output_type,N}(undef, output_dims...)
-
-    # Safety checks
-    if !_is_column_major_contiguous(gl)
-        throw(ArgumentError("Input array must be contiguous"))
-    end
-    if !_is_column_major_contiguous(output)
-        throw(ArgumentError("Output array must be contiguous"))
-    end
-
-    # Call appropriate C function
-    ndim = N
-    input_dims = Int32[size(gl)...]
-    target_dim = Int32(dims - 1)  # C uses 0-based indexing
-    order = C_API.SPIR_ORDER_COLUMN_MAJOR
-    backend = _spir_default_backend[]
-    if T === Float64
-        ret = C_API.spir_ir2dlr_dd(
-            dlr.ptr, backend, order, ndim, input_dims, target_dim, gl, output)
-        op = "spir_ir2dlr_dd"
-    else
-        ret = C_API.spir_ir2dlr_zz(
-            dlr.ptr, backend, order, ndim, input_dims, target_dim, gl, output)
-        op = "spir_ir2dlr_zz"
-    end
-
-    _check_status(ret, op)
-    return output
+function from_IR(dlr::DiscreteLehmannRepresentation, gl::AbstractArray, dims=1)
+    gl = _as_input_array(gl, "IR coefficients")
+    return _dlr_transform(dlr, gl, dims, length(dlr.basis), length(dlr), true)
 end
 
 """
-    to_IR(dlr::DiscreteLehmannRepresentation, g_dlr::Array, dims=1)
+    to_IR(dlr::DiscreteLehmannRepresentation, g_dlr::AbstractArray, dims=1)
 
 Transform from DLR coefficients to IR basis coefficients.
 
@@ -181,57 +135,36 @@ Transform from DLR coefficients to IR basis coefficients.
 
 IR basis coefficients with the same shape as input, but with size `length(dlr.basis)` along dimension `dims`.
 
-The element type of the result equals the element type of `g_dlr`. Only
-`Float64` and `ComplexF64` input are supported — narrower element types
-(`Float32`, `ComplexF32`, integers) throw `ArgumentError` rather than being
-reinterpreted as `Float64`/`ComplexF64` at the C boundary.
+Element types, conversion and validation are as for [`from_IR`](@ref).
 """
-function to_IR(dlr::DiscreteLehmannRepresentation, g_dlr::Array{T,N}, dims=1) where {T,N}
-    T === Float64 || T === ComplexF64 ||
-        throw(ArgumentError("to_IR supports Float64 and ComplexF64 input, got $T"))
+function to_IR(dlr::DiscreteLehmannRepresentation, g_dlr::AbstractArray, dims=1)
+    g_dlr = _as_input_array(g_dlr, "DLR coefficients")
+    return _dlr_transform(dlr, g_dlr, dims, length(dlr), length(dlr.basis), false)
+end
 
-    # Validate target dimension
-    if dims < 1 || dims > N
+function _dlr_transform(dlr::DiscreteLehmannRepresentation, input::Array{T,N}, dims,
+        n_in::Int, n_out::Int, ir_to_dlr::Bool) where {T,N}
+    dims isa Integer && 1 ≤ dims ≤ N ||
         throw(ArgumentError("Invalid target dimension: $dims. Must be in range [1, $N]"))
-    end
+    size(input, dims) == n_in ||
+        throw(DimensionMismatch("Input array has length $(size(input, dims)) along \
+                                 dimension $dims, expected $n_in"))
+    output_dims = collect(size(input))
+    output_dims[dims] = n_out
+    output = Array{T,N}(undef, output_dims...)
 
-    # Check dimensions
-    size(g_dlr, dims) == length(dlr) ||
-        throw(DimensionMismatch("Input array has wrong size along dimension $dims"))
-
-    # Prepare output dimensions
-    output_dims = collect(size(g_dlr))
-    output_dims[dims] = length(dlr.basis)
-
-    # Determine output type
-    output_type = T
-    output = Array{output_type,N}(undef, output_dims...)
-
-    # Safety checks
-    if !_is_column_major_contiguous(g_dlr)
-        throw(ArgumentError("Input array must be contiguous"))
-    end
-    if !_is_column_major_contiguous(output)
-        throw(ArgumentError("Output array must be contiguous"))
-    end
-
-    # Call appropriate C function
-    ndim = N
-    input_dims = Int32[size(g_dlr)...]
+    input_dims = Int32[size(input)...]
     target_dim = Int32(dims - 1)  # C uses 0-based indexing
     order = C_API.SPIR_ORDER_COLUMN_MAJOR
-
     backend = _spir_default_backend[]
-    if T === Float64
-        ret = C_API.spir_dlr2ir_dd(
-            dlr.ptr, backend, order, ndim, input_dims, target_dim, g_dlr, output)
-        op = "spir_dlr2ir_dd"
+    if ir_to_dlr
+        f, op = T === Float64 ? (C_API.spir_ir2dlr_dd, "spir_ir2dlr_dd") :
+                (C_API.spir_ir2dlr_zz, "spir_ir2dlr_zz")
     else
-        ret = C_API.spir_dlr2ir_zz(
-            dlr.ptr, backend, order, ndim, input_dims, target_dim, g_dlr, output)
-        op = "spir_dlr2ir_zz"
+        f, op = T === Float64 ? (C_API.spir_dlr2ir_dd, "spir_dlr2ir_dd") :
+                (C_API.spir_dlr2ir_zz, "spir_dlr2ir_zz")
     end
-
+    ret = f(dlr.ptr, backend, order, N, input_dims, target_dim, input, output)
     _check_status(ret, op)
     return output
 end

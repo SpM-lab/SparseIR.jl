@@ -49,10 +49,14 @@ end
     @test g_dlr_c ≈ ComplexF64.(g_dlr)
 
     # Narrower element types used to be reinterpreted as Float64/ComplexF64 at
-    # the C boundary (heap corruption / segfault); they must now be rejected.
-    @testset "rejected element type $T" for T in (Float32, Float16, ComplexF32, Int64)
-        @test_throws ArgumentError from_IR(dlr, ones(T, length(basis)))
-        @test_throws ArgumentError to_IR(dlr, ones(T, length(dlr)))
+    # the C boundary (heap corruption / segfault). They are now converted
+    # explicitly, so they give exactly the result of the converted input.
+    widen(x) = eltype(x) <: Complex ? ComplexF64.(x) : Float64.(x)
+    @testset "converted element type $T" for T in (Float32, Float16, ComplexF32, Int64)
+        x = ones(T, length(basis))
+        @test from_IR(dlr, x) == from_IR(dlr, widen(x))
+        y = ones(T, length(dlr))
+        @test to_IR(dlr, y) == to_IR(dlr, widen(y))
     end
 
     @test_throws ArgumentError from_IR(dlr, gl, 0)
@@ -137,12 +141,15 @@ end
     @test unknown isa SparseIR.SparseIRError
     @test occursin("unrecognized", sprint(showerror, unknown))
 
-    # Finding I: the unsupported-type branches throw instead of falling through
-    # to an UndefVarError on the status variable.
+    # Finding I: an unsupported output buffer throws instead of falling through
+    # to an UndefVarError on the status variable; a narrower input element type
+    # is converted explicitly and gives the result of the converted input.
     out = Vector{Float32}(undef, length(sampling_points(smpl)))
     @test_throws ArgumentError evaluate!(out, smpl, zeros(length(basis)))
-    @test_throws ArgumentError evaluate(smpl, zeros(Float32, length(basis)))
-    @test_throws ArgumentError fit(smpl, zeros(Float32, length(sampling_points(smpl))))
+    x32 = Float32.(collect(range(1, 2; length=length(basis))))
+    @test evaluate(smpl, x32) == evaluate(smpl, Float64.(x32))
+    y32 = Float32.(evaluate(smpl, Float64.(x32)))
+    @test fit(smpl, y32) == fit(smpl, Float64.(y32))
 end
 
 @testitem "audit: rescale" tags=[:julia, :sparseir] begin
