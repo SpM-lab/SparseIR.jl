@@ -12,7 +12,22 @@ abstract type AbstractAugmentation{S<:Statistics} <: Function end
 
 const AugmentationTuple{S} = Tuple{Vararg{AbstractAugmentation{S}}} where {S<:Statistics}
 
-create(aug::AbstractAugmentation, ::AbstractBasis) = aug
+# An augmentation passed as an instance must have been built for the basis it
+# augments: the same β, and the same statistics (MatsubaraConst, which does not
+# depend on the statistics, has its own method below).
+function create(aug::AbstractAugmentation{S1}, basis::AbstractBasis{S2}) where {S1,S2}
+    _check_augmentation_beta(aug, basis)
+    S1 === S2 || throw(ArgumentError("$(nameof(typeof(aug))) is $(nameof(S1)), \
+                                      but the basis is $(nameof(S2))"))
+    return aug
+end
+
+function _check_augmentation_beta(aug::AbstractAugmentation, basis::AbstractBasis)
+    isapprox(β(aug), β(basis); rtol=1e-12) ||
+        throw(ArgumentError("$(nameof(typeof(aug))) has β = $(β(aug)), \
+                             but the basis has β = $(β(basis))"))
+    return nothing
+end
 β(aug::AbstractAugmentation) = aug.β
 
 """
@@ -22,12 +37,28 @@ Augmented basis on the imaginary-time/frequency axis.
 
 Groups a set of additional functions, `augmentations`, with a given
 `basis`. The augmented functions then form the first basis
-functions, while the rest is provided by the regular basis, i.e.:
+functions, while the rest is provided by the regular basis, i.e. with Julia's
+1-based index `i`:
 
-    u[l](x) == l < naug ? augmentations[l](x) : basis.u[l-naug](x),
+    u[i](τ) == i ≤ naug ? augmentations[i](τ) : basis.u[i-naug](τ),
+    uhat[i](n) == i ≤ naug ? augmentations[i](n) : basis.uhat[i-naug](n),
 
 where `naug = length(augmentations)` is the number of added basis functions
-through augmentation. Similar expressions hold for Matsubara frequencies.
+through augmentation, `τ ∈ [-β, β]` and `n` is a reduced frequency (or a
+[`MatsubaraFreq`](@ref)).
+
+`AugmentedBasis(basis, augmentations...)` takes each augmentation as a type
+(`TauConst`, `TauLinear`, `MatsubaraConst`), which is then built for the β and
+the statistics of `basis`, or as an instance, which must have the β of `basis`
+and, except for a `MatsubaraConst`, its statistics (`ArgumentError` otherwise).
+[`TauConst`](@ref) and [`TauLinear`](@ref) exist for bosons only;
+[`MatsubaraConst`](@ref) works for both statistics, and an instance of it adopts
+the statistics of the basis.
+
+The default sampling points are those for `L = naug + length(basis)`
+functions, the size of the augmented basis: the roots of `U_L` in imaginary
+time, always folded into `(0, β)`, and the sign changes of the first discarded
+`Û_l` (`l ≥ L`) in Matsubara frequency.
 
 Augmentation is useful in constructing bases for vertex-like quantities
 such as self-energies [^wallerberger2021] and when constructing a two-point kernel
@@ -49,7 +80,6 @@ See also: [`MatsubaraConst`](@ref) for vertex basis [^wallerberger2021],
 [`TauLinear`](@ref) for multi-point [^shinaoka2018]
 
 [^wallerberger2021]: https://doi.org/10.1103/PhysRevResearch.3.033168
-
 [^shinaoka2018]: https://doi.org/10.1103/PhysRevB.97.205111
 """
 struct AugmentedBasis{S<:Statistics,B<:FiniteTempBasis{S},A<:AugmentationTuple{S},F,FHAT} <:
@@ -87,13 +117,24 @@ function MatsubaraSampling(
         positive_only=false,
         sampling_points=default_matsubara_sampling_points(basis; positive_only)
 ) where {S}
-    pts = MatsubaraFreq.(collect(sampling_points))
+    # Integers, parity and statistics are checked as for a plain basis.
+    pts = MatsubaraFreq{S}[_to_freq(S, p) for p in sampling_points]
     isempty(pts) && throw(ArgumentError("sampling_points must not be empty"))
     # The C entry point reads Ptr{Int64}; build the Int64 index vector
     # explicitly instead of letting a Vector{<:MatsubaraFreq} be reinterpreted.
     indices = Int64[Int64(Int(p)) for p in pts]
     _check_unique(indices, "sampling_points")
-    matrix_raw = eval_matrix(MatsubaraSampling, basis, pts)
+    if positive_only && any(<(0), indices)
+        throw(ArgumentError("positive_only=true requires non-negative sampling points, \
+                             got $(first(filter(<(0), indices)))π/β"))
+    end
+    # The C library orders the points ascending; pass them (and the matrix rows)
+    # sorted and keep the permutation, as for a plain basis.
+    order = _matsubara_order(indices)
+    if !isempty(order)
+        indices = indices[order]
+    end
+    matrix_raw = eval_matrix(MatsubaraSampling, basis, isempty(order) ? pts : pts[order])
     # Ensure column-major contiguous memory layout
     # permutedims may create a non-contiguous view, so we create a new Matrix
     matrix = Matrix{ComplexF64}(undef, size(matrix_raw)...)
@@ -114,7 +155,8 @@ function MatsubaraSampling(
     )
     _check_status(status[], "spir_matsu_sampling_new_with_matrix")
     _check_handle(ptr, "spir_matsu_sampling_new_with_matrix")
-    return MatsubaraSampling{eltype(pts),typeof(basis)}(ptr, pts, positive_only, basis)
+    return MatsubaraSampling{eltype(pts),typeof(basis)}(
+        ptr, pts, positive_only, basis, order)
 end
 
 function _get_ptr(basis::AugmentedBasis)
@@ -129,10 +171,13 @@ function AugmentedBasis(basis::AbstractBasis, augmentations...)
 end
 
 naug(basis::AugmentedBasis) = length(basis.augmentations)
+u(basis::AugmentedBasis) = basis.u
+uhat(basis::AugmentedBasis) = basis.uhat
 
 function Base.getindex(basis::AugmentedBasis, index::AbstractRange)
     stop = range_to_length(index)
-    stop > naug(basis) || error("Cannot truncate to only augmentation.")
+    stop > naug(basis) ||
+        throw(ArgumentError("cannot truncate to only the augmentation functions"))
     return AugmentedBasis(basis.basis[begin:(stop - naug(basis))], basis.augmentations...)
 end
 
@@ -150,7 +195,7 @@ function default_tau_sampling_points(basis::AugmentedBasis; use_positive_taus::B
     n_points_returned = Ref{Cint}(0)
     status = spir_basis_get_default_taus_ext(
         _get_ptr(basis.basis), length(basis), points, n_points_returned)
-    status == SPIR_COMPUTATION_SUCCESS || error("Failed to get default tau sampling points")
+    _check_status(status, "spir_basis_get_default_taus_ext")
     points = points[1:n_points_returned[]]
 
     if use_positive_taus
@@ -162,20 +207,36 @@ function default_tau_sampling_points(basis::AugmentedBasis; use_positive_taus::B
 end
 
 function default_matsubara_sampling_points(basis::AugmentedBasis; positive_only=false)
+    # The positive-only points are the non-negative half of the full set, as for
+    # a plain basis. Requesting that variant from C with the count as the point
+    # limit returned a truncated set and left the rest of the buffer unwritten.
+    if positive_only
+        return filter(≥(0), default_matsubara_sampling_points(basis; positive_only=false))
+    end
     n_points = Ref{Cint}(0)
     basis_ptr = _get_ptr(basis.basis)
     mitigate = false # corresponds to false in older version
     status = spir_basis_get_n_default_matsus_ext(
         basis_ptr, positive_only, mitigate, length(basis), n_points)
-    status == SPIR_COMPUTATION_SUCCESS ||
-        error("Failed to get number of default Matsubara sampling points")
-    points = Vector{Int64}(undef, n_points[])
+    _check_status(status, "spir_basis_get_n_default_matsus_ext")
+    points = zeros(Int64, n_points[])
     n_points_returned = Ref{Cint}(0)
-    status = spir_basis_get_default_matsus_ext(
-        basis_ptr, positive_only, mitigate, n_points[], points, n_points_returned)
-    status == SPIR_COMPUTATION_SUCCESS ||
-        error("Failed to get default Matsubara sampling points")
-    return points
+    # SpM-lab/sparse-ir-rs#274 separated the basis size from the buffer
+    # capacity. The loaded bindings match the loaded library (see
+    # src/SparseIR.jl), so their arity tells which form it takes.
+    status = if hasmethod(spir_basis_get_default_matsus_ext, NTuple{7,Any})
+        spir_basis_get_default_matsus_ext(basis_ptr, positive_only, mitigate,
+            length(basis), n_points[], points, n_points_returned)
+    else
+        spir_basis_get_default_matsus_ext(
+            basis_ptr, positive_only, mitigate, n_points[], points, n_points_returned)
+    end
+    _check_status(status, "spir_basis_get_default_matsus_ext")
+    # Never return entries the C library did not write.
+    0 ≤ n_points_returned[] ≤ length(points) ||
+        throw(SparseIRError("spir_basis_get_default_matsus_ext reported \
+                             $(n_points_returned[]) points for a buffer of $(length(points))"))
+    return points[1:n_points_returned[]]
 end
 
 function iswellconditioned(basis::AugmentedBasis)
@@ -206,7 +267,9 @@ Base.size(a::AbstractAugmentedFunction) = (length(a),)
 
 function (a::AbstractAugmentedFunction)(x)
     fbasis_x = fbasis(a)(x)
-    faug_x = [faug_l(x) for faug_l in faug(a)]
+    # Promote to the element type of the basis part: the augmentations of a
+    # Matsubara function mix Float64 and ComplexF64 values.
+    faug_x = eltype(fbasis_x)[faug_l(x) for faug_l in faug(a)]
     return vcat(faug_x, fbasis_x)
 end
 
@@ -227,12 +290,20 @@ function (a::AbstractAugmentedFunction)(x::AbstractArray)
     return vcat(faug_x, fbasis_x)
 end
 
-function Base.getindex(a::AbstractAugmentedFunction, r::AbstractRange)
+Base.firstindex(::AbstractAugmentedFunction) = 1
+Base.lastindex(a::AbstractAugmentedFunction) = length(a)
+
+function _truncate(a::AbstractAugmentedFunction, r::AbstractRange)
     stop = range_to_length(r)
-    stop > naug(a) || error("Don't truncate to only augmentation")
-    return AugmentedFunction(fbasis(a)[begin:(stop - naug(a))], faug(a))
+    stop > naug(a) ||
+        throw(ArgumentError("cannot truncate to only the augmentation functions"))
+    return fbasis(a)[begin:(stop - naug(a))], faug(a)
+end
+function Base.getindex(a::AugmentedFunction, r::AbstractRange)
+    AugmentedFunction(_truncate(a, r)...)
 end
 function Base.getindex(a::AbstractAugmentedFunction, l::Integer)
+    1 ≤ l ≤ length(a) || throw(BoundsError(a, l))
     return l ≤ naug(a) ? faug(a)[l] : fbasis(a)[l - naug(a)]
 end
 
@@ -248,6 +319,12 @@ AugmentedTauFunction(fbasis, faug) = AugmentedTauFunction(AugmentedFunction(fbas
 
 xmin(aτ::AugmentedTauFunction) = xmin(fbasis(aτ))
 xmax(aτ::AugmentedTauFunction) = xmax(fbasis(aτ))
+
+# Keep the wrapper type: a plain AugmentedFunction would evaluate integer
+# Matsubara indices as imaginary times.
+function Base.getindex(aτ::AugmentedTauFunction, r::AbstractRange)
+    AugmentedTauFunction(_truncate(aτ, r)...)
+end
 
 function deriv(aτ::AugmentedTauFunction, n=Val(1))
     # `fbasis(aτ)` is a single `PiecewiseLegendrePolyVector` handle, not an
@@ -271,6 +348,21 @@ end
 
 zeta(amat::AugmentedMatsubaraFunction) = zeta(fbasis(amat))
 
+function Base.getindex(amat::AugmentedMatsubaraFunction, r::AbstractRange)
+    return AugmentedMatsubaraFunction(_truncate(amat, r)...)
+end
+
+# An integer is a reduced Matsubara index. The augmentations are defined on
+# `MatsubaraFreq`s (on plain numbers they are functions of imaginary time), so
+# the index is converted first; the wrong parity throws `DomainError`.
+function _as_freq(amat::AugmentedMatsubaraFunction, n::Integer)
+    return MatsubaraFreq{typeof(Statistics(zeta(amat)))}(n)
+end
+(amat::AugmentedMatsubaraFunction)(n::Integer) = amat(_as_freq(amat, n))
+function (amat::AugmentedMatsubaraFunction)(ns::AbstractVector{<:Integer})
+    return amat([_as_freq(amat, n) for n in ns])
+end
+
 ############################################################################################
 #                                      Augmentations                                       #
 ############################################################################################
@@ -285,10 +377,13 @@ Handles boundary conditions based on statistics:
   - Fermions: Anti-periodic G(τ + β) = -G(τ)
   - Bosons: Periodic G(τ + β) = G(τ)
 
+The endpoints are read as one-sided limits, as by `basis.u`: `0.0` is `0⁺` and
+`β` is `β⁻` (both returned unchanged), `-0.0` is `0⁻` and `-β` is `(-β)⁺`.
+
 # Arguments
 
   - `S`: Statistics type (Fermionic or Bosonic)
-  - `tau`: Imaginary time in range [-β, β]
+  - `tau`: Imaginary time in range [-β, β]; `DomainError` outside
   - `beta`: Inverse temperature
 
 # Returns
@@ -300,12 +395,14 @@ Handles boundary conditions based on statistics:
 For Fermionic statistics:
 
   - `tau = -0.0` (negative zero) → `(tau_normalized = β, sign = -1.0)`
-  - `tau ∈ [-β, 0)` → wraps to [0, β] with `sign = -1.0`
+  - `tau ∈ [-β, 0)` → wraps to `tau + β ∈ [0, β)` with `sign = -1.0`; in
+    particular `tau = -β` → `(0.0, -1.0)`
 
 For Bosonic statistics:
 
   - `tau = -0.0` (negative zero) → `(tau_normalized = β, sign = 1.0)`
-  - `tau ∈ [-β, 0)` → wraps to [0, β] with `sign = 1.0`
+  - `tau ∈ [-β, 0)` → wraps to `tau + β ∈ [0, β)` with `sign = 1.0`; in
+    particular `tau = -β` → `(0.0, 1.0)`
 """
 function normalize_tau(::Type{S}, tau::Real, beta::Real) where {S<:Statistics}
     tau_f = Float64(tau)
@@ -341,17 +438,17 @@ function normalize_tau(::Type{S}, tau::Real, beta::Real) where {S<:Statistics}
 end
 
 """
-    TauConst{S} <: AbstractAugmentation{S}
+    TauConst{Bosonic} <: AbstractAugmentation{Bosonic}
 
-Constant function in imaginary time with statistics-dependent periodicity.
+Constant function in imaginary time, `1/√β` on `[0, β]` and periodic, whose
+Matsubara transform is `√β` at `ν = 0` and zero at every other frequency.
 
-# Type Parameters
-
-  - `S`: Statistics type (Fermionic or Bosonic)
+Defined for bosons only: `TauConst{Fermionic}` throws `ArgumentError`.
 """
 struct TauConst{S<:Statistics} <: AbstractAugmentation{S}
     β::Float64
     function TauConst{S}(β) where {S<:Statistics}
+        S === Bosonic || throw(ArgumentError("TauConst is defined for bosons only, got $S"))
         β > 0 || throw(DomainError(β, "Temperature must be positive."))
         return new{S}(β)
     end
@@ -360,8 +457,11 @@ end
 # Backward compatibility: TauConst(β) defaults to Bosonic
 TauConst(β) = TauConst{Bosonic}(β)
 
-create(::Type{TauConst}, basis::AbstractBasis{Bosonic}) = TauConst{Bosonic}(β(basis))
-create(::Type{TauConst{S}}, basis::AbstractBasis{S}) where {S<:Statistics} = TauConst{S}(β(basis))
+# The statistics of the basis; the constructor rejects fermions.
+create(::Type{TauConst}, basis::AbstractBasis{S}) where {S} = TauConst{S}(β(basis))
+function create(::Type{TauConst{S}}, basis::AbstractBasis{S}) where {S<:Statistics}
+    TauConst{S}(β(basis))
+end
 
 function (aug::TauConst{S})(τ) where {S<:Statistics}
     tau_normalized, sign = normalize_tau(S, τ, β(aug))
@@ -378,18 +478,20 @@ function deriv(aug::TauConst, (::Val{n})=Val(1)) where {n}
 end
 
 """
-    TauLinear{S} <: AbstractAugmentation{S}
+    TauLinear{Bosonic} <: AbstractAugmentation{Bosonic}
 
-Linear function in imaginary time, antisymmetric around β/2, with statistics-dependent periodicity.
+Linear function in imaginary time, `√(3/β) (2τ/β - 1)` on `[0, β]`, antisymmetric
+around `β/2` and periodic, whose Matsubara transform is `2√(3/β)/(iν)` and zero
+at `ν = 0`.
 
-# Type Parameters
-
-  - `S`: Statistics type (Fermionic or Bosonic)
+Defined for bosons only: `TauLinear{Fermionic}` throws `ArgumentError`.
 """
 struct TauLinear{S<:Statistics} <: AbstractAugmentation{S}
     β::Float64
     norm::Float64
     function TauLinear{S}(β) where {S<:Statistics}
+        S === Bosonic ||
+            throw(ArgumentError("TauLinear is defined for bosons only, got $S"))
         β > 0 || throw(DomainError(β, "Temperature must be positive."))
         norm = sqrt(3 / β)
         return new{S}(β, norm)
@@ -399,8 +501,11 @@ end
 # Backward compatibility: TauLinear(β) defaults to Bosonic
 TauLinear(β) = TauLinear{Bosonic}(β)
 
-create(::Type{TauLinear}, basis::AbstractBasis{Bosonic}) = TauLinear{Bosonic}(β(basis))
-create(::Type{TauLinear{S}}, basis::AbstractBasis{S}) where {S<:Statistics} = TauLinear{S}(β(basis))
+# The statistics of the basis; the constructor rejects fermions.
+create(::Type{TauLinear}, basis::AbstractBasis{S}) where {S} = TauLinear{S}(β(basis))
+function create(::Type{TauLinear{S}}, basis::AbstractBasis{S}) where {S<:Statistics}
+    TauLinear{S}(β(basis))
+end
 
 function (aug::TauLinear{S})(τ) where {S<:Statistics}
     tau_normalized, sign = normalize_tau(S, τ, β(aug))
@@ -422,12 +527,16 @@ end
 """
     MatsubaraConst{S} <: AbstractAugmentation{S}
 
-Constant in Matsubara, undefined in imaginary time.
+Constant in Matsubara, undefined in imaginary time: its value is `1` at every
+Matsubara frequency, and it returns `NaN` for `τ ∈ [-β, β]` (`DomainError`
+outside).
 
 # Type Parameters
 
   - `S`: Statistics type (Fermionic or Bosonic). This is required for type consistency,
-    though MatsubaraConst works identically for both statistics.
+    though MatsubaraConst works identically for both statistics. `MatsubaraConst(β)`
+    is bosonic; as an augmentation, both the bare type and an instance take the
+    statistics of the basis they augment.
 """
 struct MatsubaraConst{S<:Statistics} <: AbstractAugmentation{S}
     β::Float64
@@ -437,11 +546,21 @@ struct MatsubaraConst{S<:Statistics} <: AbstractAugmentation{S}
     end
 end
 
-# Backward compatibility: MatsubaraConst(β) - statistics will be inferred from basis
+# Backward compatibility: MatsubaraConst(β) is bosonic; `create` adopts the
+# statistics of the basis it is added to.
 MatsubaraConst(β) = MatsubaraConst{Bosonic}(β)
 
-create(::Type{MatsubaraConst}, basis::AbstractBasis{S}) where {S} = MatsubaraConst{S}(β(basis))
-create(::Type{MatsubaraConst{S}}, basis::AbstractBasis{S}) where {S<:Statistics} = MatsubaraConst{S}(β(basis))
+function create(::Type{MatsubaraConst}, basis::AbstractBasis{S}) where {S}
+    MatsubaraConst{S}(β(basis))
+end
+function create(::Type{MatsubaraConst{S}}, basis::AbstractBasis{S}) where {S<:Statistics}
+    MatsubaraConst{S}(β(basis))
+end
+# An instance takes the statistics of the basis; its β must match.
+function create(aug::MatsubaraConst, basis::AbstractBasis{S}) where {S}
+    _check_augmentation_beta(aug, basis)
+    return MatsubaraConst{S}(β(aug))
+end
 
 function (aug::MatsubaraConst)(τ)
     -β(aug) ≤ τ ≤ β(aug) || throw(DomainError(τ, "τ must be in [-β, β]."))
@@ -450,6 +569,13 @@ end
 
 function (aug::MatsubaraConst)(::MatsubaraFreq)
     return one(β(aug))
+end
+(aug::TauConst)(n::MatsubaraFreq) = _statistics_mismatch(aug, n)
+(aug::TauLinear)(n::MatsubaraFreq) = _statistics_mismatch(aug, n)
+
+function _statistics_mismatch(aug::AbstractAugmentation{S}, n::MatsubaraFreq) where {S}
+    throw(ArgumentError("the frequency $(Int(n))π/β is $(nameof(typeof(statistics(n)))), \
+                         but $(nameof(typeof(aug))) is $(nameof(S))"))
 end
 
 deriv(aug::MatsubaraConst, _=Val(1)) = aug

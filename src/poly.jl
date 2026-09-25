@@ -11,7 +11,9 @@ mutable struct PiecewiseLegendrePoly
     ptr::Ptr{spir_funcs}
     xmin::Float64
     xmax::Float64
-    period::Float64 # 0.0 for a non-periodic function, the period for a periodic function
+    # 0.0 for a function of ω; β for a function of τ, whose knots repeat with
+    # period β while the function obeys f(τ + β) = (-1)^ζ f(τ)
+    period::Float64
     default_overlap_range::Tuple{Float64,Float64} # Default range for overlap calculations
     function PiecewiseLegendrePoly(
             funcs::Ptr{spir_funcs}, xmin::Float64, xmax::Float64, period::Float64,
@@ -35,7 +37,9 @@ mutable struct PiecewiseLegendrePolyVector
     ptr::Ptr{spir_funcs}
     xmin::Float64
     xmax::Float64
-    period::Float64 # 0.0 for a non-periodic function, the period for a periodic function
+    # 0.0 for a function of ω; β for a function of τ, whose knots repeat with
+    # period β while the function obeys f(τ + β) = (-1)^ζ f(τ)
+    period::Float64
     default_overlap_range::Tuple{Float64,Float64} # Default range for overlap calculations
     function PiecewiseLegendrePolyVector(
             funcs::Ptr{spir_funcs}, xmin::Float64, xmax::Float64, period::Float64,
@@ -50,85 +54,176 @@ end
 
 function Base.size(ptr::Ptr{spir_funcs})
     sz = Ref{Int32}(-1)
-    spir_funcs_get_size(ptr, sz) == SPIR_COMPUTATION_SUCCESS ||
-        error("Failed to get funcs size")
+    _check_status(spir_funcs_get_size(ptr, sz), "spir_funcs_get_size")
     return Int(sz[])
 end
 
-Base.size(polys::PiecewiseLegendrePolyVector) = size(polys.ptr)
+Base.size(polys::PiecewiseLegendrePolyVector) = (length(polys),)
 
 """
     PiecewiseLegendreFTVector
 
-Fourier transform of piecewise Legendre polynomials.
+Fourier transforms of a set of piecewise Legendre polynomials, evaluated at
+Matsubara frequencies.
 
-For a given frequency index `n`, the Fourier transform of the Legendre
-function is defined as:
+For a reduced frequency `n`, i.e. the Matsubara frequency `ν = nπ/β`, the
+transform of the basis function `U_l` is
 
-        p̂(n) == ∫ dx exp(im * π * n * x / (xmax - xmin)) p(x)
+    Û_l(iν) == ∫₀^β dτ exp(iντ) U_l(τ),
+
+and `polys[l+1](n)` returns `Û_l(iν)`.
+
+The object knows the statistics of its basis: it accepts `MatsubaraFreq`s of
+that statistics or integers of the matching parity (odd for fermions, even for
+bosons). A frequency of the other statistics throws `ArgumentError`, an integer
+of the wrong parity `DomainError`. `polys[i]` returns a single
+[`PiecewiseLegendreFT`](@ref), `polys[range]` another vector.
 """
 mutable struct PiecewiseLegendreFTVector
     ptr::Ptr{spir_funcs}
+    zeta::Int
 
-    function PiecewiseLegendreFTVector(funcs::Ptr{spir_funcs})
-        result = new(funcs)
+    function PiecewiseLegendreFTVector(funcs::Ptr{spir_funcs}, zeta::Integer)
+        result = new(funcs, zeta)
         finalizer(r -> spir_funcs_release(r.ptr), result)
         return result
     end
 end
 
+"""
+    PiecewiseLegendreFT
+
+A single function of a [`PiecewiseLegendreFTVector`](@ref); calling it returns
+a `ComplexF64`.
+"""
+mutable struct PiecewiseLegendreFT
+    ptr::Ptr{spir_funcs}
+    zeta::Int
+
+    function PiecewiseLegendreFT(funcs::Ptr{spir_funcs}, zeta::Integer)
+        result = new(funcs, zeta)
+        finalizer(r -> spir_funcs_release(r.ptr), result)
+        return result
+    end
+end
+
+zeta(polys::Union{PiecewiseLegendreFT,PiecewiseLegendreFTVector}) = polys.zeta
+
+# The C library panics on a point outside the domain (SpM-lab/sparse-ir-rs#266),
+# so every point is checked here first.
+function _check_domain(x::Real, xmin::Real, xmax::Real)
+    isfinite(x) && xmin ≤ x ≤ xmax && return nothing
+    throw(DomainError(x, "evaluation point must be finite and lie in [$xmin, $xmax]"))
+end
+
+# Reduced Matsubara index for the C library, checked against the statistics.
+function _matsubara_index(zeta::Int, freq::MatsubaraFreq)
+    SparseIR.zeta(freq) == zeta || throw(ArgumentError(
+        "the frequency $(Int(freq))π/β is $(nameof(typeof(statistics(freq)))), \
+         but the functions are $(nameof(typeof(Statistics(zeta))))"))
+    return Int(freq)
+end
+function _matsubara_index(zeta::Int, n::Integer)
+    S = typeof(Statistics(zeta))
+    return Int(MatsubaraFreq{S}(n))       # DomainError for the wrong parity
+end
+
 function (polys::PiecewiseLegendrePoly)(x::Real)
-    sz = Ref{Int32}(-1)
-    spir_funcs_get_size(polys.ptr, sz) == SPIR_COMPUTATION_SUCCESS ||
-        error("Failed to get funcs size")
-    ret = Vector{Float64}(undef, Int(sz[]))
-    spir_funcs_eval(polys.ptr, x, ret) == SPIR_COMPUTATION_SUCCESS ||
-        error("Failed to evaluate funcs")
+    _check_domain(x, polys.xmin, polys.xmax)
+    ret = Vector{Float64}(undef, length(polys.ptr))
+    _check_status(spir_funcs_eval(polys.ptr, x, ret), "spir_funcs_eval")
     return only(ret)
 end
 
 function (polys::PiecewiseLegendrePolyVector)(x::Real)
-    sz = Ref{Int32}(-1)
-    spir_funcs_get_size(polys.ptr, sz) == SPIR_COMPUTATION_SUCCESS ||
-        error("Failed to get funcs size")
-    ret = Vector{Float64}(undef, Int(sz[]))
-    spir_funcs_eval(polys.ptr, x, ret) == SPIR_COMPUTATION_SUCCESS ||
-        error("Failed to evaluate funcs")
+    _check_domain(x, polys.xmin, polys.xmax)
+    ret = Vector{Float64}(undef, length(polys))
+    _check_status(spir_funcs_eval(polys.ptr, x, ret), "spir_funcs_eval")
     return ret
 end
 
+"""
+    (polys::PiecewiseLegendrePolyVector)(x::AbstractVector)
+
+`length(polys) × length(x)` matrix of the functions at the points `x`
+(imaginary times for `basis.u`, real frequencies for `basis.v`).
+"""
 function (polys::PiecewiseLegendrePolyVector)(x::AbstractVector)
-    hcat(polys.(x)...)
+    for xi in x
+        xi isa Real || throw(ArgumentError("evaluation points must be real, got $xi"))
+        _check_domain(xi, polys.xmin, polys.xmax)
+    end
+    result = Matrix{Float64}(undef, length(polys), length(x))
+    for (j, xj) in enumerate(x)
+        result[:, j] = polys(xj)
+    end
+    return result
 end
 
-function (polys::PiecewiseLegendreFTVector)(freq::MatsubaraFreq)
-    n = freq.n
-    sz = Ref{Int32}(-1)
-    spir_funcs_get_size(polys.ptr, sz) == SPIR_COMPUTATION_SUCCESS ||
-        error("Failed to get funcs size")
-    ret = Vector{ComplexF64}(undef, Int(sz[]))
-    spir_funcs_eval_matsu(polys.ptr, n, ret) == SPIR_COMPUTATION_SUCCESS ||
-        error("Failed to evaluate funcs")
+"""
+    (poly::PiecewiseLegendrePoly)(x::AbstractVector)
+
+Values of the single function `poly` at the points `x`.
+"""
+function (poly::PiecewiseLegendrePoly)(x::AbstractVector)
+    for xi in x
+        xi isa Real || throw(ArgumentError("evaluation points must be real, got $xi"))
+        _check_domain(xi, poly.xmin, poly.xmax)
+    end
+    return Float64[poly(xi) for xi in x]
+end
+
+function (polys::PiecewiseLegendreFTVector)(freq::Union{MatsubaraFreq,Integer})
+    n = _matsubara_index(polys.zeta, freq)
+    ret = Vector{ComplexF64}(undef, length(polys))
+    _check_status(spir_funcs_eval_matsu(polys.ptr, n, ret), "spir_funcs_eval_matsu")
     return ret
 end
 
-Base.size(polys::PiecewiseLegendreFTVector) = size(polys.ptr)
+function (poly::PiecewiseLegendreFT)(freq::Union{MatsubaraFreq,Integer})
+    n = _matsubara_index(poly.zeta, freq)
+    ret = Vector{ComplexF64}(undef, length(poly.ptr))
+    _check_status(spir_funcs_eval_matsu(poly.ptr, n, ret), "spir_funcs_eval_matsu")
+    return only(ret)
+end
 
+function (poly::PiecewiseLegendreFT)(x::AbstractVector)
+    ns = Int64[_matsubara_index(poly.zeta, xi) for xi in x]
+    return ComplexF64[poly(n) for n in ns]
+end
+
+Base.size(polys::PiecewiseLegendreFTVector) = (length(polys),)
+Base.length(polys::PiecewiseLegendreFTVector) = length(polys.ptr)
+Base.firstindex(::PiecewiseLegendreFTVector) = 1
+Base.lastindex(polys::PiecewiseLegendreFTVector) = length(polys)
+
+"""
+    (polys::PiecewiseLegendreFTVector)(x::AbstractVector)
+
+`length(polys) × length(x)` matrix of the functions at the frequencies `x`
+(`MatsubaraFreq`s or integers, see [`PiecewiseLegendreFTVector`](@ref)).
+"""
 function (polys::PiecewiseLegendreFTVector)(x::AbstractVector)
-    n = length(x)
-    sz = Ref{Int32}(-1)
-    spir_funcs_get_size(polys.ptr, sz) == SPIR_COMPUTATION_SUCCESS ||
-        error("Failed to get funcs size")
-    n_basis = Int(sz[])
-    isempty(x) && return Matrix{ComplexF64}(undef, n_basis, 0)
-    result = Matrix{ComplexF64}(undef, n_basis, n)
+    ns = Int64[_matsubara_index(polys.zeta, xi) for xi in x]
+    n_basis = length(polys)
+    result = Matrix{ComplexF64}(undef, n_basis, length(ns))
     col = Vector{ComplexF64}(undef, n_basis)
-    for i in 1:n
-        spir_funcs_eval_matsu(polys.ptr, x[i].n, col) == SPIR_COMPUTATION_SUCCESS ||
-            error("Failed to evaluate funcs")
+    for (i, n) in enumerate(ns)
+        _check_status(spir_funcs_eval_matsu(polys.ptr, n, col), "spir_funcs_eval_matsu")
         result[:, i] = col
     end
     return result
+end
+
+function Base.getindex(polys::PiecewiseLegendreFTVector, i::Integer)
+    1 ≤ i ≤ length(polys) || throw(BoundsError(polys, i))
+    return PiecewiseLegendreFT(polys.ptr[Int(i)], polys.zeta)
+end
+
+function Base.getindex(polys::PiecewiseLegendreFTVector,
+        I::Union{AbstractRange{<:Integer},AbstractVector{<:Integer}})
+    indices = collect(1:length(polys))[I]
+    return PiecewiseLegendreFTVector(polys.ptr[indices], polys.zeta)
 end
 
 function Base.getindex(funcs::Ptr{spir_funcs}, i::Int)
@@ -136,32 +231,35 @@ function Base.getindex(funcs::Ptr{spir_funcs}, i::Int)
     indices = Vector{Int32}(undef, 1)
     indices[1] = i - 1 # Julia indices are 1-based, C indices are 0-based
     ret = spir_funcs_get_slice(funcs, 1, indices, status)
-    status[] == SPIR_COMPUTATION_SUCCESS ||
-        error("Failed to get basis function for index $i: $(status[])")
-    return ret
+    _check_status(status[], "spir_funcs_get_slice")
+    return _check_handle(ret, "spir_funcs_get_slice")
 end
 
 function Base.getindex(funcs::Ptr{spir_funcs}, indices::Vector{Int})
-    all(indices .>= 1) || error("Indices must be at least 1")
-    all(indices .<= size(funcs)) ||
-        error("Indices must be less than or equal to the size of the functions")
+    # The C library panics on an empty selection (SpM-lab/sparse-ir-rs#269).
+    isempty(indices) &&
+        throw(ArgumentError("an empty selection of basis functions is not supported"))
+    n = length(funcs)
+    for i in indices
+        1 ≤ i ≤ n || throw(BoundsError(1:n, i))
+    end
     status = Ref{Int32}(-100)
     indices_i32 = Vector{Int32}(undef, length(indices))
     indices_i32 .= indices .- 1 # Julia indices are 1-based, C indices are 0-based
     ret = spir_funcs_get_slice(funcs, length(indices), indices_i32, status)
-    status[] == SPIR_COMPUTATION_SUCCESS ||
-        error("Failed to get basis function for index $indices: $(status[])")
-    return ret
+    _check_status(status[], "spir_funcs_get_slice")
+    return _check_handle(ret, "spir_funcs_get_slice")
 end
 
 function Base.getindex(polys::PiecewiseLegendrePolyVector, i::Int)
+    1 ≤ i ≤ length(polys) || throw(BoundsError(polys, i))
     return PiecewiseLegendrePoly(
         polys.ptr[i], polys.xmin, polys.xmax, polys.period, polys.default_overlap_range)
 end
 
 function Base.getindex(polys::PiecewiseLegendrePolyVector,
         I)::Union{PiecewiseLegendrePoly,PiecewiseLegendrePolyVector}
-    indices = collect(1:size(polys))[I]
+    indices = collect(1:length(polys))[I]
     if indices isa Int
         return PiecewiseLegendrePoly(polys.ptr[indices], polys.xmin, polys.xmax,
             polys.period, polys.default_overlap_range)
@@ -176,8 +274,7 @@ end
 
 function Base.length(funcs::Ptr{spir_funcs})
     sz = Ref{Int32}(-1)
-    spir_funcs_get_size(funcs, sz) == SPIR_COMPUTATION_SUCCESS ||
-        error("Failed to get funcs size")
+    _check_status(spir_funcs_get_size(funcs, sz), "spir_funcs_get_size")
     return Int(sz[])
 end
 
@@ -191,29 +288,12 @@ Base.lastindex(funcs::Ptr{spir_funcs}) = length(funcs)
 Base.firstindex(polys::PiecewiseLegendrePolyVector) = firstindex(polys.ptr)
 Base.lastindex(polys::PiecewiseLegendrePolyVector) = lastindex(polys.ptr)
 
-function knots(poly::PiecewiseLegendrePoly)
+function knots(poly::Union{PiecewiseLegendrePoly,PiecewiseLegendrePolyVector})
     nknots_ref = Ref{Int32}(-1)
-    spir_funcs_get_n_knots(poly.ptr, nknots_ref)
-    nknots = nknots_ref[]
-
-    out = Vector{Float64}(undef, nknots)
-
-    SparseIR.C_API.spir_funcs_get_knots(
-        poly.ptr, out
-    )
-    return out
-end
-
-function knots(poly::PiecewiseLegendrePolyVector)
-    nknots_ref = Ref{Int32}(-1)
-    spir_funcs_get_n_knots(poly.ptr, nknots_ref)
-    nknots = nknots_ref[]
-
-    out = Vector{Float64}(undef, nknots)
-
-    SparseIR.C_API.spir_funcs_get_knots(
-        poly.ptr, out
-    )
+    _check_status(spir_funcs_get_n_knots(poly.ptr, nknots_ref), "spir_funcs_get_n_knots")
+    out = Vector{Float64}(undef, nknots_ref[])
+    _check_status(
+        SparseIR.C_API.spir_funcs_get_knots(poly.ptr, out), "spir_funcs_get_knots")
     return out
 end
 
@@ -227,9 +307,7 @@ taking into account periodicity if applicable.
 """
 function cover_domain(knots::Vector{Float64}, xmin::Float64, xmax::Float64,
         period::Float64, poly_xmin::Float64, poly_xmax::Float64)
-    if xmin > xmax
-        error("xmin must be less than xmax")
-    end
+    xmin ≤ xmax || throw(ArgumentError("xmin = $xmin must not exceed xmax = $xmax"))
 
     # Add integration boundaries
     knots_vec = unique(vcat(knots, [xmin, xmax]))
@@ -278,11 +356,14 @@ end
 
 Evaluate overlap integral of `poly` with arbitrary function `f` using default range.
 
-Given the function `f`, evaluate the integral
+Given the function `f`, evaluate the integral of `f` times `poly` over the
+default integration range, using adaptive Gauss-Legendre quadrature:
 
-    ∫ dx f(x) poly(x)
+    ∫₀^β dτ f(τ) U_l(τ)                   for poly = basis.u[l+1],
+    ∫_{-ωmax}^{ωmax} dω f(ω) V_l(ω)       for poly = basis.v[l+1].
 
-using adaptive Gauss-Legendre quadrature with the default integration range.
+The default range of a function of imaginary time is `[0, β]`, not its
+evaluation domain `[-β, β]`.
 
 `points` is a sequence of break points in the integration interval where local
 difficulties of the integrand may occur (e.g. singularities, discontinuities).
@@ -303,9 +384,10 @@ Evaluate overlap integral of `poly` with arbitrary function `f`.
 
 Given the function `f`, evaluate the integral
 
-    ∫ dx f(x) poly(x)
+    ∫_{xmin}^{xmax} dt f(t) poly(t)
 
-using adaptive Gauss-Legendre quadrature.
+using adaptive Gauss-Legendre quadrature, where `t` is the variable of `poly`
+(`τ` for `basis.u`, `ω` for `basis.v`) and `[xmin, xmax]` must lie in its domain.
 
 `points` is a sequence of break points in the integration interval where local
 difficulties of the integrand may occur (e.g. singularities, discontinuities).
@@ -314,17 +396,13 @@ function overlap(
         poly::PiecewiseLegendrePoly, f::F, xmin::Float64, xmax::Float64;
         rtol=eps(), return_error=false, maxevals=10^4, points=Float64[]
 ) where {F}
-    if xmin > xmax
-        error("xmin must be less than xmax")
-    end
+    xmin ≤ xmax || throw(ArgumentError("xmin = $xmin must not exceed xmax = $xmax"))
 
     # Check bounds for all functions (both periodic and non-periodic)
-    if xmin < poly.xmin
-        error("xmin ($xmin) must be greater than or equal to the lower bound of the polynomial domain ($(poly.xmin))")
-    end
-    if xmax > poly.xmax
-        error("xmax ($xmax) must be less than or equal to the upper bound of the polynomial domain ($(poly.xmax))")
-    end
+    xmin ≥ poly.xmin || throw(DomainError(xmin,
+        "xmin must not be below the lower end $(poly.xmin) of the domain"))
+    xmax ≤ poly.xmax || throw(DomainError(xmax,
+        "xmax must not exceed the upper end $(poly.xmax) of the domain"))
 
     knots_ = sort([xmin, xmax, points..., knots(poly)...])
     knots_ = cover_domain(knots_, xmin, xmax, poly.period, poly.xmin, poly.xmax)
@@ -346,9 +424,12 @@ Evaluate overlap integral of `polys` with arbitrary function `f` using default r
 
 Given the function `f`, evaluate the integral
 
-    ∫ dx f(x) polys[i](x)
+    ∫ dt f(t) polys[i](t)
 
-for each polynomial in the vector using adaptive Gauss-Legendre quadrature with the default integration range.
+for each polynomial in the vector using adaptive Gauss-Legendre quadrature with
+the default integration range: `[0, β]` for `basis.u` (so that
+`overlap(basis.u, f)[l+1]` is `∫₀^β dτ f(τ) U_l(τ)`) and `[-ωmax, ωmax]` for
+`basis.v`.
 """
 function overlap(
         polys::PiecewiseLegendrePolyVector, f::F;
@@ -368,20 +449,20 @@ function overlap(
         # instead of being reshaped together.
         results = [overlap(polys[i], f, xmin, xmax;
                        rtol, return_error=true, maxevals, points)
-                   for i in 1:size(polys)]
+                   for i in 1:length(polys)]
         values = first.(results)
         errors = last.(results)
         # `quadgk` reports a single scalar error estimate per integral, so the
         # error array is shaped independently of the value array.
-        value_shape = (size(polys), size(first(values))...)
-        error_shape = (size(polys), size(first(errors))...)
+        value_shape = (length(polys), size(first(values))...)
+        error_shape = (length(polys), size(first(errors))...)
         return reshape(vcat(values...), value_shape),
         reshape(vcat(errors...), error_shape)
     end
     result_ = [overlap(polys[i], f, xmin, xmax;
                    rtol, return_error=false, maxevals, points)
-               for i in 1:size(polys)]
-    result_shape = (size(polys), size(first(result_))...)
+               for i in 1:length(polys)]
+    result_shape = (length(polys), size(first(result_))...)
     return reshape(vcat(result_...), result_shape)
 end
 

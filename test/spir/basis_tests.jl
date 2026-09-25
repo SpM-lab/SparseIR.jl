@@ -28,20 +28,21 @@
         @test SparseIR.accuracy(basis) == last(s_full) / first(s_full)
     end
 
-    @testset "FiniteTempBasis{S} for S=$(S)" for S in [Fermionic, Bosonic]
-        kernel = LogisticKernel(10.0)
-        basis = FiniteTempBasis(S(), β, ωmax, ε; kernel)
-        @test true
+    @testset "explicit kernel for S=$(S)" for S in [Fermionic, Bosonic]
+        # An explicit LogisticKernel(β ωmax) gives the default basis.
+        basis = FiniteTempBasis(S(), β, ωmax, ε; kernel=LogisticKernel(Λ))
+        @test basis.s == FiniteTempBasis(S(), β, ωmax, ε).s
+        @test basis.kernel isa LogisticKernel
     end
 
-    #==
     @testset "FiniteTempBasis{S} for K=RegularizedBoseKernel" begin
-        kernel = RegularizedBoseKernel(10.0)
+        kernel = RegularizedBoseKernel(Λ)
         @test_throws ArgumentError("RegularizedBoseKernel is incompatible with Fermionic statistics") FiniteTempBasis(
             Fermionic(), β, ωmax, ε; kernel)
 
-        kernel = RegularizedBoseKernel(10.0)
         basis = FiniteTempBasis(Bosonic(), β, ωmax, ε; kernel)
+        @test basis.kernel isa RegularizedBoseKernel
+        @test issorted(basis.s; rev=true)
+        @test SparseIR.accuracy(basis) < ε
     end
-    ==#
 end

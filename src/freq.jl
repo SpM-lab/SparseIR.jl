@@ -1,7 +1,9 @@
 """
     Statistics(zeta)
 
-Abstract type for quantum statistics (fermionic/bosonic/etc.)
+Abstract type for quantum statistics. The argument is the parity `ζ` of the
+statistics (see [`zeta`](@ref)): `Statistics(1)` is `Fermionic()` and
+`Statistics(0)` is `Bosonic()`; any other value throws `DomainError`.
 """
 abstract type Statistics end
 
@@ -16,12 +18,15 @@ function Statistics(zeta::Integer)
 end
 
 """
-Fermionic statistics.
+Fermionic statistics, parity `ζ = 1`: a function of imaginary time is
+anti-periodic, `G(τ + β) = -G(τ)`, and its Matsubara frequencies are `ν = nπ/β`
+with odd `n`.
 """
 struct Fermionic <: Statistics end
 
 """
-Bosonic statistics.
+Bosonic statistics, parity `ζ = 0`: a function of imaginary time is periodic,
+`G(τ + β) = G(τ)`, and its Matsubara frequencies are `ν = nπ/β` with even `n`.
 """
 struct Bosonic <: Statistics end
 
@@ -33,27 +38,33 @@ _statistics_from_c(s::Cint) = s == SPIR_STATISTICS_FERMIONIC ? Fermionic() : Bos
 """
     MatsubaraFreq(n)
 
-Prefactor `n` of the Matsubara frequency `ω = n*π/β`
+Matsubara frequency `ν = nπ/β`, stored as its reduced frequency `n`.
 
-Struct representing the Matsubara frequency ω entering the Fourier transform of
-a propagator G(τ) on imaginary time τ to its Matsubara equivalent Ĝ(iω) on the
+Struct representing the Matsubara frequency ν entering the Fourier transform of
+a propagator G(τ) on imaginary time τ to its Matsubara equivalent G(iν) on the
 imaginary-frequency axis:
 
             β
-    Ĝ(iω) = ∫  dτ exp(iωτ) G(τ)      with    ω = n π/β,
+    G(iν) = ∫  dτ exp(iντ) G(τ)      with    ν = n π/β,
             0
 
+    G(τ) = (1/β) Σ_ν exp(-iντ) G(iν),
+
 where β is inverse temperature and by convention we include the imaginary unit
-in the frequency argument, i.e, Ĝ(iω). The frequencies depend on the
-statistics of the propagator, i.e., we have that:
+in the frequency argument, i.e., G(iν); the argument tells the function and its
+transform apart. The frequencies depend on the statistics of the propagator
+through its parity ζ (1 for fermions, 0 for bosons, see [`zeta`](@ref)):
 
-    G(τ - β) = ± G(τ)
+    G(τ + β) = (-1)^ζ G(τ).
 
-where + is for bosons and - is for fermions. The frequencies are restricted
-accordingly.
+The reduced frequency `n` is an integer with `n ≡ ζ (mod 2)`:
 
-  - Bosonic frequency (`S == Fermionic`): `n` even (periodic in β)
-  - Fermionic frequency (`S == Bosonic`): `n` odd (anti-periodic in β)
+  - Bosonic frequency (`S == Bosonic`): `n` even (periodic in β)
+  - Fermionic frequency (`S == Fermionic`): `n` odd (anti-periodic in β)
+
+`MatsubaraFreq(n)` takes the statistics from the parity of `n`;
+`MatsubaraFreq{S}(n)`, [`FermionicFreq`](@ref) and [`BosonicFreq`](@ref) throw
+`DomainError` for the wrong parity.
 """
 struct MatsubaraFreq{S<:Statistics} <: Number
     n::Int
@@ -66,7 +77,20 @@ struct MatsubaraFreq{S<:Statistics} <: Number
     end
 end
 
-const BosonicFreq   = MatsubaraFreq{Bosonic}
+"""
+    BosonicFreq(n)
+
+Bosonic Matsubara frequency `n π/β` with even `n`; an alias of
+`MatsubaraFreq{Bosonic}`. An odd `n` throws `DomainError`.
+"""
+const BosonicFreq = MatsubaraFreq{Bosonic}
+
+"""
+    FermionicFreq(n)
+
+Fermionic Matsubara frequency `n π/β` with odd `n`; an alias of
+`MatsubaraFreq{Fermionic}`. An even `n` throws `DomainError`.
+"""
 const FermionicFreq = MatsubaraFreq{Fermionic}
 
 MatsubaraFreq(n::Integer) = MatsubaraFreq(Statistics(mod(n, 2)), n)
@@ -86,27 +110,41 @@ Base.:+(::Bosonic, ::Bosonic)     = Bosonic()
 statistics(::MatsubaraFreq{S}) where {S} = S()
 
 """
-Get prefactor `n` for the Matsubara frequency `ω = n*π/β`
+    Integer(freq::MatsubaraFreq)
+
+The reduced frequency `n` of the Matsubara frequency `ν = nπ/β`.
 """
 Base.Integer(a::MatsubaraFreq) = a.n
 
 """
-Get prefactor `n` for the Matsubara frequency `ω = n*π/β`
+    Int(freq::MatsubaraFreq)
+
+The reduced frequency `n` of the Matsubara frequency `ν = nπ/β`.
 """
 Base.Int(a::MatsubaraFreq) = a.n
 
 """
-Get value of the Matsubara frequency `ω = n*π/β`
+    value(freq::MatsubaraFreq, β)
+
+The Matsubara frequency `ν = nπ/β` as a real number.
 """
 value(a::MatsubaraFreq, β::Real) = Int(a) * (π / β)
 
 """
-Get complex value of the Matsubara frequency `iω = iπ/β * n`
+    valueim(freq::MatsubaraFreq, β)
+
+The imaginary frequency `iν = i nπ/β` as a complex number.
 """
 valueim(a::MatsubaraFreq, β::Real) = 1im * value(a, β)
 
 """
-Get statistics `ζ` for Matsubara frequency `ω = (2*m+ζ)*π/β`
+    zeta(stat::Statistics)
+    zeta(freq::MatsubaraFreq)
+
+Parity `ζ` of the statistics: `1` for `Fermionic()` and `0` for `Bosonic()`.
+A shift by β multiplies a function of imaginary time by `(-1)^ζ`, and the
+reduced frequency of a Matsubara frequency is `n = 2m + ζ`, where `m` is the
+ordinary Matsubara index, i.e. `ν = (2m + ζ)π/β`.
 """
 zeta(a::MatsubaraFreq) = zeta(statistics(a))
 
@@ -153,6 +191,12 @@ function Base.show(io::IO, ::MIME"text/plain", a::MatsubaraFreq)
     end
 end
 
+"""
+    pioverbeta
+
+The fermionic Matsubara frequency `π/β`, `FermionicFreq(1)`. Multiples give
+other frequencies: `3 * pioverbeta == FermionicFreq(3)`, `2 * pioverbeta == BosonicFreq(2)`.
+"""
 const pioverbeta = MatsubaraFreq(1)
 Base.oneunit(::MatsubaraFreq) = pioverbeta
 

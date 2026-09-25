@@ -1,6 +1,19 @@
 module SparseIR
 
-include("C_API.jl") # libsparseir
+import Libdl
+
+# A local libsparseir built by deps/build.jl comes with bindings generated from
+# its own header, deps/C_API.jl; load those with it, so that every ccall
+# signature matches the loaded library. Otherwise use the bindings for
+# libsparseir_jll in src/C_API.jl.
+const _LOCAL_BINDINGS = joinpath(dirname(@__DIR__), "deps", "C_API.jl")
+const _LOCAL_LIBRARY = joinpath(
+    dirname(@__DIR__), "deps", "libsparse_ir_capi.$(Libdl.dlext)")
+if isfile(_LOCAL_BINDINGS) && isfile(_LOCAL_LIBRARY)
+    include(_LOCAL_BINDINGS)
+else
+    include("C_API.jl") # libsparseir
+end
 using .C_API
 
 import LinearAlgebra
@@ -112,6 +125,28 @@ function _check_all_finite(A::AbstractArray, name::AbstractString)
 end
 
 """
+    _as_input_array(a, name)
+
+`a` as an `Array{Float64}` (real element types) or `Array{ComplexF64}` (complex
+element types), the element types the C entry points read. The conversion is
+explicit, so `Float32`, integer or `Rational` input and views, transposes or
+other wrappers are copied into a new array; an `Array` that already has the
+right element type is returned as is. Throws `ArgumentError` for other element
+types and for non-finite entries.
+"""
+function _as_input_array(a::AbstractArray{T,N}, name::AbstractString) where {T,N}
+    b = if T <: Real
+        convert(Array{Float64,N}, a)
+    elseif T <: Complex
+        convert(Array{ComplexF64,N}, a)
+    else
+        throw(ArgumentError("$name must have a real or complex element type, got $T"))
+    end
+    _check_all_finite(b, name)
+    return b
+end
+
+"""
     _check_unique(points, name)
 
 Throw `ArgumentError` if `points` contains an exact duplicate. Duplicated
@@ -151,7 +186,8 @@ function _get_blas_gemm_ptrs()
     dgemm_ptr = LinearAlgebra.BLAS.lbt_get_forward(dgemm_name, interface)
     zgemm_ptr = LinearAlgebra.BLAS.lbt_get_forward(zgemm_name, interface)
     if dgemm_ptr == C_NULL || zgemm_ptr == C_NULL
-        error("Failed to resolve BLAS symbols for $interface: dgemm_ptr=$dgemm_ptr, zgemm_ptr=$zgemm_ptr")
+        throw(SparseIRError("failed to resolve BLAS symbols for $interface: \
+                             dgemm_ptr=$dgemm_ptr, zgemm_ptr=$zgemm_ptr"))
     end
 
     return dgemm_ptr, zgemm_ptr
@@ -182,7 +218,7 @@ function _init_sparseir_blas_backend()
         )
     end
 
-    backend == C_NULL && error("Failed to create SparseIR BLAS backend from Julia BLAS")
+    _check_handle(backend, "spir_gemm_backend_new_from_fblas")
 
     _spir_default_backend[] = backend
     return nothing

@@ -35,7 +35,7 @@
         xmax = Ref{Float64}(0.0)
         ymin = Ref{Float64}(0.0)
         ymax = Ref{Float64}(0.0)
-        domain_status = SparseIR.spir_kernel_domain(kernel, xmin, xmax, ymin, ymax)
+        domain_status = SparseIR.spir_kernel_get_domain(kernel, xmin, xmax, ymin, ymax)
         @test domain_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         # For LogisticKernel, we expect specific domain values
@@ -48,7 +48,7 @@
     end
 end
 
-@testitem "FiniteTempBasis Constructor Tests" begin
+@testitem "FiniteTempBasis Constructor Tests" tags=[:cinterface] begin
     using SparseIR
 
     # Helper function equivalent to C++ _spir_basis_new
@@ -65,7 +65,8 @@ end
 
         # Create SVE result
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
+        sve = SparseIR.spir_sve_result_new(
+            kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         if sve_status[] != SparseIR.SPIR_COMPUTATION_SUCCESS || sve == C_NULL
             SparseIR.spir_kernel_release(kernel)
             return C_NULL, sve_status[]
@@ -128,7 +129,8 @@ end
 
         # Create SVE result
         sve_status = Ref{Int32}(0)
-        sve_result = SparseIR.spir_sve_result_new(kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
+        sve_result = SparseIR.spir_sve_result_new(
+            kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
         @test sve_result != C_NULL
 
@@ -172,7 +174,7 @@ end
     end
 end
 
-@testitem "FiniteTempBasis Basis Functions Tests" begin
+@testitem "FiniteTempBasis Basis Functions Tests" tags=[:cinterface] begin
     using SparseIR
 
     # Helper function equivalent to C++ _spir_basis_new
@@ -189,7 +191,8 @@ end
 
         # Create SVE result
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
+        sve = SparseIR.spir_sve_result_new(
+            kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         if sve_status[] != SparseIR.SPIR_COMPUTATION_SUCCESS || sve == C_NULL
             SparseIR.spir_kernel_release(kernel)
             return C_NULL, sve_status[]

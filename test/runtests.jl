@@ -9,5 +9,7 @@ end
 using SparseIR
 using ReTestItems
 
-# Run all tests
-runtests(SparseIR; tags=[:julia])
+# Run every test item: the high-level suite (tag :julia), the low-level C API
+# items (tag :cinterface) and Aqua. Select a subset with the `tags` keyword of
+# `ReTestItems.runtests` when iterating locally.
+runtests(SparseIR)

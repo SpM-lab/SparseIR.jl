@@ -1,7 +1,8 @@
-@testitem "Aqua" begin
+@testitem "Aqua" tags=[:julia, :aqua] begin
     using Test
     import Aqua
-    @testset "Aqua" begin
-        Aqua.test_all(Tensor4All; deps_compat=false)
-    end
+    using SparseIR
+
+    # deps_compat stays off as before: ReTestItems in [extras] has no [compat] entry.
+    Aqua.test_all(SparseIR; deps_compat=false)
 end

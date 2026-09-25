@@ -13,5 +13,8 @@
         kernel = RegularizedBoseKernel(lam)
         @test SparseIR.Λ(kernel) == lam
         @test iscentrosymmetric(kernel)
+        # Deprecated (SpM-lab/sparse-ir-rs#273); checked when --depwarn=yes,
+        # as under Pkg.test.
+        @test_deprecated r"RegularizedBoseKernel is deprecated" RegularizedBoseKernel(lam)
     end
 end

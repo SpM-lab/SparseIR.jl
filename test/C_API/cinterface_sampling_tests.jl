@@ -3,6 +3,9 @@
 
 @testitem "TauSampling" tags=[:cinterface] begin
     using SparseIR
+    using StableRNGs
+    rng = StableRNG(20260925)
+    backend = SparseIR._spir_default_backend[]
 
     # Helper function to create tau sampling (corresponds to C++ create_tau_sampling)
     function create_tau_sampling(basis::Ptr{SparseIR.spir_basis})
@@ -36,11 +39,13 @@
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
+        sve = SparseIR.spir_sve_result_new(
+            kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         basis_status = Ref{Int32}(0)
-        basis = SparseIR.spir_basis_new(statistics, beta, wmax, epsilon, kernel, sve, -1, basis_status)
+        basis = SparseIR.spir_basis_new(
+            statistics, beta, wmax, epsilon, kernel, sve, -1, basis_status)
         @test basis_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
         @test basis != C_NULL
 
@@ -103,11 +108,13 @@
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
+        sve = SparseIR.spir_sve_result_new(
+            kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         basis_status = Ref{Int32}(0)
-        basis = SparseIR.spir_basis_new(statistics, beta, wmax, epsilon, kernel, sve, -1, basis_status)
+        basis = SparseIR.spir_basis_new(
+            statistics, beta, wmax, epsilon, kernel, sve, -1, basis_status)
         @test basis_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         # Create sampling
@@ -130,18 +137,17 @@
         target_dim = 0
 
         # Create test coefficients
-        coeffs = rand(Float64, basis_size) .- 0.5
+        coeffs = rand(rng, Float64, basis_size) .- 0.5
 
         # Test evaluation
         evaluate_output = Vector{Float64}(undef, n_points)
         evaluate_status = SparseIR.spir_sampling_eval_dd(
-            sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim,
+            sampling, backend, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim,
             dims, target_dim, coeffs, evaluate_output)
         @test evaluate_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         # Test fitting
         fit_output = Vector{Float64}(undef, basis_size)
-        backend = _spir_default_backend[]
         fit_status = SparseIR.spir_sampling_fit_dd(
             sampling, backend, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, dims,
             target_dim, evaluate_output, fit_output)
@@ -171,11 +177,13 @@
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
+        sve = SparseIR.spir_sve_result_new(
+            kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         basis_status = Ref{Int32}(0)
-        basis = SparseIR.spir_basis_new(statistics, beta, wmax, epsilon, kernel, sve, -1, basis_status)
+        basis = SparseIR.spir_basis_new(
+            statistics, beta, wmax, epsilon, kernel, sve, -1, basis_status)
         @test basis_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         # Create sampling
@@ -218,18 +226,17 @@
             output_total_size = prod(output_dims)
 
             # Create random test data (row-major layout)
-            coeffs = rand(Float64, total_size) .- 0.5
+            coeffs = rand(rng, Float64, total_size) .- 0.5
 
             # Test evaluation
             evaluate_output = Vector{Float64}(undef, output_total_size)
             evaluate_status = SparseIR.spir_sampling_eval_dd(
-                sampling, SparseIR.SPIR_ORDER_ROW_MAJOR, ndim,
+                sampling, backend, SparseIR.SPIR_ORDER_ROW_MAJOR, ndim,
                 dims, target_dim, coeffs, evaluate_output)
             @test evaluate_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
             # Test fitting
             fit_output = Vector{Float64}(undef, total_size)
-            backend = _spir_default_backend[]
             fit_status = SparseIR.spir_sampling_fit_dd(
                 sampling, backend, SparseIR.SPIR_ORDER_ROW_MAJOR, ndim, output_dims,
                 target_dim, evaluate_output, fit_output)
@@ -260,11 +267,13 @@
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
+        sve = SparseIR.spir_sve_result_new(
+            kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         basis_status = Ref{Int32}(0)
-        basis = SparseIR.spir_basis_new(statistics, beta, wmax, epsilon, kernel, sve, -1, basis_status)
+        basis = SparseIR.spir_basis_new(
+            statistics, beta, wmax, epsilon, kernel, sve, -1, basis_status)
         @test basis_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         # Create sampling
@@ -307,18 +316,17 @@
             output_total_size = prod(output_dims)
 
             # Create random test data (column-major layout)
-            coeffs = rand(Float64, total_size) .- 0.5
+            coeffs = rand(rng, Float64, total_size) .- 0.5
 
             # Test evaluation
             evaluate_output = Vector{Float64}(undef, output_total_size)
             evaluate_status = SparseIR.spir_sampling_eval_dd(
-                sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim,
+                sampling, backend, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim,
                 dims, target_dim, coeffs, evaluate_output)
             @test evaluate_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
             # Test fitting
             fit_output = Vector{Float64}(undef, total_size)
-            backend = _spir_default_backend[]
             fit_status = SparseIR.spir_sampling_fit_dd(
                 sampling, backend, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, output_dims,
                 target_dim, evaluate_output, fit_output)
@@ -349,11 +357,13 @@
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
+        sve = SparseIR.spir_sve_result_new(
+            kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         basis_status = Ref{Int32}(0)
-        basis = SparseIR.spir_basis_new(statistics, beta, wmax, epsilon, kernel, sve, -1, basis_status)
+        basis = SparseIR.spir_basis_new(
+            statistics, beta, wmax, epsilon, kernel, sve, -1, basis_status)
         @test basis_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         # Create sampling
@@ -396,21 +406,21 @@
             output_total_size = prod(output_dims)
 
             # Create random complex test data (row-major layout)
-            coeffs_real = rand(Float64, total_size) .- 0.5
-            coeffs_imag = rand(Float64, total_size) .- 0.5
+            coeffs_real = rand(rng, Float64, total_size) .- 0.5
+            coeffs_imag = rand(rng, Float64, total_size) .- 0.5
             coeffs = [ComplexF64(coeffs_real[i], coeffs_imag[i]) for i in 1:total_size]
 
             # Test evaluation
             evaluate_output = Vector{ComplexF64}(undef, output_total_size)
             evaluate_status = SparseIR.spir_sampling_eval_zz(
-                sampling, SparseIR.SPIR_ORDER_ROW_MAJOR, ndim,
+                sampling, backend, SparseIR.SPIR_ORDER_ROW_MAJOR, ndim,
                 dims, target_dim, coeffs, evaluate_output)
             @test evaluate_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
             # Test fitting
             fit_output = Vector{ComplexF64}(undef, total_size)
             fit_status = SparseIR.spir_sampling_fit_zz(
-                sampling, SparseIR.SPIR_ORDER_ROW_MAJOR, ndim, output_dims,
+                sampling, backend, SparseIR.SPIR_ORDER_ROW_MAJOR, ndim, output_dims,
                 target_dim, evaluate_output, fit_output)
             @test fit_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
@@ -440,11 +450,13 @@
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
+        sve = SparseIR.spir_sve_result_new(
+            kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         basis_status = Ref{Int32}(0)
-        basis = SparseIR.spir_basis_new(statistics, beta, wmax, epsilon, kernel, sve, -1, basis_status)
+        basis = SparseIR.spir_basis_new(
+            statistics, beta, wmax, epsilon, kernel, sve, -1, basis_status)
         @test basis_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         # Create sampling
@@ -487,21 +499,21 @@
             output_total_size = prod(output_dims)
 
             # Create random complex test data (column-major layout)
-            coeffs_real = rand(Float64, total_size) .- 0.5
-            coeffs_imag = rand(Float64, total_size) .- 0.5
+            coeffs_real = rand(rng, Float64, total_size) .- 0.5
+            coeffs_imag = rand(rng, Float64, total_size) .- 0.5
             coeffs = [ComplexF64(coeffs_real[i], coeffs_imag[i]) for i in 1:total_size]
 
             # Test evaluation
             evaluate_output = Vector{ComplexF64}(undef, output_total_size)
             evaluate_status = SparseIR.spir_sampling_eval_zz(
-                sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim,
+                sampling, backend, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim,
                 dims, target_dim, coeffs, evaluate_output)
             @test evaluate_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
             # Test fitting
             fit_output = Vector{ComplexF64}(undef, total_size)
             fit_status = SparseIR.spir_sampling_fit_zz(
-                sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, output_dims,
+                sampling, backend, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, output_dims,
                 target_dim, evaluate_output, fit_output)
             @test fit_status == SparseIR.SPIR_COMPUTATION_SUCCESS
 
@@ -531,11 +543,13 @@
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
+        sve = SparseIR.spir_sve_result_new(
+            kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         basis_status = Ref{Int32}(0)
-        basis = SparseIR.spir_basis_new(statistics, beta, wmax, epsilon, kernel, sve, -1, basis_status)
+        basis = SparseIR.spir_basis_new(
+            statistics, beta, wmax, epsilon, kernel, sve, -1, basis_status)
         @test basis_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         # Create sampling
@@ -558,7 +572,7 @@
         total_size = basis_size * d1 * d2 * d3
 
         # Create test data
-        coeffs = rand(Float64, total_size) .- 0.5
+        coeffs = rand(rng, Float64, total_size) .- 0.5
         output_double = Vector{Float64}(undef, total_size)
         output_complex = Vector{ComplexF64}(undef, total_size)
         fit_output_double = Vector{Float64}(undef, total_size)
@@ -572,13 +586,13 @@
 
             # Test dimension mismatch for evaluation
             status_dimension_mismatch = SparseIR.spir_sampling_eval_dd(
-                sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim,
+                sampling, backend, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim,
                 dims1, target_dim, coeffs, output_double)
             @test status_dimension_mismatch == SparseIR.SPIR_INPUT_DIMENSION_MISMATCH
 
             # Test dimension mismatch for fitting
             fit_status_dimension_mismatch = SparseIR.spir_sampling_fit_zz(
-                sampling, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, dims1,
+                sampling, backend, SparseIR.SPIR_ORDER_COLUMN_MAJOR, ndim, dims1,
                 target_dim, output_complex, fit_output_complex)
             @test fit_status_dimension_mismatch == SparseIR.SPIR_INPUT_DIMENSION_MISMATCH
         end
@@ -623,7 +637,7 @@
     end
 end
 
-@testitem "MatsubaraSampling" begin
+@testitem "MatsubaraSampling" tags=[:cinterface] begin
     using SparseIR
 
     # Helper function to create matsubara sampling (corresponds to C++ create_matsubara_sampling)
@@ -661,11 +675,13 @@ end
         @test kernel_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         sve_status = Ref{Int32}(0)
-        sve = SparseIR.spir_sve_result_new(kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
+        sve = SparseIR.spir_sve_result_new(
+            kernel, epsilon, typemax(Int32), -1, SparseIR.SPIR_TWORK_AUTO, sve_status)
         @test sve_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         basis_status = Ref{Int32}(0)
-        basis = SparseIR.spir_basis_new(statistics, beta, wmax, epsilon, kernel, sve, -1, basis_status)
+        basis = SparseIR.spir_basis_new(
+            statistics, beta, wmax, epsilon, kernel, sve, -1, basis_status)
         @test basis_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
 
         # Test with positive_only = false

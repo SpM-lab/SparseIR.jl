@@ -49,9 +49,12 @@ that contradicts this file, fix this file in the same PR.
   if a sibling directory `../sparse-ir-rs` exists (i.e. checked out next to
   `SparseIR.jl`, not inside it), it runs
   `cargo build --release --features system-blas` there, copies
-  `libsparse_ir_capi.<dlext>` into `deps/`, and regenerates
-  `src/C_API.jl` by running `utils/generate_C_API.jl`. If `../sparse-ir-rs`
-  does not exist, `deps/build.jl` does nothing and the JLL package is used.
+  `libsparse_ir_capi.<dlext>` into `deps/`, and generates bindings from its
+  header into `deps/C_API.jl` by running `utils/generate_C_API.jl`.
+  `src/SparseIR.jl` includes `deps/C_API.jl` instead of `src/C_API.jl` when
+  both files exist in `deps/`, so the `ccall` signatures always match the
+  loaded library. If `../sparse-ir-rs` does not exist, `deps/build.jl` does
+  nothing and the JLL package with `src/C_API.jl` is used.
   See `development.md` ("Using Local libsparseir for Development") for the
   step-by-step workflow.
 - `SPARSEIR_DEBUG=1` (an actual environment variable read at runtime, see
@@ -61,25 +64,41 @@ that contradicts this file, fix this file in the same PR.
 ## Running Tests
 
 - The test suite uses `ReTestItems.jl` (`@testitem` blocks), not plain
-  `Test.jl` scripts. `test/runtests.jl` calls
-  `runtests(SparseIR; tags=[:julia])` — **only test items tagged `:julia` run
-  by default** under `Pkg.test()`.
+  `Test.jl` scripts. `test/runtests.jl` calls `runtests(SparseIR)` without a
+  tag filter, so **every test item runs** under `Pkg.test()`: the high-level
+  suite, the low-level C-API items and Aqua.
 - Standard invocation: `julia --project=. -e 'using Pkg; Pkg.test()'` (or
   `Pkg.test("SparseIR")` from the parent environment).
+- To run one file while iterating, use an environment that has SparseIR
+  developed from this checkout plus the test dependencies (for example
+  `julia --project=@sparseir-test -e 'using Pkg; Pkg.develop(path="."); Pkg.add(["ReTestItems", "Test", "StableRNGs", "Aqua"])'`
+  once), then run
+  `julia --project=@sparseir-test -e 'using ReTestItems, SparseIR; runtests("test/spir/oracle_tests.jl")'`
+  from the repository root. `@testsetup` files are always loaded.
 - Test files live under two directories:
-  - `test/spir/*.jl` — high-level API tests (tags include `:julia`, plus one
-    of `:lib`, `:spir`, or `:debug`; e.g. `basis_tests.jl` uses
-    `tags=[:julia, :lib]`, `dlr_tests.jl` uses `tags=[:julia, :spir]`).
+  - `test/spir/*.jl` — high-level API tests (tag `:julia`, plus a topic tag
+    such as `:lib`, `:spir`, `:oracle`, `:boundary` or `:surface`).
+    `oracle_tests.jl` checks the library against closed forms, definitions and
+    symmetries whose reference values do not use libsparseir; `boundary_tests.jl`
+    checks the input validation done
+    before every `ccall`; `public_surface_tests.jl` calls every exported name
+    and every function set of the bases once.
+  - `test/spir/sir_testsetup.jl` is the shared `@testsetup module SIRTestSetup`:
+    a per-process cache of SVEs and bases (the SVE dominates the run time),
+    the closed forms and the oracle checks. Test items that construct bases
+    should take them from `get_basis` and declare `setup=[SIRTestSetup]`.
   - `test/C_API/*.jl` — low-level C-API/ccall tests, tagged `:cinterface`
     (e.g. `cinterface_core_tests.jl`, `cinterface_sampling_tests.jl`,
-    `cinterface_dlr_tests.jl`). These are **not** run by the default
-    `tags=[:julia]` filter in `test/runtests.jl`; run them explicitly with
-    `ReTestItems.runtests(SparseIR; tags=[:cinterface])` (or without a tag
-    filter to run everything) when changing `src/C_API.jl` or anything that
-    crosses the `ccall` boundary.
+    `cinterface_dlr_tests.jl`). They call the generated `src/C_API.jl`
+    bindings directly, so a change of an entry-point signature must be
+    followed here.
   - `test/aqua_tests.jl` runs `Aqua.test_all` for package-quality checks
     (ambiguities, stale deps, etc.) as part of the `[extras]`/`[targets]`
     `test` target declared in `Project.toml`.
+- Known backend defects are pinned with `@test_broken` plus the issue link
+  (currently SpM-lab/sparse-ir-rs#265 in `oracle_tests.jl`). When the backend
+  is fixed, the item reports an unexpected pass and the marker must become
+  `@test`. No other `@test_broken`, skip or commented-out test is allowed.
 - To exercise the code against an unreleased `libsparseir`, follow the local
   override workflow above (sibling `../sparse-ir-rs` checkout + `Pkg.build`)
   before running tests; this is also what `CI_with_latest_rust_backend.yml`
