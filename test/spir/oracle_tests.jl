@@ -68,6 +68,27 @@ end
     end
 end
 
+@testitem "oracle O6: regularized Bose basis expands the physical kernel (SpM-lab/sparse-ir-rs#273)" tags=[
+    :julia, :oracle] setup=[SIRTestSetup] begin
+    using Test
+    using SparseIR
+
+    # Σ_l U_l(τ) S_l V_l(ω) must equal ω e^{-τω}/(1 - e^{-βω}), the regularized
+    # bosonic kernel in physical units (irbasis paper, Chikano et al., CPC 240,
+    # 181 (2019), arXiv:1807.05237, Eq. (3)), i.e. S_l = sqrt(β ωmax³/2) s_l
+    # (Eq. (25)); ωmax = 2 separates the power of ωmax (T-ε). The backend uses
+    # ωmax^-1, so this is expected to fail until SpM-lab/sparse-ir-rs#273 is
+    # fixed; it will then report an unexpected pass, and `@test_broken` must
+    # become `@test`.
+    β, ωmax, ε = 10.0, 2.0, 1e-10
+    basis = FiniteTempBasis(Bosonic(), β, ωmax, ε; kernel=RegularizedBoseKernel(β * ωmax))
+    taus = [0.3, 3.7, 8.0]
+    ws = [-1.4, 0.4, 1.8]
+    usv = transpose(basis.u(taus)) * (basis.s .* basis.v(ws))
+    ref = [-w * exp(-τ * w) / expm1(-β * w) for τ in taus, w in ws]
+    @test_broken maximum(abs, usv .- ref) <= 300 * ε * ωmax
+end
+
 @testitem "oracle O3: symmetries" tags=[:julia, :oracle] setup=[SIRTestSetup] begin
     using Test
     using SparseIR

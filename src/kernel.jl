@@ -52,18 +52,34 @@ end
 
 Regularized bosonic analytical continuation kernel.
 
-In dimensionless variables ``x = 2 τ/β - 1``, ``y = β ω/Λ``, the fermionic
+!!! warning "Deprecated"
+
+    Use [`LogisticKernel`](@ref), the default kernel for both statistics.
+    `RegularizedBoseKernel` will be removed in a future release. For
+    `ωmax ≠ 1`, libsparseir releases without the fix of
+    [SpM-lab/sparse-ir-rs#273](https://github.com/SpM-lab/sparse-ir-rs/issues/273)
+    scale the singular values of its bases by ``ω_\mathrm{max}^{-1}`` instead
+    of ``ω_\mathrm{max}^{+1}``.
+
+In dimensionless variables ``x = 2 τ/β - 1``, ``y = β ω/Λ``, the bosonic
 integral kernel is a function on ``[-1, 1] × [-1, 1]``:
 ```math
-    K(x, y) = y \frac{e^{-Λ y (x + 1) / 2}}{e^{-Λ y} - 1}
+    K(x, y) = y \frac{e^{-Λ y (x + 1) / 2}}{1 - e^{-Λ y}}
 ```
-Care has to be taken in evaluating this expression around ``y = 0``.
+In physical units it is ``K(τ, ω) = ω_\mathrm{max} K(x, y) = ω e^{-τω} / (1 - e^{-βω})``,
+which acts on ``ρ(ω)/ω`` (N. Chikano et al., Computer Physics Communications
+240, 181 (2019), Eqs. (1)-(3)). Care has to be taken in evaluating this expression
+around ``y = 0``.
 """
 mutable struct RegularizedBoseKernel <: AbstractKernel
     ptr::Ptr{spir_kernel}
     Λ::Float64
 
     function RegularizedBoseKernel(Λ::Real)
+        Base.depwarn("RegularizedBoseKernel is deprecated and will be removed in a \
+                      future release; use LogisticKernel, the default kernel for both \
+                      statistics (https://github.com/SpM-lab/sparse-ir-rs/issues/273)",
+            :RegularizedBoseKernel)
         _check_cutoff(Λ)
         status = Ref{Cint}(-100)
         ptr = spir_reg_bose_kernel_new(Float64(Λ), status)
