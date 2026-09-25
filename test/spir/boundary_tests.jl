@@ -146,6 +146,52 @@ end
         sampling_points=[-1, 1, 3])
 end
 
+@testitem "boundary: Matsubara sampling keeps the given order" tags=[
+    :julia, :boundary] setup=[SIRTestSetup] begin
+    using Test
+    using SparseIR
+    using LinearAlgebra: cond
+    using Random: shuffle
+    using StableRNGs: StableRNG
+
+    # The C library orders Matsubara points ascending; the results must still
+    # follow the order of the points the caller gave, as for TauSampling.
+    function check_order(smpl, basis, pts)
+        @test Int.(sampling_points(smpl)) == Int.(pts)
+        gl = randn(StableRNG(7), length(basis))
+        ref = transpose(basis.uhat(pts)) * gl
+        @test maximum(abs, evaluate(smpl, gl) - ref) <= 1e-13 * maximum(abs, ref)
+        atol = 100 * cond(smpl) * eps() * maximum(abs, gl)
+        @test maximum(abs, fit(smpl, ref) - gl) <= atol
+        gl2 = permutedims(hcat(gl, -2gl))            # 2 × L, sampled along dim 2
+        ref2 = permutedims(hcat(ref, -2ref))
+        @test maximum(abs, evaluate(smpl, gl2; dim=2) - ref2) <= 2e-13 * maximum(abs, ref)
+        @test maximum(abs, fit(smpl, ref2; dim=2) - gl2) <= 2atol
+        out = zeros(ComplexF64, length(pts))
+        @test maximum(abs, evaluate!(out, smpl, gl) - ref) <= 1e-13 * maximum(abs, ref)
+        out = zeros(ComplexF64, length(basis))
+        @test maximum(abs, fit!(out, smpl, ref) - gl) <= atol
+    end
+
+    @testset "$(nameof(typeof(stat))), positive_only=$positive_only" for stat in (
+            Fermionic(), Bosonic()), positive_only in (false, true)
+        basis = get_basis(stat, 10.0, 1.0, 1e-6)
+        pts = sampling_points(MatsubaraSampling(basis; positive_only))
+        pts = shuffle(StableRNG(11), pts)
+        check_order(
+            MatsubaraSampling(basis; positive_only, sampling_points=pts), basis, pts)
+    end
+
+    @testset "augmented basis and DLR" begin
+        bb = get_basis(Bosonic(), 10.0, 1.0, 1e-6)
+        bf = get_basis(Fermionic(), 10.0, 1.0, 1e-6)
+        for basis in (AugmentedBasis(bb, MatsubaraConst), DiscreteLehmannRepresentation(bf))
+            pts = shuffle(StableRNG(11), sampling_points(MatsubaraSampling(basis)))
+            check_order(MatsubaraSampling(basis; sampling_points=pts), basis, pts)
+        end
+    end
+end
+
 @testitem "boundary: positive_only rejects complex coefficients" tags=[:julia, :boundary] setup=[SIRTestSetup] begin
     using Test
     using SparseIR

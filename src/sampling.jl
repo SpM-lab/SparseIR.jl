@@ -37,14 +37,24 @@ mutable struct MatsubaraSampling{T<:MatsubaraFreq,B<:AbstractBasis} <:
     sampling_points::Vector{T}
     positive_only::Bool
     basis::B
+    # The C library holds the points in ascending order. `order` maps that order
+    # to `sampling_points` (sorted = sampling_points[order]) and `inverse_order`
+    # back; both are empty when the points are sorted already.
+    order::Vector{Int}
+    inverse_order::Vector{Int}
 
     function MatsubaraSampling{T,B}(ptr::Ptr{spir_sampling}, sampling_points::Vector{T},
-            positive_only::Bool, basis::B) where {T<:MatsubaraFreq,B<:AbstractBasis}
-        obj = new{T,B}(ptr, sampling_points, positive_only, basis)
+            positive_only::Bool, basis::B, order::Vector{Int}=Int[]
+    ) where {T<:MatsubaraFreq,B<:AbstractBasis}
+        obj = new{T,B}(ptr, sampling_points, positive_only, basis, order,
+            isempty(order) ? Int[] : invperm(order))
         finalizer(s -> spir_sampling_release(s.ptr), obj)
         return obj
     end
 end
+
+# The permutation that sorts the points, or an empty vector if they are sorted.
+_matsubara_order(indices::Vector{Int64}) = issorted(indices) ? Int[] : sortperm(indices)
 
 const MatsubaraSampling64F = MatsubaraSampling{
     FermionicFreq,FiniteTempBasis{Fermionic,LogisticKernel}}
@@ -63,8 +73,8 @@ the first basis function beyond a basis of size `L` (see
 
 If `use_positive_taus=true`, the sampling points are folded into `(0, β)` and sorted [default].
 
-If `use_positive_taus=false`, the sampling points are unfolded, in `(-β/2, β/2]`
-and symmetric about 0.
+If `use_positive_taus=false`, the sampling points are unfolded, in `(-β/2, β/2]`:
+pairs ±τ, plus β/2 when their number is odd.
 
 For an [`AugmentedBasis`](@ref) there is no `use_positive_taus` keyword: its
 default points, the roots of `U_L` for `L = length(basis)`, are always folded
@@ -136,7 +146,9 @@ checked and cannot be checked from the sampled values alone — see the warning 
 coefficients.
 
 The sampling points must be non-empty and pairwise distinct; otherwise an
-`ArgumentError` is thrown before any call into `libsparseir`.
+`ArgumentError` is thrown before any call into `libsparseir`. They may be given
+in any order: [`evaluate`](@ref) and [`fit`](@ref) follow the order of
+`sampling_points`.
 """
 function MatsubaraSampling(
         basis::AbstractBasis; positive_only=false, sampling_points=nothing)
@@ -182,14 +194,19 @@ function MatsubaraSampling(
                              got $(first(filter(<(0), indices)))π/β"))
     end
 
+    # The C library orders the points ascending; pass them sorted and keep the
+    # permutation, so that evaluate and fit follow the order of `sampling_points`.
+    order = _matsubara_order(indices)
+    c_indices = isempty(order) ? indices : indices[order]
+
     status = Ref{Int32}(-100)
-    ptr = GC.@preserve indices C_API.spir_matsu_sampling_new(
-        _get_ptr(basis), positive_only, length(indices), pointer(indices), status)
+    ptr = GC.@preserve c_indices C_API.spir_matsu_sampling_new(
+        _get_ptr(basis), positive_only, length(c_indices), pointer(c_indices), status)
     _check_status(status[], "spir_matsu_sampling_new")
     _check_handle(ptr, "spir_matsu_sampling_new")
 
     return MatsubaraSampling{eltype(sampling_points),typeof(basis)}(
-        ptr, sampling_points, positive_only, basis)
+        ptr, sampling_points, positive_only, basis, order)
 end
 
 # A sampling point given as a number must be an exact integer of the right
@@ -424,6 +441,18 @@ end
 function _evaluate!(output::Array{Tout,N}, sampling::MatsubaraSampling, al::Array{Tin,N},
         dim) where {Tout,Tin,N}
     _check_output_dims(output, al, dim, npoints(sampling))
+    if !isempty(sampling.inverse_order)
+        # The C library writes the values in ascending order of the points.
+        sorted = similar(output)
+        _evaluate_sorted!(sorted, sampling, al, dim)
+        output .= sorted[ntuple(d -> d == dim ? sampling.inverse_order : Colon(), N)...]
+        return output
+    end
+    return _evaluate_sorted!(output, sampling, al, dim)
+end
+
+function _evaluate_sorted!(output::Array{Tout,N}, sampling::MatsubaraSampling,
+        al::Array{Tin,N}, dim) where {Tout,Tin,N}
     Tin <: Complex && _check_real_coefficients(sampling, al)
     input_dims = Int32[size(al)...]
     target_dim = Int32(dim - 1)  # C uses 0-based indexing
@@ -479,6 +508,10 @@ end
 function _fit!(output::Array{Tout,N}, sampling::MatsubaraSampling, al::Array{Tin,N},
         dim) where {Tout,Tin,N}
     _check_output_dims(output, al, dim, length(sampling.basis))
+    if !isempty(sampling.order)
+        # The C library reads the values in ascending order of the points.
+        al = al[ntuple(d -> d == dim ? sampling.order : Colon(), N)...]
+    end
     input_dims = Int32[size(al)...]
     target_dim = Int32(dim - 1)  # C uses 0-based indexing
     order = C_API.SPIR_ORDER_COLUMN_MAJOR

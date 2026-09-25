@@ -128,7 +128,13 @@ function MatsubaraSampling(
         throw(ArgumentError("positive_only=true requires non-negative sampling points, \
                              got $(first(filter(<(0), indices)))π/β"))
     end
-    matrix_raw = eval_matrix(MatsubaraSampling, basis, pts)
+    # The C library orders the points ascending; pass them (and the matrix rows)
+    # sorted and keep the permutation, as for a plain basis.
+    order = _matsubara_order(indices)
+    if !isempty(order)
+        indices = indices[order]
+    end
+    matrix_raw = eval_matrix(MatsubaraSampling, basis, isempty(order) ? pts : pts[order])
     # Ensure column-major contiguous memory layout
     # permutedims may create a non-contiguous view, so we create a new Matrix
     matrix = Matrix{ComplexF64}(undef, size(matrix_raw)...)
@@ -149,7 +155,8 @@ function MatsubaraSampling(
     )
     _check_status(status[], "spir_matsu_sampling_new_with_matrix")
     _check_handle(ptr, "spir_matsu_sampling_new_with_matrix")
-    return MatsubaraSampling{eltype(pts),typeof(basis)}(ptr, pts, positive_only, basis)
+    return MatsubaraSampling{eltype(pts),typeof(basis)}(
+        ptr, pts, positive_only, basis, order)
 end
 
 function _get_ptr(basis::AugmentedBasis)
