@@ -52,8 +52,8 @@ statistics of the propagator, i.e., we have that:
 where + is for bosons and - is for fermions. The frequencies are restricted
 accordingly.
 
-  - Bosonic frequency (`S == Fermionic`): `n` even (periodic in β)
-  - Fermionic frequency (`S == Bosonic`): `n` odd (anti-periodic in β)
+  - Bosonic frequency (`S == Bosonic`): `n` even (periodic in β)
+  - Fermionic frequency (`S == Fermionic`): `n` odd (anti-periodic in β)
 """
 struct MatsubaraFreq{S<:Statistics} <: Number
     n::Int
