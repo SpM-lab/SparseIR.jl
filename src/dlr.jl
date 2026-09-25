@@ -39,8 +39,9 @@ If `poles` is not provided, uses the default omega sampling points from the IR b
 `poles` may be any real-valued `AbstractVector` (including `Vector{Int}` and
 `Vector{Float32}`); it is converted to `Vector{Float64}` — the element type the
 C API reads — before the pointer is taken, so no narrower type is ever
-reinterpreted as `Float64`. The poles must be finite and pairwise distinct;
-otherwise an `ArgumentError` is thrown.
+reinterpreted as `Float64`. The poles must be finite and pairwise distinct
+(otherwise `ArgumentError`) and lie in `[-ωmax, ωmax]` (otherwise
+`DomainError`).
 """
 function DiscreteLehmannRepresentation(basis::AbstractBasis,
         poles::AbstractVector{<:Real}=default_omega_sampling_points(basis))
@@ -50,6 +51,12 @@ function DiscreteLehmannRepresentation(basis::AbstractBasis,
     isempty(poles_d) && throw(ArgumentError("poles must not be empty"))
     _check_all_finite(poles_d, "poles")
     _check_unique(poles_d, "poles")
+    # The C library panics on a pole outside the frequency window
+    # (SpM-lab/sparse-ir-rs#266).
+    for ω in poles_d
+        abs(ω) ≤ ωmax(basis) ||
+            throw(DomainError(ω, "poles must lie in [-ωmax, ωmax] = [$(-ωmax(basis)), $(ωmax(basis))]"))
+    end
 
     status = Ref{Int32}(-100)
     dlr_ptr = GC.@preserve poles_d C_API.spir_dlr_new_with_poles(

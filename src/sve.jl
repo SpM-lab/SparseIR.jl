@@ -55,21 +55,22 @@ mutable struct SVEResult{K<:AbstractKernel}
             kernel::K, ε::Real=eps(Float64); lmax::Integer=typemax(Int32),
             n_gauss::Integer=-1, Twork::Integer=SPIR_TWORK_AUTO) where {K<:AbstractKernel}
 
-        # check Twork
+        isfinite(ε) && ε > 0 ||
+            throw(DomainError(ε, "accuracy ε must be positive and finite"))
         if Twork ∉ [SPIR_TWORK_AUTO, SPIR_TWORK_FLOAT64, SPIR_TWORK_FLOAT64X2]
-            error("Invalid Twork value: $Twork")
+            throw(ArgumentError("invalid Twork value $Twork: use SPIR_TWORK_AUTO, \
+                                 SPIR_TWORK_FLOAT64 or SPIR_TWORK_FLOAT64X2"))
         end
 
         status = Ref{Int32}(-100)
         sve_result = spir_sve_result_new(
             kernel.ptr, ε, lmax, n_gauss, Twork, status)
-        status[] == 0 || error("Failed to create SVEResult")
+        _check_status(status[], "spir_sve_result_new")
+        _check_handle(sve_result, "spir_sve_result_new")
         size = Ref{Int32}(0)
-        spir_sve_result_get_size(sve_result, size) == SPIR_COMPUTATION_SUCCESS ||
-            error("Failed to get SVE result size")
+        _check_status(spir_sve_result_get_size(sve_result, size), "spir_sve_result_get_size")
         s = Vector{Float64}(undef, size[])
-        spir_sve_result_get_svals(sve_result, s) == SPIR_COMPUTATION_SUCCESS ||
-            error("Failed to get SVE singular values")
+        _check_status(spir_sve_result_get_svals(sve_result, s), "spir_sve_result_get_svals")
         result = new{K}(sve_result, kernel, s)
         finalizer(r -> spir_sve_result_release(r.ptr), result)
         return result

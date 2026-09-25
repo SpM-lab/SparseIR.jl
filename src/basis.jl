@@ -55,37 +55,40 @@ mutable struct FiniteTempBasis{S,K} <: AbstractBasis{S}
     uhat::PiecewiseLegendreFTVector
     function FiniteTempBasis{S}(kernel::K, sve_result::SVEResult{K}, β::Real, ωmax::Real,
             ε::Real, max_size::Int) where {S<:Statistics,K<:AbstractKernel}
+        _check_basis_parameters(β, ωmax, ε, max_size)
         # Validate kernel/statistics compatibility
         if isa(kernel, RegularizedBoseKernel) && S === Fermionic
             throw(ArgumentError("RegularizedBoseKernel is incompatible with Fermionic statistics"))
         end
+        # The C library builds a basis from a kernel or SVE with another cutoff
+        # without complaint, and the result is a wrong basis.
+        isapprox(Λ(kernel), β * ωmax; rtol=1e-12) ||
+            throw(ArgumentError("kernel cutoff Λ = $(Λ(kernel)) does not match β ωmax = $(β * ωmax)"))
+        isapprox(Λ(sve_result.kernel), Λ(kernel); rtol=1e-12) ||
+            throw(ArgumentError("sve_result was computed for Λ = $(Λ(sve_result.kernel)), \
+                                 but the kernel has Λ = $(Λ(kernel))"))
 
         # Create basis
         status = Ref{Int32}(-100)
         basis = SparseIR.spir_basis_new(
             _statistics_to_c(S), β, ωmax, ε,
             kernel.ptr, sve_result.ptr, max_size, status)
-        status[] == SparseIR.SPIR_COMPUTATION_SUCCESS ||
-            error("Failed to create FiniteTempBasis $S $K $β $ωmax $ε $max_size $status[]")
+        _check_status(status[], "spir_basis_new")
+        _check_handle(basis, "spir_basis_new")
 
         basis_size = Ref{Int32}(0)
-        spir_basis_get_size(basis, basis_size) == SPIR_COMPUTATION_SUCCESS ||
-            error("Failed to get basis size")
+        _check_status(spir_basis_get_size(basis, basis_size), "spir_basis_get_size")
         s = Vector{Float64}(undef, Int(basis_size[]))
-        spir_basis_get_svals(basis, s) == SPIR_COMPUTATION_SUCCESS ||
-            error("Failed to get singular values")
+        _check_status(spir_basis_get_svals(basis, s), "spir_basis_get_svals")
         u_status = Ref{Int32}(-100)
         u = spir_basis_get_u(basis, u_status)
-        u_status[] == SPIR_COMPUTATION_SUCCESS ||
-            error("Failed to get basis functions u $u_status[]")
+        _check_status(u_status[], "spir_basis_get_u")
         v_status = Ref{Int32}(-100)
         v = spir_basis_get_v(basis, v_status)
-        v_status[] == SPIR_COMPUTATION_SUCCESS ||
-            error("Failed to get basis functions v $v_status[]")
+        _check_status(v_status[], "spir_basis_get_v")
         uhat_status = Ref{Int32}(-100)
         uhat = spir_basis_get_uhat(basis, uhat_status)
-        uhat_status[] == SPIR_COMPUTATION_SUCCESS ||
-            error("Failed to get basis functions uhat $uhat_status[]")
+        _check_status(uhat_status[], "spir_basis_get_uhat")
         result = new{S,K}(
             basis, kernel, sve_result, Float64(β), Float64(ωmax), Float64(ε),
             s,
@@ -113,9 +116,26 @@ or `Bosonic`) and cutoffs `β` and `ωmax`.
 
 The number of basis functions grows logarithmically as log(1/ε) log (β * ωmax).
 """
-function FiniteTempBasis{S}(β::Real, ωmax::Real, ε::Real; kernel=LogisticKernel(β * ωmax),
-        sve_result=SVEResult(kernel, ε), max_size=-1) where {S<:Statistics}
+function FiniteTempBasis{S}(β::Real, ωmax::Real, ε::Real; kernel=nothing,
+        sve_result=nothing, max_size=-1) where {S<:Statistics}
+    # Validate before the defaults are built: LogisticKernel(β * ωmax) and
+    # SVEResult(kernel, ε) would otherwise report a bad β, ωmax or ε in terms
+    # of the kernel cutoff or as a C-level failure.
+    _check_basis_parameters(β, ωmax, ε, max_size)
+    kernel === nothing && (kernel = LogisticKernel(β * ωmax))
+    sve_result === nothing && (sve_result = SVEResult(kernel, ε))
     FiniteTempBasis{S}(kernel, sve_result, Float64(β), Float64(ωmax), Float64(ε), max_size)
+end
+
+function _check_basis_parameters(β::Real, ωmax::Real, ε::Real, max_size::Integer)
+    isfinite(β) && β > 0 ||
+        throw(DomainError(β, "inverse temperature β must be positive and finite"))
+    isfinite(ωmax) && ωmax > 0 ||
+        throw(DomainError(ωmax, "frequency cutoff ωmax must be positive and finite"))
+    isfinite(ε) && ε > 0 || throw(DomainError(ε, "accuracy ε must be positive and finite"))
+    max_size == -1 || max_size ≥ 1 ||
+        throw(DomainError(max_size, "max_size must be -1 (no limit) or positive"))
+    return nothing
 end
 
 """
@@ -136,8 +156,8 @@ Construct a finite temperature basis for the given statistics type and cutoffs.
 The number of basis functions grows logarithmically as log(1/ε) log (β * ωmax).
 """
 function FiniteTempBasis(
-        stat::S, β::Real, ωmax::Real, ε::Real; kernel=LogisticKernel(β * ωmax),
-        sve_result=SVEResult(kernel, ε), max_size=-1) where {S<:Statistics}
+        stat::S, β::Real, ωmax::Real, ε::Real; kernel=nothing,
+        sve_result=nothing, max_size=-1) where {S<:Statistics}
     FiniteTempBasis{typeof(stat)}(β, ωmax, ε; kernel, sve_result, max_size)
 end
 
@@ -253,8 +273,10 @@ Construct `FiniteTempBasis` objects for fermion and bosons using the same
 The number of basis functions grows logarithmically as log(1/ε) log (β * ωmax).
 """
 function finite_temp_bases(β::Real, ωmax::Real, ε::Real;
-        kernel=LogisticKernel(β * ωmax),
-        sve_result=SVEResult(kernel, ε))
+        kernel=nothing, sve_result=nothing)
+    _check_basis_parameters(β, ωmax, ε, -1)
+    kernel === nothing && (kernel = LogisticKernel(β * ωmax))
+    sve_result === nothing && (sve_result = SVEResult(kernel, ε))
     basis_f = FiniteTempBasis{Fermionic}(β, ωmax, ε; sve_result, kernel)
     basis_b = FiniteTempBasis{Bosonic}(β, ωmax, ε; sve_result, kernel)
     return basis_f, basis_b

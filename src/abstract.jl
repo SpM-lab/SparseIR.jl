@@ -215,7 +215,7 @@ Base.broadcastable(sampling::AbstractSampling) = Ref(sampling)
 function LinearAlgebra.cond(sampling::AbstractSampling)
     cond_num = Ref{Float64}(-1.0)
     status = spir_sampling_get_cond_num(sampling.ptr, cond_num)
-    status == SPIR_COMPUTATION_SUCCESS || error("Failed to get condition number: $status")
+    _check_status(status, "spir_sampling_get_cond_num")
     return cond_num[]
 end
 

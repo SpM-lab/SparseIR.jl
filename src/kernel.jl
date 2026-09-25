@@ -23,15 +23,24 @@ where the weight function is given by
     w(y) = \frac{1}{\tanh(Λ y/2)}.
 ```
 """
+# The C library rejects Λ = 0 as well, so a non-positive or non-finite cutoff
+# is reported here, with the value, before the call.
+function _check_cutoff(Λ::Real)
+    isfinite(Λ) && Λ > 0 ||
+        throw(DomainError(Λ, "kernel cutoff Λ must be positive and finite"))
+    return nothing
+end
+
 mutable struct LogisticKernel <: AbstractKernel
     ptr::Ptr{spir_kernel}
     Λ::Float64
 
     function LogisticKernel(Λ::Real)
-        Λ ≥ 0 || throw(DomainError(Λ, "Kernel cutoff Λ must be non-negative"))
+        _check_cutoff(Λ)
         status = Ref{Cint}(-100)
         ptr = spir_logistic_kernel_new(Float64(Λ), status)
-        status[] == 0 || error("Failed to create logistic kernel")
+        _check_status(status[], "spir_logistic_kernel_new")
+        _check_handle(ptr, "spir_logistic_kernel_new")
         kernel = new(ptr, Float64(Λ))
         finalizer(k -> spir_kernel_release(k.ptr), kernel)
         return kernel
@@ -55,10 +64,11 @@ mutable struct RegularizedBoseKernel <: AbstractKernel
     Λ::Float64
 
     function RegularizedBoseKernel(Λ::Real)
-        Λ ≥ 0 || throw(DomainError(Λ, "Kernel cutoff Λ must be non-negative"))
+        _check_cutoff(Λ)
         status = Ref{Cint}(-100)
         ptr = spir_reg_bose_kernel_new(Float64(Λ), status)
-        status[] != 0 && error("Failed to create regularized Bose kernel")
+        _check_status(status[], "spir_reg_bose_kernel_new")
+        _check_handle(ptr, "spir_reg_bose_kernel_new")
         kernel = new(ptr, Float64(Λ))
         finalizer(k -> spir_kernel_release(k.ptr), kernel)
         return kernel

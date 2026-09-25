@@ -151,7 +151,8 @@ function _get_blas_gemm_ptrs()
     dgemm_ptr = LinearAlgebra.BLAS.lbt_get_forward(dgemm_name, interface)
     zgemm_ptr = LinearAlgebra.BLAS.lbt_get_forward(zgemm_name, interface)
     if dgemm_ptr == C_NULL || zgemm_ptr == C_NULL
-        error("Failed to resolve BLAS symbols for $interface: dgemm_ptr=$dgemm_ptr, zgemm_ptr=$zgemm_ptr")
+        throw(SparseIRError("failed to resolve BLAS symbols for $interface: \
+                             dgemm_ptr=$dgemm_ptr, zgemm_ptr=$zgemm_ptr"))
     end
 
     return dgemm_ptr, zgemm_ptr
@@ -182,7 +183,7 @@ function _init_sparseir_blas_backend()
         )
     end
 
-    backend == C_NULL && error("Failed to create SparseIR BLAS backend from Julia BLAS")
+    _check_handle(backend, "spir_gemm_backend_new_from_fblas")
 
     _spir_default_backend[] = backend
     return nothing
