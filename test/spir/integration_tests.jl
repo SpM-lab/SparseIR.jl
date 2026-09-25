@@ -1,4 +1,4 @@
-@testitem "Integration Test" tags=[:julia, :spir] begin
+@testitem "Integration Test" tags=[:julia, :spir] setup=[SIRTestSetup] begin
     using SparseIR
     using LinearAlgebra
     using Random
@@ -59,13 +59,12 @@
 
         @assert ndim == 1 + length(extra_dims)
 
-        # IR basis
-        kernel = K(beta * wmax)
-        basis = FiniteTempBasis(S(), beta, wmax, epsilon; kernel)
+        # IR basis, shared with the other items through the SVE cache
+        @assert K === SparseIR.LogisticKernel
+        basis = get_basis(S(), beta, wmax, epsilon)
         basis_size = length(basis)
 
         # Tau Sampling
-        @info "Tau sampling"
         tau_points = SparseIR.default_tau_sampling_points(basis)
         num_tau_points = length(tau_points)
         tau_sampling = TauSampling(basis; sampling_points=tau_points)
@@ -74,7 +73,6 @@
         @assert tau_sampling.sampling_points ≈ tau_points
 
         # Matsubara Sampling
-        @info "Matsubara sampling"
         matsubara_points = SparseIR.default_matsubara_sampling_points(
             basis; positive_only=positive_only)
         num_matsubara_points = length(matsubara_points)
@@ -88,7 +86,6 @@
         @assert Int.(matsubara_sampling.sampling_points) == matsubara_points
 
         # DLR
-        @info "DLR"
         dlr = DiscreteLehmannRepresentation(basis)
         npoles = SparseIR.npoles(dlr)
         poles = SparseIR.get_poles(dlr)
@@ -201,6 +198,8 @@
         if T <: Real
             gIR_work = Array{ComplexF64}(undef, gIR_dims...)
             fit!(gIR_work, matsubara_sampling, giw_from_DLR; dim=target_dim + 1)
+            # Real data must give real coefficients; only then is the real part taken.
+            @test maximum(abs ∘ imag, gIR_work) <= tol * maximum(abs, gIR_work)
             gIR .= real.(gIR_work)
         else
             fit!(gIR, matsubara_sampling, giw_from_DLR; dim=target_dim + 1)
@@ -252,15 +251,11 @@
 
     @testset "Integration Tests" begin
         for positive_only in [false, true]
-            @info "positive_only = $positive_only"
-
             # 1D tests
             extra_dims = Int[]
-            @info "Integration test for bosonic LogisticKernel"
             integration_test(Float64, SparseIR.Bosonic, SparseIR.LogisticKernel, 1,
                 beta, wmax, epsilon, extra_dims, 0, tol, positive_only)
 
-            @info "Integration test for fermionic LogisticKernel"
             integration_test(Float64, SparseIR.Fermionic, SparseIR.LogisticKernel, 1,
                 beta, wmax, epsilon, extra_dims, 0, tol, positive_only)
 
@@ -273,17 +268,15 @@
                     beta, wmax, epsilon, extra_dims, 0, tol, positive_only)
             end
 
-            # 4D tests with extra_dims = [2, 3, 4]
-            for target_dim in 0:3
+            # 4D tests with extra_dims = [2, 3, 4], both statistics
+            for target_dim in 0:3, S in (SparseIR.Bosonic, SparseIR.Fermionic)
                 extra_dims = [2, 3, 4]
-                @info "Integration test for bosonic LogisticKernel, target_dim = $target_dim"
-                integration_test(Float64, SparseIR.Bosonic, SparseIR.LogisticKernel, 4,
+                integration_test(Float64, S, SparseIR.LogisticKernel, 4,
                     beta, wmax, epsilon, extra_dims, target_dim, tol, positive_only)
 
                 # Also test complex for multi-dimensional arrays when positive_only=false
-                if !positive_only && target_dim == 0
-                    integration_test(
-                        ComplexF64, SparseIR.Bosonic, SparseIR.LogisticKernel, 4,
+                if !positive_only && target_dim in (0, 3)
+                    integration_test(ComplexF64, S, SparseIR.LogisticKernel, 4,
                         beta, wmax, epsilon, extra_dims, target_dim, tol, positive_only)
                 end
             end
