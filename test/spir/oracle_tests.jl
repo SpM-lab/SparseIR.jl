@@ -43,9 +43,13 @@ end
     using SparseIR
 
     # From n_asymp = 40Λ on, the backend evaluates uhat through an asymptotic
-    # series whose parity is wrong for l ≡ 1, 2 (mod 4). These checks are
-    # expected to fail until SpM-lab/sparse-ir-rs#265 is fixed; they will then
-    # report an unexpected pass, and `@test_broken` must become `@test`.
+    # series whose parity is wrong for l ≡ 1, 2 (mod 4) (SpM-lab/sparse-ir-rs#265).
+    # CI runs both a released libsparseir and sparse-ir-rs main
+    # (CI_with_latest_rust_backend), which may already have the fix. The defect
+    # gives errors of about 1e6 to 1e7 times the tolerance, so an error above
+    # 1e3 tol is recorded as broken, and anything else must meet the tolerance.
+    # Drop the broken branch once every tested backend has the fix.
+    check(err, tol) = err > 1e3 * tol ? (@test_broken err <= tol) : (@test err <= tol)
     β, ωmax, ε = B1
     @testset "$(nameof(typeof(stat)))" for stat in (Fermionic(), Bosonic())
         basis = get_basis(stat, B1...)
@@ -54,7 +58,7 @@ end
         n = 80 * round(Int, β * ωmax) + ζ               # twice n_asymp
         xs, ws = gauss_legendre_panels(0.0, β; npanels=1600, order=24)
         ref = basis.u(xs) * (cis.(π * n .* xs ./ β) .* ws)
-        @test_broken maximum(abs, basis.uhat(freq_of(stat, n)) .- ref) <= 1e-10 * sqrt(β)
+        check(maximum(abs, basis.uhat(freq_of(stat, n)) .- ref), 1e-10 * sqrt(β))
 
         # i ν_n uhat_l(n) → -(u_l(β) + u_l(0)) (F), u_l(β) - u_l(0) (B), by
         # integrating the definition by parts; the O(1/ν) remainder is below
@@ -63,8 +67,8 @@ end
         ν = π * nbig / β
         u0, uβ = basis.u(0.0), basis.u(β)
         limit = stat isa Fermionic ? -(uβ .+ u0) : uβ .- u0
-        @test_broken maximum(abs, im * ν .* basis.uhat(freq_of(stat, nbig)) .- limit) <=
-                     1e-6 * maximum(abs, u0)
+        check(maximum(abs, im * ν .* basis.uhat(freq_of(stat, nbig)) .- limit),
+            1e-6 * maximum(abs, u0))
     end
 end
 
@@ -74,19 +78,26 @@ end
     using SparseIR
 
     # Σ_l U_l(τ) S_l V_l(ω) must equal ω e^{-τω}/(1 - e^{-βω}), the regularized
-    # bosonic kernel in physical units (irbasis paper, Chikano et al., CPC 240,
-    # 181 (2019), arXiv:1807.05237, Eq. (3)), i.e. S_l = sqrt(β ωmax³/2) s_l
-    # (Eq. (25)); ωmax = 2 separates the power of ωmax (T-ε). The backend uses
-    # ωmax^-1, so this is expected to fail until SpM-lab/sparse-ir-rs#273 is
-    # fixed; it will then report an unexpected pass, and `@test_broken` must
-    # become `@test`.
+    # bosonic kernel in physical units (irbasis paper, Chikano et al., Computer
+    # Physics Communications 240, 181 (2019), arXiv:1807.05237, Eq. (3)), i.e.
+    # S_l = sqrt(β ωmax³/2) s_l (Eq. (25)); ωmax = 2 separates the power of ωmax
+    # (T-ε). libsparseir releases without the fix of SpM-lab/sparse-ir-rs#273 use
+    # ωmax^-1, which gives exactly the kernel divided by ωmax²; that result is
+    # recorded as broken. The CI of sparse-ir-rs main (CI_with_latest_rust_backend)
+    # may already have the fix, and any other result must meet the tolerance.
+    # Drop the broken branch once every tested backend has the fix.
     β, ωmax, ε = 10.0, 2.0, 1e-10
     basis = FiniteTempBasis(Bosonic(), β, ωmax, ε; kernel=RegularizedBoseKernel(β * ωmax))
     taus = [0.3, 3.7, 8.0]
     ws = [-1.4, 0.4, 1.8]
     usv = transpose(basis.u(taus)) * (basis.s .* basis.v(ws))
     ref = [-w * exp(-τ * w) / expm1(-β * w) for τ in taus, w in ws]
-    @test_broken maximum(abs, usv .- ref) <= 300 * ε * ωmax
+    tol = 300 * ε * ωmax
+    if maximum(abs, usv .- ref ./ ωmax^2) <= tol / ωmax^2      # sparse-ir-rs#273
+        @test_broken maximum(abs, usv .- ref) <= tol
+    else
+        @test maximum(abs, usv .- ref) <= tol
+    end
 end
 
 @testitem "oracle O3: symmetries" tags=[:julia, :oracle] setup=[SIRTestSetup] begin
