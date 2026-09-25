@@ -14,16 +14,38 @@ poles on the real-frequency axis:
   - `ptr::Ptr{spir_basis}`: Pointer to the C DLR object
   - `basis::B`: The underlying IR basis
   - `poles::Vector{Float64}`: Pole locations on the real-frequency axis
+  - `u`: the DLR basis functions in imaginary time, `u[i](τ)` being the
+    single-pole function `-exp(-τ ω_i) / (1 + exp(-β ω_i))`, so that
+    `transpose(dlr.u(τ)) * g_dlr` evaluates DLR coefficients `g_dlr`
+  - `uhat`: their Fourier transforms, `1/(iν - ω_i)` for fermions and
+    `tanh(β ω_i / 2)/(iν - ω_i)` for bosons
+
+The DLR basis functions are not piecewise polynomials: `deriv`, `knots` and
+`overlap` are not supported for them and throw [`SparseIRError`](@ref).
 """
 mutable struct DiscreteLehmannRepresentation{S<:Statistics,B<:AbstractBasis{S}} <:
                AbstractBasis{S}
     ptr::Ptr{spir_basis}
     basis::B
     poles::Vector{Float64}
+    u::PiecewiseLegendrePolyVector
+    uhat::PiecewiseLegendreFTVector
 
     function DiscreteLehmannRepresentation{S,B}(ptr::Ptr{spir_basis}, basis::B,
             poles::Vector{Float64}) where {S<:Statistics,B<:AbstractBasis{S}}
-        obj = new{S,B}(ptr, basis, poles)
+        # The DLR basis functions come from the DLR handle itself; they are the
+        # single-pole functions, not the functions of the underlying IR basis.
+        βb = β(basis)
+        status = Ref{Int32}(-100)
+        u_ptr = C_API.spir_basis_get_u(ptr, status)
+        _check_status(status[], "spir_basis_get_u")
+        _check_handle(u_ptr, "spir_basis_get_u")
+        uhat_ptr = C_API.spir_basis_get_uhat(ptr, status)
+        _check_status(status[], "spir_basis_get_uhat")
+        _check_handle(uhat_ptr, "spir_basis_get_uhat")
+        u = PiecewiseLegendrePolyVector(u_ptr, -βb, βb, βb, (0.0, βb))
+        uhat = PiecewiseLegendreFTVector(uhat_ptr, zeta(S()))
+        obj = new{S,B}(ptr, basis, poles, u, uhat)
         finalizer(s -> spir_basis_release(s.ptr), obj)
         return obj
     end

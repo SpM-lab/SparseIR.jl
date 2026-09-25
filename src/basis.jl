@@ -94,7 +94,7 @@ mutable struct FiniteTempBasis{S,K} <: AbstractBasis{S}
             s,
             PiecewiseLegendrePolyVector(u, -β, β, β, (0.0, β)),  # u uses [0, β] as default overlap range
             PiecewiseLegendrePolyVector(v, -ωmax, ωmax, 0.0),     # v uses default range (xmin, xmax)
-            PiecewiseLegendreFTVector(uhat)
+            PiecewiseLegendreFTVector(uhat, zeta(S()))
         )
         finalizer(b -> spir_basis_release(b.ptr), result)
         return result
@@ -252,7 +252,8 @@ end
 significance(basis::FiniteTempBasis) = basis.s ./ first(basis.s)
 
 function range_to_length(range::UnitRange)
-    isone(first(range)) || error("Range must start at 1.")
+    isone(first(range)) ||
+        throw(ArgumentError("basis truncation must start at 1, got the range $range"))
     return last(range)
 end
 

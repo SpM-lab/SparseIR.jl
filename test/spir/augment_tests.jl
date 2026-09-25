@@ -51,8 +51,8 @@
 
         @testset "getindex" begin
             @test length(basis_aug.u[1:5]) == 5
-            @test_throws ErrorException basis_aug.u[1:2]
-            @test_throws ErrorException basis_aug.u[3:7]
+            @test_throws ArgumentError basis_aug.u[1:2]
+            @test_throws ArgumentError basis_aug.u[3:7]
             @test basis_aug.u[1] isa TauConst
             @test basis_aug.u[2] isa TauLinear
         end

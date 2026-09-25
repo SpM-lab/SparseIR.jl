@@ -132,7 +132,8 @@ naug(basis::AugmentedBasis) = length(basis.augmentations)
 
 function Base.getindex(basis::AugmentedBasis, index::AbstractRange)
     stop = range_to_length(index)
-    stop > naug(basis) || error("Cannot truncate to only augmentation.")
+    stop > naug(basis) ||
+        throw(ArgumentError("cannot truncate to only the augmentation functions"))
     return AugmentedBasis(basis.basis[begin:(stop - naug(basis))], basis.augmentations...)
 end
 
@@ -150,7 +151,7 @@ function default_tau_sampling_points(basis::AugmentedBasis; use_positive_taus::B
     n_points_returned = Ref{Cint}(0)
     status = spir_basis_get_default_taus_ext(
         _get_ptr(basis.basis), length(basis), points, n_points_returned)
-    status == SPIR_COMPUTATION_SUCCESS || error("Failed to get default tau sampling points")
+    _check_status(status, "spir_basis_get_default_taus_ext")
     points = points[1:n_points_returned[]]
 
     if use_positive_taus
@@ -167,14 +168,12 @@ function default_matsubara_sampling_points(basis::AugmentedBasis; positive_only=
     mitigate = false # corresponds to false in older version
     status = spir_basis_get_n_default_matsus_ext(
         basis_ptr, positive_only, mitigate, length(basis), n_points)
-    status == SPIR_COMPUTATION_SUCCESS ||
-        error("Failed to get number of default Matsubara sampling points")
+    _check_status(status, "spir_basis_get_n_default_matsus_ext")
     points = Vector{Int64}(undef, n_points[])
     n_points_returned = Ref{Cint}(0)
     status = spir_basis_get_default_matsus_ext(
         basis_ptr, positive_only, mitigate, n_points[], points, n_points_returned)
-    status == SPIR_COMPUTATION_SUCCESS ||
-        error("Failed to get default Matsubara sampling points")
+    _check_status(status, "spir_basis_get_default_matsus_ext")
     return points
 end
 
@@ -206,7 +205,9 @@ Base.size(a::AbstractAugmentedFunction) = (length(a),)
 
 function (a::AbstractAugmentedFunction)(x)
     fbasis_x = fbasis(a)(x)
-    faug_x = [faug_l(x) for faug_l in faug(a)]
+    # Promote to the element type of the basis part: the augmentations of a
+    # Matsubara function mix Float64 and ComplexF64 values.
+    faug_x = eltype(fbasis_x)[faug_l(x) for faug_l in faug(a)]
     return vcat(faug_x, fbasis_x)
 end
 
@@ -227,12 +228,18 @@ function (a::AbstractAugmentedFunction)(x::AbstractArray)
     return vcat(faug_x, fbasis_x)
 end
 
-function Base.getindex(a::AbstractAugmentedFunction, r::AbstractRange)
+Base.firstindex(::AbstractAugmentedFunction) = 1
+Base.lastindex(a::AbstractAugmentedFunction) = length(a)
+
+function _truncate(a::AbstractAugmentedFunction, r::AbstractRange)
     stop = range_to_length(r)
-    stop > naug(a) || error("Don't truncate to only augmentation")
-    return AugmentedFunction(fbasis(a)[begin:(stop - naug(a))], faug(a))
+    stop > naug(a) ||
+        throw(ArgumentError("cannot truncate to only the augmentation functions"))
+    return fbasis(a)[begin:(stop - naug(a))], faug(a)
 end
+Base.getindex(a::AugmentedFunction, r::AbstractRange) = AugmentedFunction(_truncate(a, r)...)
 function Base.getindex(a::AbstractAugmentedFunction, l::Integer)
+    1 ≤ l ≤ length(a) || throw(BoundsError(a, l))
     return l ≤ naug(a) ? faug(a)[l] : fbasis(a)[l - naug(a)]
 end
 
@@ -248,6 +255,10 @@ AugmentedTauFunction(fbasis, faug) = AugmentedTauFunction(AugmentedFunction(fbas
 
 xmin(aτ::AugmentedTauFunction) = xmin(fbasis(aτ))
 xmax(aτ::AugmentedTauFunction) = xmax(fbasis(aτ))
+
+# Keep the wrapper type: a plain AugmentedFunction would evaluate integer
+# Matsubara indices as imaginary times.
+Base.getindex(aτ::AugmentedTauFunction, r::AbstractRange) = AugmentedTauFunction(_truncate(aτ, r)...)
 
 function deriv(aτ::AugmentedTauFunction, n=Val(1))
     # `fbasis(aτ)` is a single `PiecewiseLegendrePolyVector` handle, not an
@@ -270,6 +281,21 @@ function AugmentedMatsubaraFunction(fbasis, faug)
 end
 
 zeta(amat::AugmentedMatsubaraFunction) = zeta(fbasis(amat))
+
+function Base.getindex(amat::AugmentedMatsubaraFunction, r::AbstractRange)
+    return AugmentedMatsubaraFunction(_truncate(amat, r)...)
+end
+
+# An integer is a reduced Matsubara index. The augmentations are defined on
+# `MatsubaraFreq`s (on plain numbers they are functions of imaginary time), so
+# the index is converted first; the wrong parity throws `DomainError`.
+function _as_freq(amat::AugmentedMatsubaraFunction, n::Integer)
+    return MatsubaraFreq{typeof(Statistics(zeta(amat)))}(n)
+end
+(amat::AugmentedMatsubaraFunction)(n::Integer) = amat(_as_freq(amat, n))
+function (amat::AugmentedMatsubaraFunction)(ns::AbstractVector{<:Integer})
+    return amat([_as_freq(amat, n) for n in ns])
+end
 
 ############################################################################################
 #                                      Augmentations                                       #
