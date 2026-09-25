@@ -12,7 +12,22 @@ abstract type AbstractAugmentation{S<:Statistics} <: Function end
 
 const AugmentationTuple{S} = Tuple{Vararg{AbstractAugmentation{S}}} where {S<:Statistics}
 
-create(aug::AbstractAugmentation, ::AbstractBasis) = aug
+# An augmentation passed as an instance must have been built for the basis it
+# augments: the same β, and the same statistics (MatsubaraConst, which does not
+# depend on the statistics, has its own method below).
+function create(aug::AbstractAugmentation{S1}, basis::AbstractBasis{S2}) where {S1,S2}
+    _check_augmentation_beta(aug, basis)
+    S1 === S2 || throw(ArgumentError("$(nameof(typeof(aug))) is $(nameof(S1)), \
+                                      but the basis is $(nameof(S2))"))
+    return aug
+end
+
+function _check_augmentation_beta(aug::AbstractAugmentation, basis::AbstractBasis)
+    isapprox(β(aug), β(basis); rtol=1e-12) ||
+        throw(ArgumentError("$(nameof(typeof(aug))) has β = $(β(aug)), \
+                             but the basis has β = $(β(basis))"))
+    return nothing
+end
 β(aug::AbstractAugmentation) = aug.β
 
 """
@@ -491,7 +506,8 @@ struct MatsubaraConst{S<:Statistics} <: AbstractAugmentation{S}
     end
 end
 
-# Backward compatibility: MatsubaraConst(β) - statistics will be inferred from basis
+# Backward compatibility: MatsubaraConst(β) is bosonic; `create` adopts the
+# statistics of the basis it is added to.
 MatsubaraConst(β) = MatsubaraConst{Bosonic}(β)
 
 function create(::Type{MatsubaraConst}, basis::AbstractBasis{S}) where {S}
@@ -499,6 +515,11 @@ function create(::Type{MatsubaraConst}, basis::AbstractBasis{S}) where {S}
 end
 function create(::Type{MatsubaraConst{S}}, basis::AbstractBasis{S}) where {S<:Statistics}
     MatsubaraConst{S}(β(basis))
+end
+# An instance takes the statistics of the basis; its β must match.
+function create(aug::MatsubaraConst, basis::AbstractBasis{S}) where {S}
+    _check_augmentation_beta(aug, basis)
+    return MatsubaraConst{S}(β(aug))
 end
 
 function (aug::MatsubaraConst)(τ)

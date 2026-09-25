@@ -95,8 +95,10 @@
         @test length(basis_aug.u(0.8)) == len_aug
 
         @testset "create" begin
-            @test SparseIR.create(MatsubaraConst(42), basis) == MatsubaraConst(42)
+            @test SparseIR.create(MatsubaraConst(β), basis) == MatsubaraConst(β)
             @test SparseIR.create(MatsubaraConst, basis) == MatsubaraConst(β)
+            # An instance built for another β does not fit this basis.
+            @test_throws ArgumentError SparseIR.create(MatsubaraConst(42), basis)
         end
 
         @testset "normalize_tau" begin
@@ -220,5 +222,21 @@
             @test SparseIR.deriv(mc) == mc
             @test SparseIR.deriv(mc, Val(0)) == mc
         end
+    end
+
+    # An augmentation passed as an instance must have been built for the
+    # basis: its β must match, and TauConst/TauLinear need a bosonic basis.
+    @testset "augmentation instances must match the basis" begin
+        bb = FiniteTempBasis(Bosonic(), 10.0, 1.0, 1e-6)
+        bf = FiniteTempBasis(Fermionic(), 10.0, 1.0, 1e-6)
+        for aug in (TauConst(5.0), TauLinear(5.0), MatsubaraConst(5.0))
+            @test_throws ArgumentError AugmentedBasis(bb, aug)
+        end
+        for aug in (TauConst(10.0), TauLinear(10.0))
+            @test_throws ArgumentError AugmentedBasis(bf, aug)
+        end
+        @test length(AugmentedBasis(bb, TauConst(10.0), TauLinear(10.0))) == length(bb) + 2
+        # MatsubaraConst does not depend on the statistics.
+        @test length(AugmentedBasis(bf, MatsubaraConst(10.0))) == length(bf) + 1
     end
 end
