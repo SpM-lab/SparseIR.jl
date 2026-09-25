@@ -19,22 +19,10 @@
         return dims
     end
 
-    # Helper function to compare tensors with relative error
-    function compare_tensors_with_relative_error(
-            a::Array{T,N}, b::Array{T,N}, tol) where {
-            T,N}
-        diff = abs.(a .- b)
-        ref = abs.(a)
-        max_diff = maximum(diff)
-        max_ref = maximum(ref)
-
-        if max_diff > tol * max_ref
-            @info "max_diff: $max_diff"
-            @info "max_ref: $max_ref"
-            @info "tol: $tol"
-            return false
-        end
-        return true
+    # max|a - b| relative to max|a|; a failing `@test relative_error(a, b) <= tol`
+    # reports the value.
+    function relative_error(a::Array{T,N}, b::Array{T,N}) where {T,N}
+        return maximum(abs.(a .- b)) / maximum(abs.(a))
     end
 
     # Generate random coefficient based on type
@@ -148,13 +136,13 @@
             gtau_from_DLR_reconst, tau_sampling_dlr, g_DLR_reconst; dim=target_dim +
                                                                         1)
 
-        @test compare_tensors_with_relative_error(gtau_from_IR, gtau_from_DLR, tol)
-        @test compare_tensors_with_relative_error(gtau_from_IR, gtau_from_DLR_reconst, tol)
+        @test relative_error(gtau_from_IR, gtau_from_DLR) <= tol
+        @test relative_error(gtau_from_IR, gtau_from_DLR_reconst) <= tol
 
         # Use sampling to evaluate the Greens function at all tau points between IR and DLR
         gtau_from_DLR_sampling = similar(gtau_from_DLR)
         evaluate!(gtau_from_DLR_sampling, tau_sampling_dlr, coeffs; dim=target_dim + 1)
-        @test compare_tensors_with_relative_error(gtau_from_IR, gtau_from_DLR_sampling, tol)
+        @test relative_error(gtau_from_IR, gtau_from_DLR_sampling) <= tol
 
         # Compare the Greens function at all Matsubara frequencies between IR and DLR
         # Use sampling objects to evaluate at Matsubara frequencies
@@ -171,12 +159,12 @@
         giw_from_DLR = similar(coeffs, ComplexF64, giw_from_DLR_dims...)
         evaluate!(giw_from_DLR, matsubara_sampling_dlr, coeffs; dim=target_dim + 1)
 
-        @test compare_tensors_with_relative_error(giw_from_IR, giw_from_DLR, tol)
+        @test relative_error(giw_from_IR, giw_from_DLR) <= tol
 
         # Use sampling to evaluate the Greens function at all Matsubara frequencies
         giw_from_DLR_sampling = similar(giw_from_DLR, ComplexF64)
         evaluate!(giw_from_DLR_sampling, matsubara_sampling_dlr, coeffs; dim=target_dim + 1)
-        @test compare_tensors_with_relative_error(giw_from_IR, giw_from_DLR_sampling, tol)
+        @test relative_error(giw_from_IR, giw_from_DLR_sampling) <= tol
 
         # Prepare arrays for transformations
         # Use the actual dimensions from g_IR to ensure consistency
@@ -216,7 +204,7 @@
 
         giw_from_IR_reconst = similar(giw_reconst)
         evaluate!(giw_from_IR_reconst, matsubara_sampling, gIR2; dim=target_dim + 1)
-        @test compare_tensors_with_relative_error(giw_from_DLR, giw_from_IR_reconst, tol)
+        @test relative_error(giw_from_DLR, giw_from_IR_reconst) <= tol
 
         # Note: Julia uses automatic garbage collection with finalizers for C resource cleanup.
         # Unlike the C_API version, we don't need explicit release calls.

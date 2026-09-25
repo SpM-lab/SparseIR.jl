@@ -75,8 +75,9 @@ that contradicts this file, fix this file in the same PR.
 - Test files live under two directories:
   - `test/spir/*.jl` — high-level API tests (tag `:julia`, plus a topic tag
     such as `:lib`, `:spir`, `:oracle`, `:boundary` or `:surface`).
-    `oracle_tests.jl` checks closed forms, definitions and symmetries that do
-    not use libsparseir; `boundary_tests.jl` checks the input validation done
+    `oracle_tests.jl` checks the library against closed forms, definitions and
+    symmetries whose reference values do not use libsparseir; `boundary_tests.jl`
+    checks the input validation done
     before every `ccall`; `public_surface_tests.jl` calls every exported name
     and every function set of the bases once.
   - `test/spir/sir_testsetup.jl` is the shared `@testsetup module SIRTestSetup`:

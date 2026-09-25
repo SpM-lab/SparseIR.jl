@@ -3,6 +3,8 @@
 
 @testitem "TauSampling" tags=[:cinterface] begin
     using SparseIR
+    using StableRNGs
+    rng = StableRNG(20260925)
     backend = SparseIR._spir_default_backend[]
 
     # Helper function to create tau sampling (corresponds to C++ create_tau_sampling)
@@ -135,7 +137,7 @@
         target_dim = 0
 
         # Create test coefficients
-        coeffs = rand(Float64, basis_size) .- 0.5
+        coeffs = rand(rng, Float64, basis_size) .- 0.5
 
         # Test evaluation
         evaluate_output = Vector{Float64}(undef, n_points)
@@ -224,7 +226,7 @@
             output_total_size = prod(output_dims)
 
             # Create random test data (row-major layout)
-            coeffs = rand(Float64, total_size) .- 0.5
+            coeffs = rand(rng, Float64, total_size) .- 0.5
 
             # Test evaluation
             evaluate_output = Vector{Float64}(undef, output_total_size)
@@ -314,7 +316,7 @@
             output_total_size = prod(output_dims)
 
             # Create random test data (column-major layout)
-            coeffs = rand(Float64, total_size) .- 0.5
+            coeffs = rand(rng, Float64, total_size) .- 0.5
 
             # Test evaluation
             evaluate_output = Vector{Float64}(undef, output_total_size)
@@ -404,8 +406,8 @@
             output_total_size = prod(output_dims)
 
             # Create random complex test data (row-major layout)
-            coeffs_real = rand(Float64, total_size) .- 0.5
-            coeffs_imag = rand(Float64, total_size) .- 0.5
+            coeffs_real = rand(rng, Float64, total_size) .- 0.5
+            coeffs_imag = rand(rng, Float64, total_size) .- 0.5
             coeffs = [ComplexF64(coeffs_real[i], coeffs_imag[i]) for i in 1:total_size]
 
             # Test evaluation
@@ -497,8 +499,8 @@
             output_total_size = prod(output_dims)
 
             # Create random complex test data (column-major layout)
-            coeffs_real = rand(Float64, total_size) .- 0.5
-            coeffs_imag = rand(Float64, total_size) .- 0.5
+            coeffs_real = rand(rng, Float64, total_size) .- 0.5
+            coeffs_imag = rand(rng, Float64, total_size) .- 0.5
             coeffs = [ComplexF64(coeffs_real[i], coeffs_imag[i]) for i in 1:total_size]
 
             # Test evaluation
@@ -570,7 +572,7 @@
         total_size = basis_size * d1 * d2 * d3
 
         # Create test data
-        coeffs = rand(Float64, total_size) .- 0.5
+        coeffs = rand(rng, Float64, total_size) .- 0.5
         output_double = Vector{Float64}(undef, total_size)
         output_complex = Vector{ComplexF64}(undef, total_size)
         fit_output_double = Vector{Float64}(undef, total_size)

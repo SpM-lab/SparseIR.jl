@@ -3,7 +3,7 @@
 
     using SparseIR
     using Test
-    using Random
+    using StableRNGs
     backend = SparseIR._spir_default_backend[]
 
     # Helper function corresponding to _get_dims in cinterface_integration.cxx
@@ -115,13 +115,6 @@
         ref = abs.(a)
         max_diff = maximum(diff)
         max_ref = maximum(ref)
-
-        # Debug output like C++ version
-        if max_diff > tol * max_ref
-            println("max_diff: ", max_diff)
-            println("max_ref: ", max_ref)
-            println("tol: ", tol)
-        end
 
         return max_diff <= tol * max_ref
     end
@@ -276,7 +269,6 @@
         basis_size = basis_size_ref[]
 
         # Tau Sampling
-        println("Tau sampling")
         num_tau_points_ref = Ref{Cint}(-100)
         status[] = SparseIR.spir_basis_get_n_default_taus(basis, num_tau_points_ref)
         @test status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
@@ -307,7 +299,6 @@
         end
 
         # Matsubara Sampling
-        println("Matsubara sampling")
         num_matsubara_points_org_ref = Ref{Cint}(0)
         status[] = SparseIR.spir_basis_get_n_default_matsus(
             basis, positive_only, num_matsubara_points_org_ref)
@@ -348,7 +339,6 @@
         end
 
         # DLR
-        println("DLR")
         dlr_status = Ref{Cint}(-100)
         dlr = SparseIR.spir_dlr_new(basis, dlr_status)
         @test dlr_status[] == SparseIR.SPIR_COMPUTATION_SUCCESS
@@ -371,15 +361,12 @@
         coeffs_targetdim0 = Array{T,ndim}(undef, npoles, extra_dims...)
 
         coeffs_2d = reshape(coeffs_targetdim0, Int64(npoles), Int64(extra_size))
-        Random.seed!(982743)  # Same seed as C++ version
+        rng = StableRNG(982743)
         for i in 1:npoles
             for j in 1:extra_size
-                coeffs_2d[i, j] = generate_random_coeffs(T, rand(), rand(), poles[i])
+                coeffs_2d[i, j] = generate_random_coeffs(T, rand(rng), rand(rng), poles[i])
             end
         end
-        #coeffs_targetdim0 .= 0.0
-        #coeffs_targetdim0[npoles ÷ 2] = 1.0
-        #coeffs_targetdim0[npoles ÷ 2 + 1] = 1.0
 
         # DLR sampling objects (MISSING in original Julia code)
         tau_sampling_dlr_status = Ref{Cint}(-100)
@@ -558,12 +545,10 @@
 
     # Run tests for different configurations like C++ version
     for positive_only in [false, true]
-        println("positive_only = ", positive_only)
 
         # Test 1: Simple 1D case
         begin
             extra_dims = Int[]
-            println("Integration test for bosonic LogisticKernel")
             integration_test(Float64, beta, wmax, epsilon, extra_dims, 0,
                 SparseIR.SPIR_ORDER_COLUMN_MAJOR, tol, positive_only)
 
@@ -577,8 +562,6 @@
         begin
             target_dim = 0
             extra_dims = Int[]
-            println("Integration test for bosonic LogisticKernel, ColMajor, target_dim = ",
-                target_dim)
             integration_test(Float64, beta, wmax, epsilon, extra_dims, target_dim,
                 SparseIR.SPIR_ORDER_COLUMN_MAJOR, tol, positive_only)
             if !positive_only
@@ -591,8 +574,6 @@
         begin
             target_dim = 0
             extra_dims = Int[]
-            println("Integration test for bosonic LogisticKernel, RowMajor, target_dim = ",
-                target_dim)
             integration_test(Float64, beta, wmax, epsilon, extra_dims, target_dim,
                 SparseIR.SPIR_ORDER_ROW_MAJOR, tol, positive_only)
             if !positive_only
@@ -604,8 +585,6 @@
         # Test 4: Multi-dimensional cases with extra dims = [2,3,4]
         for target_dim in 0:3
             extra_dims = [2, 3, 4]
-            println("Integration test for bosonic LogisticKernel, ColMajor, target_dim = ",
-                target_dim)
             integration_test(Float64, beta, wmax, epsilon, extra_dims, target_dim,
                 SparseIR.SPIR_ORDER_COLUMN_MAJOR, tol, positive_only)
         end
