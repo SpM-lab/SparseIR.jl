@@ -150,8 +150,10 @@ Default sampling points in imaginary time: the roots of `U_L`, the first basis
 function beyond a basis of size `L = length(basis)`.
 
 With `use_positive_taus=true` (the default) the points are folded into `(0, β)`
-and sorted. With `use_positive_taus=false` they are returned unfolded, in
-`(-β/2, β/2]` and symmetric about 0. A DLR uses the points of its IR basis.
+and sorted, so that reversing them maps τ to β - τ. With
+`use_positive_taus=false` they are returned unfolded, in `(-β/2, β/2]`: pairs
+±τ, plus β/2 when their number is odd, so reversing them maps τ to -τ only for
+an even number. A DLR uses the points of its IR basis.
 """
 function default_tau_sampling_points end
 
