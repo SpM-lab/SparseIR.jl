@@ -43,6 +43,32 @@
         @test isapprox(giν_reconst, giν, atol=maximum(abs, giν) * 1e-7)
     end
 
+    # positive_only = true samples an augmented basis on the non-negative half of
+    # its full default point set, as for a plain basis.
+    @testset "positive_only sampling of $(nameof(typeof(stat))) $augs" for (stat, augs) in (
+        (Bosonic(), (TauConst, TauLinear)),
+        (Bosonic(), (MatsubaraConst,)),
+        (Fermionic(), (MatsubaraConst,)))
+        basis = FiniteTempBasis(stat, 10.0, 1.0, 1e-6)
+        basis_aug = AugmentedBasis(basis, augs...)
+        full = SparseIR.default_matsubara_sampling_points(basis_aug; positive_only=false)
+        half = SparseIR.default_matsubara_sampling_points(basis_aug; positive_only=true)
+        @test Int.(half) == filter(≥(0), Int.(full))
+
+        smpl_full = MatsubaraSampling(basis_aug)
+        smpl = MatsubaraSampling(basis_aug; positive_only=true)
+        @test Int.(sampling_points(smpl)) == Int.(half)
+        gl = randn(StableRNG(4321), length(basis_aug))
+        giν = evaluate(smpl, gl)
+        @test isapprox(giν, evaluate(smpl_full, gl)[Int.(full) .≥ 0];
+            atol=1e-13 * maximum(abs, giν), rtol=0)
+        # T-c against the full set's condition number: the cond of a
+        # positive-only sampling is that of the complex half matrix, which
+        # understates the conditioning of the real least-squares fit.
+        atol = 100 * cond(smpl_full) * eps() * maximum(abs, gl)
+        @test maximum(abs, real.(fit(smpl, giν)) .- gl) ≤ atol
+    end
+
     @testset "unit tests" begin
         β = 1000
         ωmax = 2

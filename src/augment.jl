@@ -162,6 +162,12 @@ function default_tau_sampling_points(basis::AugmentedBasis; use_positive_taus::B
 end
 
 function default_matsubara_sampling_points(basis::AugmentedBasis; positive_only=false)
+    # The positive-only points are the non-negative half of the full set, as for
+    # a plain basis. Requesting that variant from C with the count as the point
+    # limit returned a truncated set and left the rest of the buffer unwritten.
+    if positive_only
+        return filter(≥(0), default_matsubara_sampling_points(basis; positive_only=false))
+    end
     n_points = Ref{Cint}(0)
     basis_ptr = _get_ptr(basis.basis)
     mitigate = false # corresponds to false in older version
