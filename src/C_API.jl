@@ -134,7 +134,11 @@ end
 """
     spir_basis_is_assigned(obj)
 
-Manual is\\_assigned function (replaces macro-generated one)
+Check if the basis pointer is non-null.
+
+Note: This only performs a null check. It cannot detect dangling pointers; dereferencing an arbitrary non-null pointer would be undefined behaviour that `catch_unwind` cannot reliably catch.
+
+# Returns 1 if the pointer is non-null, 0 otherwise
 """
 function spir_basis_is_assigned(obj)
     ccall((:spir_basis_is_assigned, libsparseir), Int32, (Ptr{spir_basis},), obj)
@@ -145,9 +149,9 @@ end
 
 Create a finite temperature basis (libsparseir compatible)
 
-# Arguments * `statistics` - 0 for Bosonic, 1 for Fermionic * `beta` - Inverse temperature (must be > 0) * `omega_max` - Frequency cutoff (must be > 0) * `epsilon` - Accuracy target (must be > 0) * `k` - Kernel object (can be NULL if sve is provided) * `sve` - Pre-computed SVE result (can be NULL, will compute if needed) * `max_size` - Maximum basis size (-1 for no limit) * `status` - Pointer to store status code
+# Arguments * `statistics` - 0 for Bosonic, 1 for Fermionic * `beta` - Inverse temperature (must be > 0) * `omega_max` - Frequency cutoff (must be > 0) * `epsilon` - Accuracy target (must be > 0) * `k` - Kernel object (required; its Λ must equal beta * omega\\_max) * `sve` - Pre-computed SVE result (can be NULL, will compute if needed) * `max_size` - Maximum basis size (-1 for no limit). It truncates the basis, not the SVE (also when `sve` is NULL and the SVE is computed here): the default sampling points and [`spir_basis_get_uhat_full`](@ref) use the SVE functions beyond the basis * `status` - Pointer to store status code
 
-# Returns * Pointer to basis object, or NULL on failure
+# Returns * Pointer to basis object, or NULL on failure * Status code: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if `k` is NULL, `statistics` is invalid, `beta`, `omega_max` or `epsilon` is not positive and finite, `epsilon` is 1 or more, `max_size` is 0, the lambda of `k` differs from `beta * omega\\_max` by more than 1e-10, `sve` is not an SVE on [-1, 1] × [-1, 1] (e.g. from [`spir_sve_result_from_matrix`](@ref) with other segments), or `sve` is NULL and the discretized kernel has a non-finite entry (e.g. a `RegularizedBoseKernel` with a tiny lambda) - [`SPIR_NOT_SUPPORTED`](@ref) (-5) if `k` is a `RegularizedBoseKernel` and `statistics` is fermionic: that kernel supports bosonic statistics only - [`SPIR_INTERNAL_ERROR`](@ref) (-7) if the SVE cannot be computed (an SVD does not converge) or an internal panic occurs
 
 # Safety The caller must ensure `status` is a valid pointer.
 """
@@ -156,22 +160,22 @@ function spir_basis_new(statistics, beta, omega_max, epsilon, k, sve, max_size, 
 end
 
 """
-    spir_basis_new_from_sve_and_regularizer(statistics, beta, omega_max, epsilon, lambda, _ypower, _conv_radius, sve, regularizer_funcs, max_size, status)
+    spir_basis_new_from_sve_and_regularizer(statistics, beta, omega_max, epsilon, lambda, ypower, _conv_radius, sve, regularizer_funcs, max_size, status)
 
 Create a finite temperature basis from SVE result and custom regularizer function
 
 This function creates a basis from a pre-computed SVE result and a custom regularizer function. The regularizer function is used to scale the basis functions in the frequency domain.
 
-# Arguments * `statistics` - 0 for Bosonic, 1 for Fermionic * `beta` - Inverse temperature (must be > 0) * `omega_max` - Frequency cutoff (must be > 0) * `epsilon` - Accuracy target (must be > 0) * `lambda` - Kernel parameter Λ = β * ωmax (must be > 0) * `ypower` - Power of y in kernel (typically 0 or 1) * `conv_radius` - Convergence radius for Fourier transform * `sve` - Pre-computed SVE result (must not be NULL) * `regularizer_funcs` - Custom regularizer function (must not be NULL) * `max_size` - Maximum basis size (-1 for no limit) * `status` - Pointer to store status code
+# Arguments * `statistics` - 0 for Bosonic, 1 for Fermionic * `beta` - Inverse temperature (must be > 0) * `omega_max` - Frequency cutoff (must be > 0) * `epsilon` - Accuracy target (must be > 0) * `lambda` - Kernel parameter Λ = β * ωmax (must be > 0) * `ypower` - Power of y in kernel: 0 for `LogisticKernel`, 1 for `RegularizedBoseKernel`. Other values return [`SPIR_INVALID_ARGUMENT`](@ref). * `conv_radius` - Convergence radius for Fourier transform (currently unused) * `sve` - Pre-computed SVE result (must not be NULL) * `regularizer_funcs` - Custom regularizer function (must not be NULL) * `max_size` - Maximum basis size (-1 for no limit) * `status` - Pointer to store status code
 
-# Returns * Pointer to basis object, or NULL on failure
+# Returns * Pointer to basis object, or NULL on failure * Status code: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if `sve` or `regularizer_funcs` is NULL, `statistics` or `ypower` is invalid, `beta`, `omega_max`, `epsilon` or `lambda` is not positive and finite, `epsilon` is 1 or more, `max_size` is 0, `lambda` differs from `beta * omega\\_max` by more than 1e-10, `sve` is not an SVE on [-1, 1] × [-1, 1], or `regularizer_funcs` holds τ or ω functions that are not defined at `omega\\_max / 2`, the point at which they are evaluated for validity (e.g. the u of a basis whose β is less than `omega\\_max / 2`) - [`SPIR_NOT_SUPPORTED`](@ref) (-5) if `ypower` is 1 (`RegularizedBoseKernel`) and `statistics` is fermionic: that kernel supports bosonic statistics only - [`SPIR_INTERNAL_ERROR`](@ref) (-7) if an internal panic occurs
 
-# Note Currently, the regularizer function is evaluated but the custom weight is not fully integrated into the basis construction. The basis is created using the standard from\\_sve\\_result method with the kernel's default regularizer. This is a limitation of the current Rust implementation compared to the C++ version.
+# Note The kernel type is determined by `ypower`: 0 selects `LogisticKernel`, 1 selects `RegularizedBoseKernel`. The regularizer function is evaluated for validity but the custom weight is not yet fully integrated into basis construction.
 
 # Safety The caller must ensure `status` is a valid pointer.
 """
-function spir_basis_new_from_sve_and_regularizer(statistics, beta, omega_max, epsilon, lambda, _ypower, _conv_radius, sve, regularizer_funcs, max_size, status)
-    ccall((:spir_basis_new_from_sve_and_regularizer, libsparseir), Ptr{spir_basis}, (Cint, Cdouble, Cdouble, Cdouble, Cdouble, Cint, Cdouble, Ptr{spir_sve_result}, Ptr{spir_funcs}, Cint, Ptr{StatusCode}), statistics, beta, omega_max, epsilon, lambda, _ypower, _conv_radius, sve, regularizer_funcs, max_size, status)
+function spir_basis_new_from_sve_and_regularizer(statistics, beta, omega_max, epsilon, lambda, ypower, _conv_radius, sve, regularizer_funcs, max_size, status)
+    ccall((:spir_basis_new_from_sve_and_regularizer, libsparseir), Ptr{spir_basis}, (Cint, Cdouble, Cdouble, Cdouble, Cdouble, Cint, Cdouble, Ptr{spir_sve_result}, Ptr{spir_funcs}, Cint, Ptr{StatusCode}), statistics, beta, omega_max, epsilon, lambda, ypower, _conv_radius, sve, regularizer_funcs, max_size, status)
 end
 
 """
@@ -229,7 +233,9 @@ Get the number of default tau sampling points
 
 # Arguments * `b` - Basis object * `num_points` - Pointer to store the number of points
 
-# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if b or num\\_points is null * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
+A DLR has no default τ sampling points: for a DLR this returns [`SPIR_COMPUTATION_SUCCESS`](@ref) with 0 points.
+
+# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if b or num\\_points is null * [`SPIR_NOT_SUPPORTED`](@ref) (-5) if the default points are not defined for `b`: its SVE has so few singular functions that the last one has no extrema to stand in for the roots of the missing one (e.g. an SVE from [`spir_sve_result_truncate`](@ref) with `max\\_size = 2`). Nothing is written. * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
 """
 function spir_basis_get_n_default_taus(b, num_points)
     ccall((:spir_basis_get_n_default_taus, libsparseir), StatusCode, (Ptr{spir_basis}, Ptr{Cint}), b, num_points)
@@ -240,9 +246,13 @@ end
 
 Get default tau sampling points
 
+The points are the roots of the first discarded basis function u\\_L (the extrema of u\\_{L-1} when u\\_L is not available), sorted and in (-β/2, β/2]; a negative point τ stands for τ + β with the sign of the statistics (see [`spir_funcs_eval`](@ref)).
+
 # Arguments * `b` - Basis object * `points` - Pre-allocated array to store tau points
 
-# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if b or points is null * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
+A DLR has no default τ sampling points: for a DLR this returns [`SPIR_COMPUTATION_SUCCESS`](@ref) with 0 points and writes nothing.
+
+# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if b or points is null * [`SPIR_NOT_SUPPORTED`](@ref) (-5) if the default points are not defined for `b`: its SVE has so few singular functions that the last one has no extrema to stand in for the roots of the missing one (e.g. an SVE from [`spir_sve_result_truncate`](@ref) with `max\\_size = 2`). Nothing is written. * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
 """
 function spir_basis_get_default_taus(b, points)
     ccall((:spir_basis_get_default_taus, libsparseir), StatusCode, (Ptr{spir_basis}, Ptr{Cdouble}), b, points)
@@ -253,9 +263,11 @@ end
 
 Get the number of default Matsubara sampling points
 
-# Arguments * `b` - Basis object * `positive_only` - If true, return only positive frequencies * `num_points` - Pointer to store the number of points
+# Arguments * `b` - Basis object * `positive_only` - If true, return only non-negative frequencies (n ≥ 0; bosonic sets include n = 0) * `num_points` - Pointer to store the number of points
 
-# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if b or num\\_points is null * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
+A DLR has no default Matsubara sampling points: for a DLR this returns [`SPIR_COMPUTATION_SUCCESS`](@ref) with 0 points.
+
+# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if b or num\\_points is null * [`SPIR_NOT_SUPPORTED`](@ref) (-5) if the basis functions have no definite parity, as for a basis built on an SVE from [`spir_sve_result_from_matrix`](@ref) (not centrosymmetric): the default Matsubara sampling points are chosen by the parity of a basis function and are not defined then. Nothing is written. * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
 """
 function spir_basis_get_n_default_matsus(b, positive_only, num_points)
     ccall((:spir_basis_get_n_default_matsus, libsparseir), StatusCode, (Ptr{spir_basis}, Bool, Ptr{Cint}), b, positive_only, num_points)
@@ -266,9 +278,11 @@ end
 
 Get default Matsubara sampling points
 
-# Arguments * `b` - Basis object * `positive_only` - If true, return only positive frequencies * `points` - Pre-allocated array to store Matsubara indices
+# Arguments * `b` - Basis object * `positive_only` - If true, return only non-negative frequencies (n ≥ 0; bosonic sets include n = 0) * `points` - Pre-allocated array to store the reduced Matsubara frequencies n (iν = iπn/β)
 
-# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if b or points is null * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
+A DLR has no default Matsubara sampling points: for a DLR this returns [`SPIR_COMPUTATION_SUCCESS`](@ref) with 0 points and writes nothing.
+
+# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if b or points is null * [`SPIR_NOT_SUPPORTED`](@ref) (-5) if the basis functions have no definite parity, as for a basis built on an SVE from [`spir_sve_result_from_matrix`](@ref) (not centrosymmetric): the default Matsubara sampling points are chosen by the parity of a basis function and are not defined then. Nothing is written. * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
 """
 function spir_basis_get_default_matsus(b, positive_only, points)
     ccall((:spir_basis_get_default_matsus, libsparseir), StatusCode, (Ptr{spir_basis}, Bool, Ptr{Int64}), b, positive_only, points)
@@ -311,7 +325,7 @@ Gets the number of default omega (real frequency) sampling points
 
 # Arguments * `b` - Pointer to the finite temperature basis object * `num_points` - Pointer to store the number of sampling points
 
-# Returns Status code ([`SPIR_COMPUTATION_SUCCESS`](@ref) on success)
+# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if b or num\\_points is null * [`SPIR_NOT_SUPPORTED`](@ref) (-5) if the default points are not defined for `b`: its SVE has so few singular functions that the last v has no extrema to stand in for the roots of the missing one. Nothing is written. * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
 
 # Safety The caller must ensure that `b` and `num_points` are valid pointers
 """
@@ -326,7 +340,7 @@ Gets the default omega (real frequency) sampling points
 
 # Arguments * `b` - Pointer to the finite temperature basis object * `points` - Pre-allocated array to store the omega sampling points
 
-# Returns Status code ([`SPIR_COMPUTATION_SUCCESS`](@ref) on success)
+# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if b or points is null * [`SPIR_NOT_SUPPORTED`](@ref) (-5) if the default points are not defined for `b`: its SVE has so few singular functions that the last v has no extrema to stand in for the roots of the missing one. Nothing is written. * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
 
 # Safety The caller must ensure that `points` has size >= `[`spir_basis_get_n_default_ws`](@ref)(b)`
 """
@@ -375,7 +389,9 @@ Get default tau sampling points with custom limit (extended version)
 
 # Arguments * `b` - Basis object * `n_points` - Maximum number of points requested * `points` - Pre-allocated array to store tau points (size >= n\\_points) * `n_points_returned` - Pointer to store actual number of points returned
 
-# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if any pointer is null or n\\_points < 0 * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
+A DLR has no default τ sampling points: for a DLR this returns [`SPIR_COMPUTATION_SUCCESS`](@ref) with 0 points and writes nothing.
+
+# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if any pointer is null or n\\_points < 0 * [`SPIR_NOT_SUPPORTED`](@ref) (-5) if `n_points` is at least the number of singular functions of the SVE of `b` and the default points are not defined for it: the last singular function has no extrema to stand in for the roots of the missing one (e.g. an SVE from [`spir_sve_result_truncate`](@ref) with `max\\_size = 2`). Nothing is written. * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
 
 # Note Returns min(n\\_points, actual\\_default\\_points) sampling points
 """
@@ -384,33 +400,37 @@ function spir_basis_get_default_taus_ext(b, n_points, points, n_points_returned)
 end
 
 """
-    spir_basis_get_n_default_matsus_ext(b, positive_only, mitigate, L, num_points_returned)
+    spir_basis_get_n_default_matsus_ext(b, positive_only, fence, basis_size, n_points_total)
 
-Get number of default Matsubara sampling points with custom limit (extended version)
+Get the number of default Matsubara sampling points for a given basis size (extended version)
 
-# Arguments * `b` - Basis object * `positive_only` - If true, return only positive frequencies * `mitigate` - If true, enable mitigation (fencing) to improve conditioning * `L` - Requested number of sampling points * `num_points_returned` - Pointer to store actual number of points
+# Arguments * `b` - Basis object * `positive_only` - If true, return only non-negative frequencies * `fence` - If true, add fencing points to improve conditioning * `basis_size` - Size of the basis the points are chosen for. When sampling an augmented basis, pass the augmented size; it may differ from the size of `b`. * `n_points_total` - Pointer to store the number of sampling points
 
-# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if any pointer is null or L < 0 * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
+A DLR has no default Matsubara sampling points: for a DLR this returns [`SPIR_COMPUTATION_SUCCESS`](@ref) with 0 points.
 
-# Note Returns the actual number of points that will be returned by [`spir_basis_get_default_matsus_ext`](@ref) with the same parameters. When mitigate is true, may return more points than requested due to fencing.
+# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if `b` or `n_points_total` is null, or `basis\\_size < 0` * [`SPIR_NOT_SUPPORTED`](@ref) (-5) if the basis functions have no definite parity, as for a basis built on an SVE from [`spir_sve_result_from_matrix`](@ref) (not centrosymmetric): the default Matsubara sampling points are chosen by the parity of a basis function and are not defined then. Nothing is written. * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
+
+# Note The count generally differs from `basis_size`: the parity adjustment, `fence` and `positive_only` all change it. Pass it as `points_capacity` to [`spir_basis_get_default_matsus_ext`](@ref) with the same `positive_only`, `fence` and `basis_size`.
 """
-function spir_basis_get_n_default_matsus_ext(b, positive_only, mitigate, L, num_points_returned)
-    ccall((:spir_basis_get_n_default_matsus_ext, libsparseir), StatusCode, (Ptr{spir_basis}, Bool, Bool, Cint, Ptr{Cint}), b, positive_only, mitigate, L, num_points_returned)
+function spir_basis_get_n_default_matsus_ext(b, positive_only, fence, basis_size, n_points_total)
+    ccall((:spir_basis_get_n_default_matsus_ext, libsparseir), StatusCode, (Ptr{spir_basis}, Bool, Bool, Cint, Ptr{Cint}), b, positive_only, fence, basis_size, n_points_total)
 end
 
 """
-    spir_basis_get_default_matsus_ext(b, positive_only, mitigate, n_points, points, n_points_returned)
+    spir_basis_get_default_matsus_ext(b, positive_only, fence, basis_size, points_capacity, points, n_points_total)
 
-Get default Matsubara sampling points with custom limit (extended version)
+Get default Matsubara sampling points for a given basis size (extended version)
 
-# Arguments * `b` - Basis object * `positive_only` - If true, return only positive frequencies * `mitigate` - If true, enable mitigation (fencing) to improve conditioning * `n_points` - Maximum number of points requested * `points` - Pre-allocated array to store Matsubara indices (size >= n\\_points) * `n_points_returned` - Pointer to store actual number of points returned
+# Arguments * `b` - Basis object * `positive_only` - If true, return only non-negative frequencies * `fence` - If true, add fencing points to improve conditioning * `basis_size` - Size of the basis the points are chosen for. When sampling an augmented basis, pass the augmented size; it may differ from the size of `b`. * `points_capacity` - Number of elements `points` can hold * `points` - Buffer for the Matsubara indices, or NULL to query the number of points only * `n_points_total` - Pointer to store the number of sampling points
 
-# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if any pointer is null or n\\_points < 0 * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
+A DLR has no default Matsubara sampling points: for a DLR this returns [`SPIR_COMPUTATION_SUCCESS`](@ref) with 0 points and writes nothing.
 
-# Note Returns the actual number of sampling points (may be more than n\\_points when mitigate is true due to fencing). The caller should call [`spir_basis_get_n_default_matsus_ext`](@ref) with the same parameters first to determine the required buffer size.
+# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success, including a count query (`points` is NULL, `points_capacity` is ignored) * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if `b` or `n_points_total` is null, or `basis_size` or `points_capacity` is negative; nothing is written * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if `points_capacity` is smaller than the number of points; `points` is left untouched and `*n\\_points\\_total` is set to the required number * [`SPIR_NOT_SUPPORTED`](@ref) (-5) if the basis functions have no definite parity, as for a basis built on an SVE from [`spir_sve_result_from_matrix`](@ref) (not centrosymmetric): the default Matsubara sampling points are chosen by the parity of a basis function and are not defined then. Nothing is written. * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
+
+# Note The point set depends only on `positive_only`, `fence` and `basis_size`. `points_capacity` never changes it, and the output is never truncated.
 """
-function spir_basis_get_default_matsus_ext(b, positive_only, mitigate, n_points, points, n_points_returned)
-    ccall((:spir_basis_get_default_matsus_ext, libsparseir), StatusCode, (Ptr{spir_basis}, Bool, Bool, Cint, Ptr{Int64}, Ptr{Cint}), b, positive_only, mitigate, n_points, points, n_points_returned)
+function spir_basis_get_default_matsus_ext(b, positive_only, fence, basis_size, points_capacity, points, n_points_total)
+    ccall((:spir_basis_get_default_matsus_ext, libsparseir), StatusCode, (Ptr{spir_basis}, Bool, Bool, Cint, Cint, Ptr{Int64}, Ptr{Cint}), b, positive_only, fence, basis_size, points_capacity, points, n_points_total)
 end
 
 """
@@ -418,9 +438,11 @@ end
 
 Creates a new DLR from an IR basis with default poles
 
-# Arguments * `b` - Pointer to a finite temperature basis object * `status` - Pointer to store the status code
+The default poles are the default real-frequency sampling points of `b` (see [`spir_basis_get_default_ws`](@ref)).
 
-# Returns Pointer to the newly created DLR basis object, or NULL if creation fails
+# Arguments * `b` - Pointer to a finite temperature (IR) basis object * `status` - Pointer to store the status code (may be NULL, in which case no status is written)
+
+# Returns * Pointer to the newly created DLR basis object, or NULL on failure. The caller owns it and must release it with [`spir_basis_release`](@ref). * Status code: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if `b` is NULL or already a DLR, or if `b` has fewer default poles than basis functions ([`spir_basis_get_n_default_ws`](@ref) < [`spir_basis_get_size`](@ref)). Root finding can lose poles, e.g. for `RegularizedBoseKernel` at large lambda; pass the poles explicitly with [`spir_dlr_new_with_poles`](@ref) instead. - [`SPIR_NOT_SUPPORTED`](@ref) (-5) if the kernel of `b` does not support its statistics (`RegularizedBoseKernel` with fermionic statistics; the basis constructors already reject this combination), or the default poles of `b` are not defined (see [`spir_basis_get_default_ws`](@ref)) - [`SPIR_INTERNAL_ERROR`](@ref) (-7) if an internal panic occurs
 
 # Safety Caller must ensure `b` is a valid IR basis pointer
 """
@@ -433,9 +455,11 @@ end
 
 Creates a new DLR with custom poles
 
-# Arguments * `b` - Pointer to a finite temperature basis object * `npoles` - Number of poles to use * `poles` - Array of pole locations on the real-frequency axis * `status` - Pointer to store the status code
+# Arguments * `b` - Pointer to a finite temperature (IR) basis object * `npoles` - Number of poles to use (must be > 0) * `poles` - Array of `npoles` pole locations in [-omega\\_max, omega\\_max] of `b` * `status` - Pointer to store the status code (may be NULL, in which case no status is written)
 
-# Returns Pointer to the newly created DLR basis object, or NULL if creation fails
+# Returns * Pointer to the newly created DLR basis object, or NULL on failure. The caller owns it and must release it with [`spir_basis_release`](@ref). * Status code: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if `b` or `poles` is NULL, `npoles <= 0`, or `b` is already a DLR, or a pole is outside [-omega\\_max, omega\\_max] of `b` or not finite - [`SPIR_NOT_SUPPORTED`](@ref) (-5) if the kernel of `b` does not support its statistics (`RegularizedBoseKernel` with fermionic statistics). The basis constructors already reject this combination. - [`SPIR_INTERNAL_ERROR`](@ref) (-7) if an internal panic occurs
+
+Duplicate poles are accepted. They make [`spir_ir2dlr_dd`](@ref) and [`spir_ir2dlr_zz`](@ref) ill-conditioned: the coefficients of equal poles are not unique, although the round trip through [`spir_dlr2ir_dd`](@ref) / [`spir_dlr2ir_zz`](@ref) still recovers the IR coefficients.
 
 # Safety Caller must ensure `b` is valid and `poles` has `npoles` elements
 """
@@ -478,9 +502,11 @@ end
 
 Convert IR coefficients to DLR (real-valued)
 
-# Arguments * `dlr` - Pointer to a DLR basis object * `order` - Memory layout order * `ndim` - Number of dimensions * `input_dims` - Array of input dimensions * `target_dim` - Dimension to transform * `input` - IR coefficients * `out` - Output DLR coefficients
+# Arguments * `dlr` - Pointer to a DLR basis object * `order` - Memory layout order * `ndim` - Number of dimensions * `input_dims` - Array of `ndim` input dimensions, each of which must be positive * `target_dim` - Dimension to transform * `input` - IR coefficients * `out` - Output DLR coefficients
 
-# Returns Status code
+# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) on success * [`SPIR_INVALID_ARGUMENT`](@ref) if `dlr`, `input_dims`, `input` or `out` is null, `order` is invalid, `ndim < 1`, or `target_dim` is not in `[0, ndim)` * [`SPIR_INVALID_DIMENSION`](@ref) if an element of `input_dims` is zero or negative, or the input or output array is too large to be addressed * [`SPIR_INPUT_DIMENSION_MISMATCH`](@ref) if `input\\_dims[target\\_dim]` is not the size of the IR basis of `dlr` * [`SPIR_NOT_SUPPORTED`](@ref) if `dlr` is not a DLR basis * [`SPIR_INTERNAL_ERROR`](@ref) if an internal panic occurs
+
+`input_dims` is validated before `input` or `out` is accessed.
 
 # Safety Caller must ensure pointers are valid and arrays have correct sizes
 """
@@ -493,9 +519,11 @@ end
 
 Convert IR coefficients to DLR (complex-valued)
 
-# Arguments * `dlr` - Pointer to a DLR basis object * `order` - Memory layout order * `ndim` - Number of dimensions * `input_dims` - Array of input dimensions * `target_dim` - Dimension to transform * `input` - Complex IR coefficients * `out` - Output complex DLR coefficients
+# Arguments * `dlr` - Pointer to a DLR basis object * `order` - Memory layout order * `ndim` - Number of dimensions * `input_dims` - Array of `ndim` input dimensions, each of which must be positive * `target_dim` - Dimension to transform * `input` - Complex IR coefficients * `out` - Output complex DLR coefficients
 
-# Returns Status code
+# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) on success * [`SPIR_INVALID_ARGUMENT`](@ref) if `dlr`, `input_dims`, `input` or `out` is null, `order` is invalid, `ndim < 1`, or `target_dim` is not in `[0, ndim)` * [`SPIR_INVALID_DIMENSION`](@ref) if an element of `input_dims` is zero or negative, or the input or output array is too large to be addressed * [`SPIR_INPUT_DIMENSION_MISMATCH`](@ref) if `input\\_dims[target\\_dim]` is not the size of the IR basis of `dlr` * [`SPIR_NOT_SUPPORTED`](@ref) if `dlr` is not a DLR basis * [`SPIR_INTERNAL_ERROR`](@ref) if an internal panic occurs
+
+`input_dims` is validated before `input` or `out` is accessed.
 
 # Safety Caller must ensure pointers are valid and arrays have correct sizes
 """
@@ -508,9 +536,11 @@ end
 
 Convert DLR coefficients to IR (real-valued)
 
-# Arguments * `dlr` - Pointer to a DLR basis object * `order` - Memory layout order * `ndim` - Number of dimensions * `input_dims` - Array of input dimensions * `target_dim` - Dimension to transform * `input` - DLR coefficients * `out` - Output IR coefficients
+# Arguments * `dlr` - Pointer to a DLR basis object * `order` - Memory layout order * `ndim` - Number of dimensions * `input_dims` - Array of `ndim` input dimensions, each of which must be positive * `target_dim` - Dimension to transform * `input` - DLR coefficients * `out` - Output IR coefficients
 
-# Returns Status code
+# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) on success * [`SPIR_INVALID_ARGUMENT`](@ref) if `dlr`, `input_dims`, `input` or `out` is null, `order` is invalid, `ndim < 1`, or `target_dim` is not in `[0, ndim)` * [`SPIR_INVALID_DIMENSION`](@ref) if an element of `input_dims` is zero or negative, or the input or output array is too large to be addressed * [`SPIR_INPUT_DIMENSION_MISMATCH`](@ref) if `input\\_dims[target\\_dim]` is not the number of poles of `dlr` ([`spir_dlr_get_npoles`](@ref)) * [`SPIR_NOT_SUPPORTED`](@ref) if `dlr` is not a DLR basis * [`SPIR_INTERNAL_ERROR`](@ref) if an internal panic occurs
+
+`input_dims` is validated before `input` or `out` is accessed.
 
 # Safety Caller must ensure pointers are valid and arrays have correct sizes
 """
@@ -523,9 +553,11 @@ end
 
 Convert DLR coefficients to IR (complex-valued)
 
-# Arguments * `dlr` - Pointer to a DLR basis object * `order` - Memory layout order * `ndim` - Number of dimensions * `input_dims` - Array of input dimensions * `target_dim` - Dimension to transform * `input` - Complex DLR coefficients * `out` - Output complex IR coefficients
+# Arguments * `dlr` - Pointer to a DLR basis object * `order` - Memory layout order * `ndim` - Number of dimensions * `input_dims` - Array of `ndim` input dimensions, each of which must be positive * `target_dim` - Dimension to transform * `input` - Complex DLR coefficients * `out` - Output complex IR coefficients
 
-# Returns Status code
+# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) on success * [`SPIR_INVALID_ARGUMENT`](@ref) if `dlr`, `input_dims`, `input` or `out` is null, `order` is invalid, `ndim < 1`, or `target_dim` is not in `[0, ndim)` * [`SPIR_INVALID_DIMENSION`](@ref) if an element of `input_dims` is zero or negative, or the input or output array is too large to be addressed * [`SPIR_INPUT_DIMENSION_MISMATCH`](@ref) if `input\\_dims[target\\_dim]` is not the number of poles of `dlr` ([`spir_dlr_get_npoles`](@ref)) * [`SPIR_NOT_SUPPORTED`](@ref) if `dlr` is not a DLR basis * [`SPIR_INTERNAL_ERROR`](@ref) if an internal panic occurs
+
+`input_dims` is validated before `input` or `out` is accessed.
 
 # Safety Caller must ensure pointers are valid and arrays have correct sizes
 """
@@ -554,7 +586,11 @@ end
 """
     spir_funcs_is_assigned(obj)
 
-Manual is\\_assigned function (replaces macro-generated one)
+Check if the funcs pointer is non-null.
+
+Note: This only performs a null check. It cannot detect dangling pointers; dereferencing an arbitrary non-null pointer would be undefined behaviour that `catch_unwind` cannot reliably catch.
+
+# Returns 1 if the pointer is non-null, 0 otherwise
 """
 function spir_funcs_is_assigned(obj)
     ccall((:spir_funcs_is_assigned, libsparseir), Int32, (Ptr{spir_funcs},), obj)
@@ -584,9 +620,11 @@ Create a [`spir_funcs`](@ref) object from piecewise Legendre polynomial coeffici
 
 Constructs a continuous function object from segments and Legendre polynomial expansion coefficients. The coefficients are organized per segment, with each segment containing nfuncs coefficients (degrees 0 to nfuncs-1).
 
-# Arguments * `segments` - Array of segment boundaries (n\\_segments+1 elements). Must be monotonically increasing. * `n_segments` - Number of segments (must be >= 1) * `coeffs` - Array of Legendre coefficients. Layout: contiguous per segment, coefficients for segment i are stored at indices [i*nfuncs, (i+1)*nfuncs). Each segment has nfuncs coefficients for Legendre degrees 0 to nfuncs-1. * `nfuncs` - Number of basis functions per segment (Legendre polynomial degrees 0 to nfuncs-1) * `order` - Order parameter (currently unused, reserved for future use) * `status` - Pointer to store the status code
+# Arguments * `segments` - Array of the `n\\_segments + 1` segment boundaries: finite and strictly increasing, with every segment length `segments[i + 1] - segments[i]` a normal double (finite and at least `DBL_MIN`) * `n_segments` - Number of segments (must be >= 1) * `coeffs` - Array of Legendre coefficients. Layout: contiguous per segment, coefficients for segment i are stored at indices [i*nfuncs, (i+1)*nfuncs). Each segment has nfuncs coefficients for Legendre degrees 0 to nfuncs-1. * `nfuncs` - Number of basis functions per segment (Legendre polynomial degrees 0 to nfuncs-1) * `order` - Order parameter (currently unused, reserved for future use) * `status` - Pointer to store the status code
 
-# Returns Pointer to the newly created funcs object, or NULL if creation fails
+# Returns Pointer to the newly created funcs object, or NULL if creation fails. If `status` is non-NULL, `*status` is set to: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - [`SPIR_INVALID_ARGUMENT`](@ref) if `segments` or `coeffs` is NULL, `n_segments` or `nfuncs` < 1, or `segments` does not meet the conditions above - [`SPIR_INVALID_DIMENSION`](@ref) if `n_segments` is `INT_MAX` (the number of knots, `n\\_segments + 1`, must fit in an `int`), or `segments` or `coeffs` is too large to be addressed - [`SPIR_INTERNAL_ERROR`](@ref) if an internal error occurs
+
+Nothing is written when `status` is NULL. The sizes are validated before `segments` or `coeffs` is read.
 
 # Note The function creates a single piecewise Legendre polynomial function. To create multiple functions, call this function multiple times.
 """
@@ -599,11 +637,15 @@ end
 
 Extract a subset of functions by indices
 
-# Arguments * `funcs` - Pointer to the source funcs object * `nslice` - Number of functions to select (length of indices array) * `indices` - Array of indices specifying which functions to include * `status` - Pointer to store the status code
+The new object holds the selected functions in the order given by `indices`, for every function type (τ, ω, Matsubara and DLR functions).
 
-# Returns Pointer to a new funcs object containing only the selected functions, or null on error
+# Arguments * `funcs` - Pointer to the source funcs object * `nslice` - Number of functions to select (length of `indices`), at least 1 * `indices` - Array of `nslice` distinct 0-based indices, each in `[0, size)` where `size` is given by `[`spir_funcs_get_size`](@ref)(funcs)` * `status` - Pointer to store the status code
 
-# Safety The caller must ensure that `funcs` and `indices` are valid pointers. The returned pointer must be freed with `[`spir_funcs_release`](@ref)()`.
+# Returns Pointer to a new funcs object containing only the selected functions, or NULL on error. `*status` is set to: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - [`SPIR_INVALID_ARGUMENT`](@ref) if `funcs` or `indices` is NULL, if `nslice` < 1 (an empty selection is rejected for every function type), or if an index is negative, not less than `size`, or repeated - [`SPIR_INTERNAL_ERROR`](@ref) if an internal error occurs
+
+Nothing is written when `status` is NULL.
+
+# Safety The caller must ensure that `funcs` and `indices` are valid pointers and that `indices` holds at least `nslice` elements. The returned pointer must be freed with `[`spir_funcs_release`](@ref)()`.
 """
 function spir_funcs_get_slice(funcs, nslice, indices, status)
     ccall((:spir_funcs_get_slice, libsparseir), Ptr{spir_funcs}, (Ptr{spir_funcs}, Int32, Ptr{Int32}, Ptr{StatusCode}), funcs, nslice, indices, status)
@@ -655,9 +697,11 @@ end
 
 Evaluate functions at a single point (continuous functions only)
 
-# Arguments * `funcs` - Pointer to the funcs object * `x` - Point to evaluate at (tau coordinate in [-1, 1]) * `out` - Pre-allocated array to store function values
+The valid points depend on the functions: - τ functions (`u` of an IR or DLR basis, and their slices and derivatives): τ ∈ [-β, β]. A negative τ is folded onto [0, β] by the (anti)periodicity: u(τ) = -u(τ + β) for fermions and u(τ) = u(τ + β) for bosons. τ = +0.0 is read as 0⁺, τ = β as β⁻, τ = -β as (-β)⁺ (folded onto 0⁺), and τ = -0.0 as 0⁻ (folded onto β⁻). - ω functions (`v` of an IR basis, and functions from [`spir_funcs_from_piecewise_legendre`](@ref)): ω from the first to the last knot (see [`spir_funcs_get_knots`](@ref)), i.e. ω ∈ [-ωmax, ωmax] for `v`.
 
-# Returns Status code ([`SPIR_COMPUTATION_SUCCESS`](@ref) on success, [`SPIR_NOT_SUPPORTED`](@ref) if not continuous)
+# Arguments * `funcs` - Pointer to the funcs object * `x` - Point to evaluate at: τ or ω in the domain above * `out` - Pre-allocated array to store function values
+
+# Returns Status code: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - [`SPIR_INVALID_ARGUMENT`](@ref) if `funcs` or `out` is NULL, or `x` is NaN, infinite or outside the domain; `out` is not written - [`SPIR_NOT_SUPPORTED`](@ref) if `funcs` holds Matsubara-frequency functions - [`SPIR_INTERNAL_ERROR`](@ref) if an internal error occurs
 
 # Safety The caller must ensure that `out` has size >= `[`spir_funcs_get_size`](@ref)(funcs)`
 """
@@ -670,9 +714,9 @@ end
 
 Evaluate functions at a single Matsubara frequency
 
-# Arguments * `funcs` - Pointer to the funcs object * `n` - Matsubara frequency index * `out` - Pre-allocated array to store complex function values
+# Arguments * `funcs` - Pointer to the funcs object * `n` - Reduced Matsubara frequency n (iν = iπn/β): odd for fermionic, even for bosonic functions * `out` - Pre-allocated array to store complex function values
 
-# Returns Status code ([`SPIR_COMPUTATION_SUCCESS`](@ref) on success, [`SPIR_NOT_SUPPORTED`](@ref) if not Matsubara type)
+# Returns Status code: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - [`SPIR_INVALID_ARGUMENT`](@ref) if `funcs` or `out` is NULL, or `n` has the wrong parity for the statistics of `funcs`; `out` is not written - [`SPIR_NOT_SUPPORTED`](@ref) if `funcs` does not hold Matsubara-frequency functions - [`SPIR_INTERNAL_ERROR`](@ref) if an internal error occurs
 
 # Safety The caller must ensure that `out` has size >= `[`spir_funcs_get_size`](@ref)(funcs)` Complex numbers are laid out as [real, imag] pairs
 """
@@ -685,9 +729,11 @@ end
 
 Batch evaluate functions at multiple points (continuous functions only)
 
-# Arguments * `funcs` - Pointer to the funcs object * `order` - Memory layout: 0 for row-major, 1 for column-major * `num_points` - Number of evaluation points * `xs` - Array of points to evaluate at * `out` - Pre-allocated array to store results
+Every point must lie in the domain described for [`spir_funcs_eval`](@ref).
 
-# Returns Status code ([`SPIR_COMPUTATION_SUCCESS`](@ref) on success, [`SPIR_NOT_SUPPORTED`](@ref) if not continuous)
+# Arguments * `funcs` - Pointer to the funcs object * `order` - Memory layout of `out`: [`SPIR_ORDER_ROW_MAJOR`](@ref) (0) or [`SPIR_ORDER_COLUMN_MAJOR`](@ref) (1) * `num_points` - Number of evaluation points * `xs` - Array of points to evaluate at, in the units and domain of `x` in [`spir_funcs_eval`](@ref) * `out` - Pre-allocated array to store results
+
+# Returns Status code: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - [`SPIR_INVALID_ARGUMENT`](@ref) if `funcs`, `xs` or `out` is NULL, `num_points` <= 0, `order` is not one of the constants above, or any point is NaN, infinite or outside the domain; `out` is not written - [`SPIR_NOT_SUPPORTED`](@ref) if `funcs` holds Matsubara-frequency functions - [`SPIR_INTERNAL_ERROR`](@ref) if an internal error occurs
 
 # Safety - `xs` must have size >= `num_points` - `out` must have size >= `num\\_points * [`spir_funcs_get_size`](@ref)(funcs)` - Layout: row-major = out\\[point\\]\\[func\\], column-major = out\\[func\\]\\[point\\]
 """
@@ -700,9 +746,9 @@ end
 
 Batch evaluate functions at multiple Matsubara frequencies
 
-# Arguments * `funcs` - Pointer to the funcs object * `order` - Memory layout: 0 for row-major, 1 for column-major * `num_freqs` - Number of Matsubara frequencies * `ns` - Array of Matsubara frequency indices * `out` - Pre-allocated array to store complex results
+# Arguments * `funcs` - Pointer to the funcs object * `order` - Memory layout of `out`: [`SPIR_ORDER_ROW_MAJOR`](@ref) (0) or [`SPIR_ORDER_COLUMN_MAJOR`](@ref) (1) * `num_freqs` - Number of Matsubara frequencies * `ns` - Array of reduced Matsubara frequencies n (iν = iπn/β): odd for fermionic, even for bosonic functions * `out` - Pre-allocated array to store complex results
 
-# Returns Status code ([`SPIR_COMPUTATION_SUCCESS`](@ref) on success, [`SPIR_NOT_SUPPORTED`](@ref) if not Matsubara type)
+# Returns Status code: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - [`SPIR_INVALID_ARGUMENT`](@ref) if `funcs`, `ns` or `out` is NULL, `num_freqs` <= 0, `order` is not one of the constants above, or any index has the wrong parity for the statistics of `funcs`; `out` is not written - [`SPIR_NOT_SUPPORTED`](@ref) if `funcs` does not hold Matsubara-frequency functions - [`SPIR_INTERNAL_ERROR`](@ref) if an internal error occurs
 
 # Safety - `ns` must have size >= `num_freqs` - `out` must have size >= `num\\_freqs * [`spir_funcs_get_size`](@ref)(funcs)` - Complex numbers are laid out as [real, imag] pairs - Layout: row-major = out\\[freq\\]\\[func\\], column-major = out\\[func\\]\\[freq\\]
 """
@@ -711,24 +757,22 @@ function spir_funcs_batch_eval_matsu(funcs, order, num_freqs, ns, out)
 end
 
 """
-    spir_uhat_get_default_matsus(uhat, l, positive_only, mitigate, points, n_points_returned)
+    spir_uhat_get_default_matsus(uhat, positive_only, fence, basis_size, points_capacity, points, n_points_total)
 
 Get default Matsubara sampling points from a Matsubara-space [`spir_funcs`](@ref)
 
-This function computes default sampling points in Matsubara frequencies (iωn) from a [`spir_funcs`](@ref) object that represents Matsubara-space basis functions (e.g., uhat or uhat\\_full). The statistics type (Fermionic/Bosonic) is automatically detected from the [`spir_funcs`](@ref) object type.
+This function computes default sampling points in Matsubara frequencies (iν) from a [`spir_funcs`](@ref) object that represents Matsubara-space basis functions (e.g., uhat or uhat\\_full). The statistics type (Fermionic/Bosonic) is automatically detected from the [`spir_funcs`](@ref) object type.
 
-This extracts the PiecewiseLegendreFTVector from [`spir_funcs`](@ref) and calls `FiniteTempBasis::default\\_matsubara\\_sampling\\_points\\_impl` from `basis.rs` (lines 332-387) to compute default sampling points.
+This extracts the PiecewiseLegendreFTVector from [`spir_funcs`](@ref) and calls `sparse\\_ir::basis::default\\_matsubara\\_sampling\\_points\\_from\\_uhat` to compute default sampling points: the sign changes of the first discarded Matsubara basis function (its extrema when that function is not available); bosonic sets always include n = 0.
 
-The implementation uses the same algorithm as defined in `sparseir-rust/src/basis.rs`, which selects sampling points based on sign changes or extrema of the Matsubara basis functions.
+# Arguments * `uhat` - Pointer to a [`spir_funcs`](@ref) object representing Matsubara-space basis functions * `positive_only` - If true, return only non-negative frequencies * `fence` - If true, add fencing points to improve conditioning * `basis_size` - Size of the basis the points are chosen for * `points_capacity` - Number of elements `points` can hold * `points` - Buffer for the Matsubara indices, or NULL to query the number of points only * `n_points_total` - Pointer to store the number of sampling points
 
-# Arguments * `uhat` - Pointer to a [`spir_funcs`](@ref) object representing Matsubara-space basis functions * `l` - Number of requested sampling points * `positive_only` - If true, only positive frequencies are used * `mitigate` - If true, enable mitigation (fencing) to improve conditioning by adding oversampling points * `points` - Pre-allocated array to store the sampling points. The size of the array must be sufficient for the returned points (may exceed L if mitigate is true). * `n_points_returned` - Pointer to store the number of sampling points returned (may exceed L if mitigate is true, or approximately L/2 when positive\\_only=true).
+# Returns Status code: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success, including a count query (`points` is NULL, `points_capacity` is ignored) - [`SPIR_INVALID_ARGUMENT`](@ref) if uhat or n\\_points\\_total is null, or basis\\_size or points\\_capacity is negative; nothing is written - [`SPIR_INVALID_ARGUMENT`](@ref) if points\\_capacity is smaller than the number of points; `points` is left untouched and `*n\\_points\\_total` is set to the required number - [`SPIR_NOT_SUPPORTED`](@ref) if uhat is not a Matsubara-space function, or if its functions have no definite parity, as those of a basis built on an SVE from [`spir_sve_result_from_matrix`](@ref) (not centrosymmetric): the default points are chosen by the parity of a basis function and are not defined then. Nothing is written.
 
-# Returns Status code: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - [`SPIR_INVALID_ARGUMENT`](@ref) if uhat, points, or n\\_points\\_returned is null - [`SPIR_NOT_SUPPORTED`](@ref) if uhat is not a Matsubara-space function
-
-# Note This function is only available for [`spir_funcs`](@ref) objects representing Matsubara-space basis functions The statistics type is automatically detected from the [`spir_funcs`](@ref) object type The default sampling points are chosen to provide near-optimal conditioning
+# Note This function is only available for [`spir_funcs`](@ref) objects representing Matsubara-space basis functions The statistics type is automatically detected from the [`spir_funcs`](@ref) object type The default sampling points are chosen to provide near-optimal conditioning The number of points generally differs from `basis_size`: the parity adjustment, `fence` and `positive_only` all change it. The point set never depends on `points_capacity`, and the output is never truncated.
 """
-function spir_uhat_get_default_matsus(uhat, l, positive_only, mitigate, points, n_points_returned)
-    ccall((:spir_uhat_get_default_matsus, libsparseir), StatusCode, (Ptr{spir_funcs}, Cint, Bool, Bool, Ptr{Int64}, Ptr{Cint}), uhat, l, positive_only, mitigate, points, n_points_returned)
+function spir_uhat_get_default_matsus(uhat, positive_only, fence, basis_size, points_capacity, points, n_points_total)
+    ccall((:spir_uhat_get_default_matsus, libsparseir), StatusCode, (Ptr{spir_funcs}, Bool, Bool, Cint, Cint, Ptr{Int64}, Ptr{Cint}), uhat, positive_only, fence, basis_size, points_capacity, points, n_points_total)
 end
 
 """
@@ -806,6 +850,8 @@ end
 
 Create a new RegularizedBose kernel
 
+# Deprecated Use [`spir_logistic_kernel_new`](@ref), the default kernel for both statistics. `RegularizedBoseKernel` will be removed in a future release (https://github.com/SpM-lab/sparse-ir-rs/issues/273).
+
 # Arguments * `lambda` - The kernel parameter Λ = β * ωmax (must be > 0) * `status` - Pointer to store the status code
 
 # Returns * Pointer to the newly created kernel object, or NULL if creation fails
@@ -863,7 +909,11 @@ end
 """
     spir_kernel_is_assigned(obj)
 
-Manual is\\_assigned function (replaces macro-generated one)
+Check if the kernel pointer is non-null.
+
+Note: This only performs a null check. It cannot detect dangling pointers; dereferencing an arbitrary non-null pointer would be undefined behaviour that `catch_unwind` cannot reliably catch.
+
+# Returns 1 if the pointer is non-null, 0 otherwise
 """
 function spir_kernel_is_assigned(obj)
     ccall((:spir_kernel_is_assigned, libsparseir), Int32, (Ptr{spir_kernel},), obj)
@@ -887,9 +937,9 @@ end
 
 Get x-segments for SVE discretization hints from a kernel
 
-This function should be called twice: 1. First call with segments=NULL: set n\\_segments to the required array size 2. Second call with segments allocated: fill segments[0..n\\_segments-1] with values
+This function should be called twice: 1. First call with segments=NULL: sets `*n\\_segments` to the number of segment intervals. 2. Second call with segments allocated: fills `segments[0..n\\_segments]` with boundary points (`n\\_segments + 1` values total). The caller must allocate at least `n\\_segments + 1` elements.
 
-# Arguments * `k` - Kernel object * `epsilon` - Accuracy target for the basis * `segments` - Pointer to store segments array (NULL for first call) * `n_segments` - [IN/OUT] Input: ignored when segments is NULL. Output: number of segments
+# Arguments * `k` - Kernel object * `epsilon` - Accuracy target for the basis * `segments` - Pointer to store segments array (NULL for first call) * `n_segments` - [IN/OUT] Input: ignored when segments is NULL. Output: number of segment intervals
 
 # Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) on success * [`SPIR_INVALID_ARGUMENT`](@ref) if k or n\\_segments is null, or segments array is too small * [`SPIR_INTERNAL_ERROR`](@ref) if internal panic occurs
 """
@@ -902,9 +952,9 @@ end
 
 Get y-segments for SVE discretization hints from a kernel
 
-This function should be called twice: 1. First call with segments=NULL: set n\\_segments to the required array size 2. Second call with segments allocated: fill segments[0..n\\_segments-1] with values
+This function should be called twice: 1. First call with segments=NULL: sets `*n\\_segments` to the number of segment intervals. 2. Second call with segments allocated: fills `segments[0..n\\_segments]` with boundary points (`n\\_segments + 1` values total). The caller must allocate at least `n\\_segments + 1` elements.
 
-# Arguments * `k` - Kernel object * `epsilon` - Accuracy target for the basis * `segments` - Pointer to store segments array (NULL for first call) * `n_segments` - [IN/OUT] Input: ignored when segments is NULL. Output: number of segments
+# Arguments * `k` - Kernel object * `epsilon` - Accuracy target for the basis * `segments` - Pointer to store segments array (NULL for first call) * `n_segments` - [IN/OUT] Input: ignored when segments is NULL. Output: number of segment intervals
 
 # Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) on success * [`SPIR_INVALID_ARGUMENT`](@ref) if k or n\\_segments is null, or segments array is too small * [`SPIR_INTERNAL_ERROR`](@ref) if internal panic occurs
 """
@@ -959,7 +1009,11 @@ end
 """
     spir_sampling_is_assigned(obj)
 
-Manual is\\_assigned function (replaces macro-generated one)
+Check if the sampling pointer is non-null.
+
+Note: This only performs a null check. It cannot detect dangling pointers; dereferencing an arbitrary non-null pointer would be undefined behaviour that `catch_unwind` cannot reliably catch.
+
+# Returns 1 if the pointer is non-null, 0 otherwise
 """
 function spir_sampling_is_assigned(obj)
     ccall((:spir_sampling_is_assigned, libsparseir), Int32, (Ptr{spir_sampling},), obj)
@@ -970,9 +1024,11 @@ end
 
 Creates a new tau sampling object for sparse sampling in imaginary time
 
-# Arguments * `b` - Pointer to a finite temperature basis object * `num_points` - Number of sampling points * `points` - Array of sampling points in imaginary time (τ) * `status` - Pointer to store the status code
+# Arguments * `b` - Pointer to a finite temperature basis object * `num_points` - Number of sampling points * `points` - Array of `num_points` sampling points τ ∈ [-β, β], with β the inverse temperature of `b`; a negative τ is folded onto [0, β] as in [`spir_funcs_eval`](@ref) * `status` - Pointer to store the status code
 
-# Returns Pointer to the newly created sampling object, or NULL if creation fails
+# Returns Pointer to the newly created sampling object, or NULL if creation fails. If `status` is non-NULL, `*status` is set to: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - [`SPIR_INVALID_ARGUMENT`](@ref) if `b` or `points` is NULL, `num_points` <= 0, or a point is NaN, infinite or outside [-β, β] - [`SPIR_INTERNAL_ERROR`](@ref) if an internal error occurs
+
+The points may be in any order, and the sampling object keeps it: [`spir_sampling_get_taus`](@ref) returns `points` unchanged, and index i along the sampling-point axis of the evaluate and fit functions refers to `points[i]`.
 
 # Safety Caller must ensure `b` is valid and `points` has `num_points` elements
 """
@@ -985,9 +1041,11 @@ end
 
 Creates a new Matsubara sampling object for sparse sampling in Matsubara frequencies
 
-# Arguments * `b` - Pointer to a finite temperature basis object * `positive_only` - If true, only positive frequencies are used * `num_points` - Number of sampling points * `points` - Array of Matsubara frequency indices (n) * `status` - Pointer to store the status code
+# Arguments * `b` - Pointer to a finite temperature basis object * `positive_only` - If true, only non-negative frequencies are used; the IR coefficients are then real, i.e. G(-iν) = conj(G(iν)) * `num_points` - Number of sampling points * `points` - Array of `num_points` reduced Matsubara frequencies n (iν = iπn/β): odd for a fermionic basis, even for a bosonic basis, and non-negative when `positive_only` is true * `status` - Pointer to store the status code
 
-# Returns Pointer to the newly created sampling object, or NULL if creation fails
+# Returns Pointer to the newly created sampling object, or NULL if creation fails. If `status` is non-NULL, `*status` is set to: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - [`SPIR_INVALID_ARGUMENT`](@ref) if `b` or `points` is NULL, `num_points` <= 0, an index has the wrong parity for the statistics of `b`, or `positive_only` is true and an index is negative - [`SPIR_INTERNAL_ERROR`](@ref) if an internal error occurs
+
+The points may be in any order, and the sampling object keeps it: they are not sorted, [`spir_sampling_get_matsus`](@ref) returns `points` unchanged, and index i along the sampling-point axis of the evaluate and fit functions refers to `points[i]`.
 """
 function spir_matsu_sampling_new(b, positive_only, num_points, points, status)
     ccall((:spir_matsu_sampling_new, libsparseir), Ptr{spir_sampling}, (Ptr{spir_basis}, Bool, Cint, Ptr{Int64}, Ptr{StatusCode}), b, positive_only, num_points, points, status)
@@ -998,9 +1056,13 @@ end
 
 Creates a new tau sampling object with custom sampling points and pre-computed matrix
 
-# Arguments * `order` - Memory layout order ([`SPIR_ORDER_ROW_MAJOR`](@ref) or [`SPIR_ORDER_COLUMN_MAJOR`](@ref)) * `statistics` - Statistics type ([`SPIR_STATISTICS_FERMIONIC`](@ref) or [`SPIR_STATISTICS_BOSONIC`](@ref)) * `basis_size` - Basis size * `num_points` - Number of sampling points * `points` - Array of sampling points in imaginary time (τ) * `matrix` - Pre-computed matrix for the sampling points (num\\_points x basis\\_size) * `status` - Pointer to store the status code
+# Arguments * `order` - Memory layout of `matrix` ([`SPIR_ORDER_ROW_MAJOR`](@ref) or [`SPIR_ORDER_COLUMN_MAJOR`](@ref)) * `statistics` - Statistics type ([`SPIR_STATISTICS_FERMIONIC`](@ref) or [`SPIR_STATISTICS_BOSONIC`](@ref)) * `basis_size` - Basis size (the number of columns of `matrix`) * `num_points` - Number of sampling points (the number of rows of `matrix`) * `points` - Array of `num_points` finite sampling points in imaginary time (τ), one per row of `matrix`. Without β the domain [-β, β] of [`spir_tau_sampling_new`](@ref) cannot be checked here: any finite value is accepted and reported back by [`spir_sampling_get_taus`](@ref) * `matrix` - Pre-computed `num\\_points × basis\\_size` sampling matrix in `order`, with finite entries * `status` - Pointer to store the status code
 
-# Returns Pointer to the newly created sampling object, or NULL if creation fails
+# Returns Pointer to the newly created sampling object, or NULL if creation fails. If `status` is non-NULL, `*status` is set to: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - [`SPIR_INVALID_ARGUMENT`](@ref) if `points` or `matrix` is NULL, `num_points` or `basis_size` <= 0, `order` or `statistics` is not one of the constants above, a point is NaN or infinite, or an entry of `matrix` is NaN or infinite - [`SPIR_INVALID_DIMENSION`](@ref) if the matrix is too large to be addressed - [`SPIR_INTERNAL_ERROR`](@ref) if an internal error occurs
+
+The scalar arguments are validated before `points` or `matrix` is read.
+
+The points may be in any order, and the sampling object keeps it: [`spir_sampling_get_taus`](@ref) returns `points` unchanged, and index i along the sampling-point axis of the evaluate and fit functions refers to `points[i]`, the point of row i of `matrix`.
 
 # Safety Caller must ensure `points` and `matrix` have correct sizes
 """
@@ -1013,9 +1075,13 @@ end
 
 Creates a new Matsubara sampling object with custom sampling points and pre-computed matrix
 
-# Arguments * `order` - Memory layout order ([`SPIR_ORDER_ROW_MAJOR`](@ref) or [`SPIR_ORDER_COLUMN_MAJOR`](@ref)) * `statistics` - Statistics type ([`SPIR_STATISTICS_FERMIONIC`](@ref) or [`SPIR_STATISTICS_BOSONIC`](@ref)) * `basis_size` - Basis size * `positive_only` - If true, only positive frequencies are used * `num_points` - Number of sampling points * `points` - Array of Matsubara frequency indices (n) * `matrix` - Pre-computed complex matrix (num\\_points x basis\\_size) * `status` - Pointer to store the status code
+# Arguments * `order` - Memory layout of `matrix` ([`SPIR_ORDER_ROW_MAJOR`](@ref) or [`SPIR_ORDER_COLUMN_MAJOR`](@ref)) * `statistics` - Statistics type ([`SPIR_STATISTICS_FERMIONIC`](@ref) or [`SPIR_STATISTICS_BOSONIC`](@ref)) * `basis_size` - Basis size (the number of columns of `matrix`) * `positive_only` - If true, only non-negative frequencies are used; the IR coefficients are then real, i.e. G(-iν) = conj(G(iν)) * `num_points` - Number of sampling points (the number of rows of `matrix`) * `points` - Array of `num_points` reduced Matsubara frequencies n (iν = iπn/β): odd for fermionic, even for bosonic `statistics`, and non-negative when `positive_only` is true * `matrix` - Pre-computed complex `num\\_points × basis\\_size` sampling matrix in `order`, with finite real and imaginary parts * `status` - Pointer to store the status code
 
-# Returns Pointer to the newly created sampling object, or NULL if creation fails
+# Returns Pointer to the newly created sampling object, or NULL if creation fails. If `status` is non-NULL, `*status` is set to: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - [`SPIR_INVALID_ARGUMENT`](@ref) if `points` or `matrix` is NULL, `num_points` or `basis_size` <= 0, `order` or `statistics` is not one of the constants above, an index has the wrong parity for `statistics`, `positive_only` is true and an index is negative, or an entry of `matrix` has a NaN or infinite part - [`SPIR_INVALID_DIMENSION`](@ref) if the matrix is too large to be addressed - [`SPIR_INTERNAL_ERROR`](@ref) if an internal error occurs
+
+The scalar arguments are validated before `points` or `matrix` is read, and the indices before `matrix` is read.
+
+The points may be in any order, and the sampling object keeps it: [`spir_sampling_get_matsus`](@ref) returns `points` unchanged, and index i along the sampling-point axis of the evaluate and fit functions refers to `points[i]`, the point of row i of `matrix`.
 
 # Safety Caller must ensure `points` and `matrix` have correct sizes
 """
@@ -1085,15 +1151,19 @@ end
 """
     spir_sampling_get_cond_num(s, cond_num)
 
-Gets the condition number of the sampling matrix.
+Gets the condition number of the least-squares problem that fitting solves.
 
-This function returns the condition number of the sampling matrix used in the specified sampling object. The condition number is a measure of how well- conditioned the sampling matrix is.
+Stores in `*cond\\_num` the ratio σ\\_max / σ\\_min of the largest to the smallest of the min(rows, columns) singular values of the matrix that the fit functions ([`spir_sampling_fit_dd`](@ref), [`spir_sampling_fit_zz`](@ref), [`spir_sampling_fit_zd`](@ref)) solve with. Let `A` be the `n\\_points × basis\\_size` sampling matrix: `A[i, l]` is basis function `l` at sampling point `i`, or `A` is the matrix passed to [`spir_tau_sampling_new_with_matrix`](@ref) or [`spir_matsu_sampling_new_with_matrix`](@ref). The matrix the fit solves with is:
+
+- τ sampling: the real matrix `A`. - Matsubara sampling with `positive\\_only = false`: the complex matrix `A`. - Matsubara sampling with `positive\\_only = true`: the real `2 n\\_points × basis\\_size` matrix `[Re A; Im A]` of the real least-squares problem `[Re A; Im A] x = [Re g; Im g]` that the fit solves for real coefficients `x`. This is not the condition number of the complex matrix `A`: with `n\\_points ≈ basis\\_size / 2`, `A` is wide, and its condition number can understate the error amplification of the fit by orders of magnitude.
+
+The value bounds how much fitting can amplify relative errors in the values.
 
 # Parameters - `s`: Pointer to the sampling object. - `cond_num`: Pointer to store the condition number.
 
-# Returns An integer status code: - 0 ([`SPIR_COMPUTATION_SUCCESS`](@ref)) on success - Non-zero error code on failure
+# Returns An integer status code: - 0 ([`SPIR_COMPUTATION_SUCCESS`](@ref)) on success - [`SPIR_INVALID_ARGUMENT`](@ref) if `s` or `cond_num` is null; `*cond\\_num` is not written - [`SPIR_INTERNAL_ERROR`](@ref) if an internal error occurs
 
-# Notes - A large condition number indicates that the sampling matrix is ill-conditioned, which may lead to numerical instability in transformations. - The condition number is the ratio of the largest to smallest singular value of the sampling matrix.
+# Notes - A large condition number indicates that the sampling problem is ill-conditioned, which may lead to numerical instability in fitting. - `+inf` is stored if the smallest singular value is below 1e-15 (numerically singular matrix). - The singular value decomposition is the one the fit functions use: it is computed once per sampling object (shared with its clones), by the first call to this function or to a fit function, and then reused.
 """
 function spir_sampling_get_cond_num(s, cond_num)
     ccall((:spir_sampling_get_cond_num, libsparseir), StatusCode, (Ptr{spir_sampling}, Ptr{Cdouble}), s, cond_num)
@@ -1108,11 +1178,13 @@ Transforms basis coefficients to values at sampling points, where both input and
 
 # Arguments
 
-* `s` - Pointer to the sampling object * `order` - Memory layout order ([`SPIR_ORDER_ROW_MAJOR`](@ref) or [`SPIR_ORDER_COLUMN_MAJOR`](@ref)) * `ndim` - Number of dimensions in the input/output arrays * `input_dims` - Array of dimension sizes * `target_dim` - Target dimension for the transformation (0-based) * `input` - Input array of basis coefficients * `out` - Output array for the evaluated values at sampling points
+* `s` - Pointer to the sampling object * `order` - Memory layout order ([`SPIR_ORDER_ROW_MAJOR`](@ref) or [`SPIR_ORDER_COLUMN_MAJOR`](@ref)) * `ndim` - Number of dimensions in the input/output arrays * `input_dims` - Array of `ndim` dimension sizes, each of which must be positive * `target_dim` - Target dimension for the transformation (0-based) * `input` - Input array of basis coefficients * `out` - Output array for the evaluated values at sampling points
 
 # Returns
 
-An integer status code: - `0` ([`SPIR_COMPUTATION_SUCCESS`](@ref)) on success - A non-zero error code on failure
+An integer status code: - `0` ([`SPIR_COMPUTATION_SUCCESS`](@ref)) on success - [`SPIR_INVALID_ARGUMENT`](@ref) if `s`, `input_dims`, `input` or `out` is null, `order` is invalid, `ndim < 1`, or `target_dim` is not in `[0, ndim)` - [`SPIR_INVALID_DIMENSION`](@ref) if an element of `input_dims` is zero or negative, or the input or output array is too large to be addressed - [`SPIR_INPUT_DIMENSION_MISMATCH`](@ref) if `input\\_dims[target\\_dim]` is not the basis size - [`SPIR_NOT_SUPPORTED`](@ref) if the sampling type does not support this operation - [`SPIR_INTERNAL_ERROR`](@ref) if an internal panic occurs
+
+All shape arguments are validated before `input` or `out` is accessed.
 
 # Notes
 
@@ -1129,7 +1201,13 @@ end
 
 Evaluate basis coefficients at sampling points (double → complex)
 
-For Matsubara sampling: transforms real IR coefficients to complex values. Zero-copy implementation.
+For Matsubara sampling: transforms real IR coefficients to complex values. Zero-copy implementation. Arguments are as for [[`spir_sampling_eval_dd`](@ref)].
+
+# Returns
+
+- [`SPIR_COMPUTATION_SUCCESS`](@ref) on success - [`SPIR_INVALID_ARGUMENT`](@ref) if `s`, `input_dims`, `input` or `out` is null, `order` is invalid, `ndim < 1`, or `target_dim` is not in `[0, ndim)` - [`SPIR_INVALID_DIMENSION`](@ref) if an element of `input_dims` is zero or negative, or the input or output array is too large to be addressed - [`SPIR_INPUT_DIMENSION_MISMATCH`](@ref) if `input\\_dims[target\\_dim]` is not the basis size - [`SPIR_NOT_SUPPORTED`](@ref) if the sampling type does not support this operation - [`SPIR_INTERNAL_ERROR`](@ref) if an internal panic occurs
+
+All shape arguments are validated before `input` or `out` is accessed.
 """
 function spir_sampling_eval_dz(s, backend, order, ndim, input_dims, target_dim, input, out)
     ccall((:spir_sampling_eval_dz, libsparseir), StatusCode, (Ptr{spir_sampling}, Ptr{spir_gemm_backend}, Cint, Cint, Ptr{Cint}, Cint, Ptr{Cdouble}, Ptr{Complex64}), s, backend, order, ndim, input_dims, target_dim, input, out)
@@ -1140,7 +1218,13 @@ end
 
 Evaluate basis coefficients at sampling points (complex → complex)
 
-For Matsubara sampling: transforms complex coefficients to complex values. Zero-copy implementation.
+For Matsubara sampling: transforms complex coefficients to complex values. Zero-copy implementation. Arguments are as for [[`spir_sampling_eval_dd`](@ref)].
+
+# Returns
+
+- [`SPIR_COMPUTATION_SUCCESS`](@ref) on success - [`SPIR_INVALID_ARGUMENT`](@ref) if `s`, `input_dims`, `input` or `out` is null, `order` is invalid, `ndim < 1`, or `target_dim` is not in `[0, ndim)` - [`SPIR_INVALID_DIMENSION`](@ref) if an element of `input_dims` is zero or negative, or the input or output array is too large to be addressed - [`SPIR_INPUT_DIMENSION_MISMATCH`](@ref) if `input\\_dims[target\\_dim]` is not the basis size - [`SPIR_NOT_SUPPORTED`](@ref) if the sampling type does not support this operation - [`SPIR_INTERNAL_ERROR`](@ref) if an internal panic occurs
+
+All shape arguments are validated before `input` or `out` is accessed.
 """
 function spir_sampling_eval_zz(s, backend, order, ndim, input_dims, target_dim, input, out)
     ccall((:spir_sampling_eval_zz, libsparseir), StatusCode, (Ptr{spir_sampling}, Ptr{spir_gemm_backend}, Cint, Cint, Ptr{Cint}, Cint, Ptr{Complex64}, Ptr{Complex64}), s, backend, order, ndim, input_dims, target_dim, input, out)
@@ -1155,11 +1239,13 @@ Transforms values at sampling points back to basis coefficients, where both inpu
 
 # Arguments
 
-* `s` - Pointer to the sampling object * `backend` - Pointer to the GEMM backend (can be null to use default) * `order` - Memory layout order ([`SPIR_ORDER_ROW_MAJOR`](@ref) or [`SPIR_ORDER_COLUMN_MAJOR`](@ref)) * `ndim` - Number of dimensions in the input/output arrays * `input_dims` - Array of dimension sizes * `target_dim` - Target dimension for the transformation (0-based) * `input` - Input array of values at sampling points * `out` - Output array for the fitted basis coefficients
+* `s` - Pointer to the sampling object * `backend` - Pointer to the GEMM backend (can be null to use default) * `order` - Memory layout order ([`SPIR_ORDER_ROW_MAJOR`](@ref) or [`SPIR_ORDER_COLUMN_MAJOR`](@ref)) * `ndim` - Number of dimensions in the input/output arrays * `input_dims` - Array of `ndim` dimension sizes, each of which must be positive * `target_dim` - Target dimension for the transformation (0-based) * `input` - Input array of values at sampling points * `out` - Output array for the fitted basis coefficients
 
 # Returns
 
-An integer status code: * `0` ([`SPIR_COMPUTATION_SUCCESS`](@ref)) on success * A non-zero error code on failure
+An integer status code: * `0` ([`SPIR_COMPUTATION_SUCCESS`](@ref)) on success * [`SPIR_INVALID_ARGUMENT`](@ref) if `s`, `input_dims`, `input` or `out` is null, `order` is invalid, `ndim < 1`, or `target_dim` is not in `[0, ndim)` * [`SPIR_INVALID_DIMENSION`](@ref) if an element of `input_dims` is zero or negative, or the input or output array is too large to be addressed * [`SPIR_INPUT_DIMENSION_MISMATCH`](@ref) if `input\\_dims[target\\_dim]` is not the number of sampling points * [`SPIR_NOT_SUPPORTED`](@ref) if the sampling type does not support this operation * [`SPIR_INTERNAL_ERROR`](@ref) if an internal panic occurs
+
+All shape arguments are validated before `input` or `out` is accessed.
 
 # Notes
 
@@ -1179,6 +1265,12 @@ end
 Fits values at sampling points to basis coefficients (complex to complex version).
 
 For more details, see [[`spir_sampling_fit_dd`](@ref)] Zero-copy implementation for Tau and Matsubara (full). MatsubaraPositiveOnly requires intermediate storage for real→complex conversion.
+
+# Returns
+
+* [`SPIR_COMPUTATION_SUCCESS`](@ref) on success * [`SPIR_INVALID_ARGUMENT`](@ref) if `s`, `input_dims`, `input` or `out` is null, `order` is invalid, `ndim < 1`, or `target_dim` is not in `[0, ndim)` * [`SPIR_INVALID_DIMENSION`](@ref) if an element of `input_dims` is zero or negative, or the input or output array is too large to be addressed * [`SPIR_INPUT_DIMENSION_MISMATCH`](@ref) if `input\\_dims[target\\_dim]` is not the number of sampling points * [`SPIR_NOT_SUPPORTED`](@ref) if the sampling type does not support this operation * [`SPIR_INTERNAL_ERROR`](@ref) if an internal panic occurs
+
+All shape arguments are validated before `input` or `out` is accessed.
 """
 function spir_sampling_fit_zz(s, backend, order, ndim, input_dims, target_dim, input, out)
     ccall((:spir_sampling_fit_zz, libsparseir), StatusCode, (Ptr{spir_sampling}, Ptr{spir_gemm_backend}, Cint, Cint, Ptr{Cint}, Cint, Ptr{Complex64}, Ptr{Complex64}), s, backend, order, ndim, input_dims, target_dim, input, out)
@@ -1203,11 +1295,13 @@ Zero-copy implementation.
 
 # Arguments
 
-* `s` - Pointer to the sampling object (must be Matsubara) * `backend` - Pointer to the GEMM backend (can be null to use default) * `order` - Memory layout order ([`SPIR_ORDER_COLUMN_MAJOR`](@ref) or [`SPIR_ORDER_ROW_MAJOR`](@ref)) * `ndim` - Number of dimensions in the input/output arrays * `input_dims` - Array of dimension sizes * `target_dim` - Target dimension for the transformation (0-based) * `input` - Input array (complex) * `out` - Output array (real)
+* `s` - Pointer to the sampling object (must be Matsubara) * `backend` - Pointer to the GEMM backend (can be null to use default) * `order` - Memory layout order ([`SPIR_ORDER_COLUMN_MAJOR`](@ref) or [`SPIR_ORDER_ROW_MAJOR`](@ref)) * `ndim` - Number of dimensions in the input/output arrays * `input_dims` - Array of `ndim` dimension sizes, each of which must be positive * `target_dim` - Target dimension for the transformation (0-based) * `input` - Input array (complex) * `out` - Output array (real)
 
 # Returns
 
-- [`SPIR_COMPUTATION_SUCCESS`](@ref) on success - [`SPIR_NOT_SUPPORTED`](@ref) if the sampling type doesn't support this operation - Other error codes on failure
+- [`SPIR_COMPUTATION_SUCCESS`](@ref) on success - [`SPIR_INVALID_ARGUMENT`](@ref) if `s`, `input_dims`, `input` or `out` is null, `order` is invalid, `ndim < 1`, or `target_dim` is not in `[0, ndim)` - [`SPIR_INVALID_DIMENSION`](@ref) if an element of `input_dims` is zero or negative, or the input or output array is too large to be addressed - [`SPIR_INPUT_DIMENSION_MISMATCH`](@ref) if `input\\_dims[target\\_dim]` is not the number of sampling points - [`SPIR_NOT_SUPPORTED`](@ref) if the sampling type doesn't support this operation - [`SPIR_INTERNAL_ERROR`](@ref) if an internal panic occurs
+
+All shape arguments are validated before `input` or `out` is accessed.
 
 # See also
 
@@ -1238,7 +1332,11 @@ end
 """
     spir_sve_result_is_assigned(obj)
 
-Manual is\\_assigned function (replaces macro-generated one)
+Check if the SVE result pointer is non-null.
+
+Note: This only performs a null check. It cannot detect dangling pointers; dereferencing an arbitrary non-null pointer would be undefined behaviour that `catch_unwind` cannot reliably catch.
+
+# Returns 1 if the pointer is non-null, 0 otherwise
 """
 function spir_sve_result_is_assigned(obj)
     ccall((:spir_sve_result_is_assigned, libsparseir), Int32, (Ptr{spir_sve_result},), obj)
@@ -1251,11 +1349,11 @@ Compute Singular Value Expansion (SVE) of a kernel (libsparseir compatible)
 
 # Arguments * `k` - Kernel object * `epsilon` - Accuracy target for the basis * `lmax` - Maximum number of Legendre polynomials (currently ignored, auto-determined) * `n_gauss` - Number of Gauss points for integration (currently ignored, auto-determined) * `Twork` - Working precision: 0=Float64, 1=Float64x2, -1=Auto * `status` - Pointer to store status code
 
-# Returns * Pointer to SVE result, or NULL on failure
+# Returns * Pointer to SVE result, or NULL on failure * Status code: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if `k` is NULL, `epsilon` is not positive and finite or is 1 or more, `Twork` is invalid, or the discretized kernel has a NaN or infinite entry (e.g. a `RegularizedBoseKernel` whose lambda is so small that 1/lambda overflows) - [`SPIR_INTERNAL_ERROR`](@ref) (-7) if an SVD does not converge or an internal panic occurs
 
 # Safety The caller must ensure `status` is a valid pointer.
 
-# Note Parameters `lmax` and `n_gauss` are accepted for libsparseir compatibility but currently ignored. The Rust implementation automatically determines optimal values. The cutoff is automatically set to 2*sqrt(machine\\_epsilon) internally.
+# Note Parameters `lmax` and `n_gauss` are accepted for libsparseir compatibility but currently ignored. The Rust implementation automatically determines optimal values. The singular value truncation cutoff is automatically set to 2 * machine epsilon of the working precision (about 4.44e-16 for Float64 and 4.93e-32 for Float64x2), as in libsparseir: singular values smaller than this cutoff times the largest singular value are discarded.
 """
 function spir_sve_result_new(k, epsilon, _lmax, _n_gauss, twork, status)
     ccall((:spir_sve_result_new, libsparseir), Ptr{spir_sve_result}, (Ptr{spir_kernel}, Cdouble, Cint, Cint, Cint, Ptr{StatusCode}), k, epsilon, _lmax, _n_gauss, twork, status)
@@ -1283,7 +1381,7 @@ This function creates a new SVE result containing only the singular values that 
 
 # Arguments * `sve` - Source SVE result object * `epsilon` - Relative threshold for truncation (singular values < epsilon * s\\[0\\] are removed) * `max_size` - Maximum number of singular values to keep (-1 for no limit) * `status` - Pointer to store status code
 
-# Returns * Pointer to new truncated SVE result, or NULL on failure * Status code: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if sve or status is null, or epsilon is invalid - [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
+# Returns * Pointer to new truncated SVE result, or NULL on failure * Status code: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if `sve` is NULL, `epsilon` is not finite, negative or 1 or more (0 keeps every singular value), or `max_size` is 0 - [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
 
 # Safety The caller must ensure `status` is a valid pointer. The returned pointer must be freed with `[`spir_sve_result_release`](@ref)()`.
 
@@ -1319,9 +1417,11 @@ Create a SVE result from a discretized kernel matrix
 
 This function performs singular value expansion (SVE) on a discretized kernel matrix K. The matrix K should already be in the appropriate form (no weight application needed). The function supports both double and DDouble precision based on whether K\\_low is provided.
 
-# Arguments * `K_high` - High part of the kernel matrix (required, size: nx * ny) * `K_low` - Low part of the kernel matrix (optional, nullptr for double precision) * `nx` - Number of rows in the matrix * `ny` - Number of columns in the matrix * `order` - Memory layout ([`SPIR_ORDER_ROW_MAJOR`](@ref) or [`SPIR_ORDER_COLUMN_MAJOR`](@ref)) * `segments_x` - X-direction segments (array of boundary points, size: n\\_segments\\_x + 1) * `n_segments_x` - Number of segments in x direction (boundary points - 1) * `segments_y` - Y-direction segments (array of boundary points, size: n\\_segments\\_y + 1) * `n_segments_y` - Number of segments in y direction (boundary points - 1) * `n_gauss` - Number of Gauss points per segment * `epsilon` - Target accuracy * `status` - Pointer to store status code
+# Arguments * `K_high` - High part of the kernel matrix (required, size: nx * ny, finite entries) * `K_low` - Low part of the kernel matrix (optional, nullptr for double precision; finite entries) * `nx` - Number of rows in the matrix (must be `n\\_segments\\_x * n\\_gauss`, the number of Gauss points of the segments) * `ny` - Number of columns in the matrix (must be `n\\_segments\\_y * n\\_gauss`, the number of Gauss points of the segments) * `order` - Memory layout ([`SPIR_ORDER_ROW_MAJOR`](@ref) or [`SPIR_ORDER_COLUMN_MAJOR`](@ref)) * `segments_x` - X-direction segments (array of boundary points, size: n\\_segments\\_x + 1, finite and strictly increasing) * `n_segments_x` - Number of segments in x direction (boundary points - 1) * `segments_y` - Y-direction segments (array of boundary points, size: n\\_segments\\_y + 1, finite and strictly increasing) * `n_segments_y` - Number of segments in y direction (boundary points - 1) * `n_gauss` - Number of Gauss points per segment * `epsilon` - Target accuracy * `status` - Pointer to store status code
 
-# Returns Pointer to SVE result on success, nullptr on failure
+# Returns Pointer to SVE result on success, nullptr on failure. If `status` is non-NULL, `*status` is set to: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - [`SPIR_INVALID_ARGUMENT`](@ref) if `K_high`, `segments_x` or `segments_y` is NULL, a size is less than 1, `epsilon` is not positive and finite or is 1 or more, an entry of `K_high` or `K_low` is NaN or infinite, the segments are not finite and strictly increasing, a segment length is not finite or is subnormal, the sum of the ends of a segment overflows, `nx` is not `n\\_segments\\_x * n\\_gauss` or `ny` is not `n\\_segments\\_y * n\\_gauss`, or the matrix has rank 0 - [`SPIR_INVALID_DIMENSION`](@ref) if the matrix is too large to be addressed - [`SPIR_INTERNAL_ERROR`](@ref) if the SVD fails (e.g. the QR of the matrix overflows) or an internal error occurs
+
+The arrays are validated before the SVE is computed.
 """
 function spir_sve_result_from_matrix(K_high, K_low, nx, ny, order, segments_x, n_segments_x, segments_y, n_segments_y, n_gauss, epsilon, status)
     ccall((:spir_sve_result_from_matrix, libsparseir), Ptr{spir_sve_result}, (Ptr{Cdouble}, Ptr{Cdouble}, Cint, Cint, Cint, Ptr{Cdouble}, Cint, Ptr{Cdouble}, Cint, Cint, Cdouble, Ptr{StatusCode}), K_high, K_low, nx, ny, order, segments_x, n_segments_x, segments_y, n_segments_y, n_gauss, epsilon, status)
@@ -1334,9 +1434,11 @@ Create a SVE result from centrosymmetric discretized kernel matrices
 
 This function performs singular value expansion (SVE) on centrosymmetric discretized kernel matrices using even/odd symmetry decomposition. The matrices K\\_even and K\\_odd should already be in the appropriate form (no weight application needed). The function supports both double and DDouble precision based on whether K\\_low is provided.
 
-# Arguments * `K_even_high` - High part of the even-symmetry kernel matrix (required, size: nx * ny) * `K_even_low` - Low part of the even-symmetry kernel matrix (optional, nullptr for double precision) * `K_odd_high` - High part of the odd-symmetry kernel matrix (required, size: nx * ny) * `K_odd_low` - Low part of the odd-symmetry kernel matrix (optional, nullptr for double precision) * `nx` - Number of rows in the matrix * `ny` - Number of columns in the matrix * `order` - Memory layout ([`SPIR_ORDER_ROW_MAJOR`](@ref) or [`SPIR_ORDER_COLUMN_MAJOR`](@ref)) * `segments_x` - X-direction segments (array of boundary points, size: n\\_segments\\_x + 1) * `n_segments_x` - Number of segments in x direction (boundary points - 1) * `segments_y` - Y-direction segments (array of boundary points, size: n\\_segments\\_y + 1) * `n_segments_y` - Number of segments in y direction (boundary points - 1) * `n_gauss` - Number of Gauss points per segment * `epsilon` - Target accuracy * `status` - Pointer to store status code
+# Arguments * `K_even_high` - High part of the even-symmetry kernel matrix (required, size: nx * ny, finite entries) * `K_even_low` - Low part of the even-symmetry kernel matrix (optional, nullptr for double precision; finite entries) * `K_odd_high` - High part of the odd-symmetry kernel matrix (required, size: nx * ny, finite entries) * `K_odd_low` - Low part of the odd-symmetry kernel matrix (optional, nullptr for double precision; finite entries) * `nx` - Number of rows in the matrix (must be `n\\_segments\\_x * n\\_gauss`, the number of Gauss points of the segments on [0, xmax]) * `ny` - Number of columns in the matrix (must be `n\\_segments\\_y * n\\_gauss`, the number of Gauss points of the segments on [0, ymax]) * `order` - Memory layout ([`SPIR_ORDER_ROW_MAJOR`](@ref) or [`SPIR_ORDER_COLUMN_MAJOR`](@ref)) * `segments_x` - X-direction segments on the half domain (array of boundary points, size: n\\_segments\\_x + 1, finite and strictly increasing, starting at 0) * `n_segments_x` - Number of segments in x direction (boundary points - 1) * `segments_y` - Y-direction segments on the half domain (array of boundary points, size: n\\_segments\\_y + 1, finite and strictly increasing, starting at 0) * `n_segments_y` - Number of segments in y direction (boundary points - 1) * `n_gauss` - Number of Gauss points per segment * `epsilon` - Target accuracy * `status` - Pointer to store status code
 
-# Returns Pointer to SVE result on success, nullptr on failure
+# Returns Pointer to SVE result on success, nullptr on failure. If `status` is non-NULL, `*status` is set to: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - [`SPIR_INVALID_ARGUMENT`](@ref) if `K_even_high`, `K_odd_high`, `segments_x` or `segments_y` is NULL, a size is less than 1, `epsilon` is not positive and finite or is 1 or more, an entry of a matrix that is read is NaN or infinite, the segments are not finite and strictly increasing, the segments do not start at 0, a segment length is not finite or is subnormal, the sum of the ends of a segment overflows, `nx` is not `n\\_segments\\_x * n\\_gauss` or `ny` is not `n\\_segments\\_y * n\\_gauss`, or both matrices have rank 0 - [`SPIR_INVALID_DIMENSION`](@ref) if the matrices are too large to be addressed - [`SPIR_INTERNAL_ERROR`](@ref) if an SVD fails (e.g. the QR of a matrix overflows) or an internal error occurs
+
+The low parts are read only if both are non-NULL. The arrays are validated before the SVE is computed.
 """
 function spir_sve_result_from_matrix_centrosymmetric(K_even_high, K_even_low, K_odd_high, K_odd_low, nx, ny, order, segments_x, n_segments_x, segments_y, n_segments_y, n_gauss, epsilon, status)
     ccall((:spir_sve_result_from_matrix_centrosymmetric, libsparseir), Ptr{spir_sve_result}, (Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}, Cint, Cint, Cint, Ptr{Cdouble}, Cint, Ptr{Cdouble}, Cint, Cint, Cdouble, Ptr{StatusCode}), K_even_high, K_even_low, K_odd_high, K_odd_low, nx, ny, order, segments_x, n_segments_x, segments_y, n_segments_y, n_gauss, epsilon, status)
@@ -1364,9 +1466,9 @@ Compute piecewise Gauss-Legendre quadrature rule (double precision)
 
 Generates a piecewise Gauss-Legendre quadrature rule with n points per segment. The rule is concatenated across all segments, with points and weights properly scaled for each segment interval.
 
-# Arguments * `n` - Number of Gauss points per segment (must be >= 1) * `segments` - Array of segment boundaries (n\\_segments + 1 elements). Must be monotonically increasing. * `n_segments` - Number of segments (must be >= 1) * `x` - Output array for Gauss points (size n * n\\_segments). Must be pre-allocated. * `w` - Output array for Gauss weights (size n * n\\_segments). Must be pre-allocated. * `status` - Pointer to store the status code
+# Arguments * `n` - Number of Gauss points per segment (must be >= 1) * `segments` - Array of segment boundaries (n\\_segments + 1 elements): finite and strictly increasing, with finite segment lengths and a finite sum of the ends of each segment * `n_segments` - Number of segments (must be >= 1) * `x` - Output array for Gauss points (size n * n\\_segments). Must be pre-allocated. * `w` - Output array for Gauss weights (size n * n\\_segments). Must be pre-allocated. * `status` - Pointer to store the status code
 
-# Returns Status code: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - Non-zero error code on failure
+# Returns Status code (also written to `*status`): - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - [`SPIR_INVALID_ARGUMENT`](@ref) if a pointer is NULL, `n` or `n_segments` < 1, or `segments` does not meet the conditions above - [`SPIR_INTERNAL_ERROR`](@ref) if an internal error occurs
 """
 function spir_gauss_legendre_rule_piecewise_double(n, segments, n_segments, x, w, status)
     ccall((:spir_gauss_legendre_rule_piecewise_double, libsparseir), StatusCode, (Cint, Ptr{Cdouble}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Ptr{StatusCode}), n, segments, n_segments, x, w, status)
@@ -1379,9 +1481,9 @@ Compute piecewise Gauss-Legendre quadrature rule (DDouble precision)
 
 Generates a piecewise Gauss-Legendre quadrature rule with n points per segment, computed using extended precision (DDouble). Returns high and low parts separately for maximum precision.
 
-# Arguments * `n` - Number of Gauss points per segment (must be >= 1) * `segments` - Array of segment boundaries (n\\_segments + 1 elements). Must be monotonically increasing. * `n_segments` - Number of segments (must be >= 1) * `x_high` - Output array for high part of Gauss points (size n * n\\_segments). Must be pre-allocated. * `x_low` - Output array for low part of Gauss points (size n * n\\_segments). Must be pre-allocated. * `w_high` - Output array for high part of Gauss weights (size n * n\\_segments). Must be pre-allocated. * `w_low` - Output array for low part of Gauss weights (size n * n\\_segments). Must be pre-allocated. * `status` - Pointer to store the status code
+# Arguments * `n` - Number of Gauss points per segment (must be >= 1) * `segments` - Array of segment boundaries (n\\_segments + 1 elements): finite and strictly increasing, with finite segment lengths and a finite sum of the ends of each segment * `n_segments` - Number of segments (must be >= 1) * `x_high` - Output array for high part of Gauss points (size n * n\\_segments). Must be pre-allocated. * `x_low` - Output array for low part of Gauss points (size n * n\\_segments). Must be pre-allocated. * `w_high` - Output array for high part of Gauss weights (size n * n\\_segments). Must be pre-allocated. * `w_low` - Output array for low part of Gauss weights (size n * n\\_segments). Must be pre-allocated. * `status` - Pointer to store the status code
 
-# Returns Status code: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - Non-zero error code on failure
+# Returns Status code (also written to `*status`): - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success - [`SPIR_INVALID_ARGUMENT`](@ref) if a pointer is NULL, `n` or `n_segments` < 1, or `segments` does not meet the conditions above - [`SPIR_INTERNAL_ERROR`](@ref) if an internal error occurs
 """
 function spir_gauss_legendre_rule_piecewise_ddouble(n, segments, n_segments, x_high, x_low, w_high, w_low, status)
     ccall((:spir_gauss_legendre_rule_piecewise_ddouble, libsparseir), StatusCode, (Cint, Ptr{Cdouble}, Cint, Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}, Ptr{Cdouble}, Ptr{StatusCode}), n, segments, n_segments, x_high, x_low, w_high, w_low, status)
