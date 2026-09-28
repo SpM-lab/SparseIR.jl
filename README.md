@@ -139,6 +139,44 @@ terms of compactness.
 [intermediate representation]: https://arxiv.org/abs/2106.12685
 [singular value expansion]: https://w.wiki/3poQ
 
+Migrating from SparseIR.jl v1
+-----------------------------
+Since version 2, SparseIR.jl wraps the libsparseir C library instead of
+computing the basis in Julia. The singular value expansion (SVE) and the
+polynomial internals of v1 are no longer accessible from Julia, and a few
+constructor signatures changed. The table maps the v1 code that no longer runs
+to its v2 replacement (`basis` is a `FiniteTempBasis`, `β = SparseIR.β(basis)`).
+
+| v1 | v2 |
+|----|----|
+| `FiniteTempBasis{S}(β, ωmax)`, `FiniteTempBasis(S(), β, ωmax)` (`ε` optional) | `FiniteTempBasis{S}(β, ωmax, ε)`: `ε` is required |
+| `finite_temp_bases(β, ωmax)` | `finite_temp_bases(β, ωmax, ε)` |
+| `SVEResult(kernel; ε)` | `SparseIR.SVEResult(kernel, ε)` |
+| `SVEResult(kernel; Twork=Float64x2)` | `SparseIR.SVEResult(kernel, ε; Twork=SparseIR.SPIR_TWORK_FLOAT64X2)` |
+| `basis.sve_result.u`, `basis.sve_result.v` | not available; an `SVEResult` holds only the singular values `s`. Use `basis.u`, `basis.v` (in `τ` and `ω`) |
+| `SparseIR.default_sampling_points(basis.sve_result.u, length(basis))` | `2 .* SparseIR.default_tau_sampling_points(basis) ./ β .- 1` (the same points, ascending, in `x ∈ (-1, 1)`) |
+| `SparseIR.default_sampling_points(basis.sve_result.u, L)` | the same expression with `basis[1:L]` (for `L ≤ length(basis)`) or a basis of size `L` built with `max_size=L` and a smaller `ε` |
+| `SparseIR.default_sampling_points(basis.sve_result.v, L)` | `default_omega_sampling_points(basis) ./ SparseIR.ωmax(basis)` with a basis of size `L`, as above |
+| `SparseIR.default_matsubara_sampling_points(basis.uhat_full, L; positive_only)` | `SparseIR.default_matsubara_sampling_points(basis[1:L]; positive_only)` (for `L ≤ length(basis)`); `basis.uhat_full` and `fence` were removed |
+| `SparseIR.roots`, `SparseIR.sign_changes`, `SparseIR.find_extrema` | removed; the default sampling points are computed by libsparseir |
+| `basis.accuracy`, `SparseIR.sve_result(basis)`, `SparseIR.kernel(basis)` | `SparseIR.accuracy(basis)`, `basis.sve_result`, `basis.kernel` |
+| `TauSampling(basis; factorize=false)`, `MatsubaraSampling(basis; factorize=false)` | the `factorize` keyword was removed |
+| `TauSampling(basis).τ` | `TauSampling(basis).tau` or `sampling_points(smpl)` |
+| `SparseIR.TauSampling64` | `SparseIR.TauSampling64F` (fermions) or `SparseIR.TauSampling64B` (bosons) |
+| user-defined subtypes of `SparseIR.AbstractKernel` | not supported; only `LogisticKernel` and `RegularizedBoseKernel` |
+
+Two behaviors changed without an error:
+
+ - `MatsubaraSampling(basis; sampling_points=ωn)` keeps the order of `ωn`
+   (v1 sorted it in ascending order); `evaluate` returns and `fit` expects the
+   values in the given order.
+ - `basis.u(τ)` also accepts `τ ∈ [-β, 0)`, where it returns the values
+   continued with the (anti-)periodicity of the statistics; v1 was defined on
+   `[0, β]` only.
+
+`SparseIR.default_tau_sampling_points(basis)`, `SparseIR.default_matsubara_sampling_points(basis)`
+and `default_omega_sampling_points(basis)` return the same points as in v1.
+
 Development
 -----------
 If you are developing `SparseIR.jl` together with the Rust backend in the sibling
