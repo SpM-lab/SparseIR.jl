@@ -33,6 +33,15 @@ repository: source layout, how to run the test suite, the local-`libsparseir`
 override used for development against an unreleased C API, and CI entry
 points.
 
+## Releases
+
+For any release work — regenerating `src/C_API.jl` for a new backend, changing
+the `libsparseir_jll` compat, bumping the version, or registering — follow the
+shared [`sparse-ir-release`](https://github.com/SpM-lab/spm-agent-rules/blob/main/skills/sparse-ir-release/SKILL.md) skill (offline:
+`../spm-agent-rules/skills/sparse-ir-release/SKILL.md`). This repository is
+step 5 of it (`julia.md`): it starts only after the new `libsparseir_jll` is
+served by the Julia package server, not merely merged into General.
+
 ## Precedence
 
 Repository-local rules in `REPOSITORY_RULES.md` override the shared rules
