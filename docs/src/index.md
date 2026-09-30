@@ -16,5 +16,7 @@ The notation and conventions are those of the [notation page](https://spm-lab.gi
   - The basis functions accept ``τ ∈ [-β, β]``; `0.0` is read as ``0^+``, `β` as ``β^-``, `-0.0` as ``0^-`` and `-β` as ``(-β)^+``.
   - The index ``l`` of ``U_l``, ``S_l`` and ``V_l`` counts from 0; Julia's `basis.u[l+1]` is ``U_l``.
 
+For how the IR basis, the discrete Lehmann representation (DLR) and MiniPole are related, see [IR, DLR and MiniPole: history and comparison](https://spm-lab.github.io/sparse-ir-doc/src/history_comparison.html).
+
 For listings of all documented names, see [Public names index](@ref) and the [Private names index](@ref).
 
