@@ -1,0 +1,42 @@
+# SparseIR.jl
+
+> Julia wrapper of libsparseir (the C API of sparse-ir-rs) for the intermediate representation (IR) of many-body propagators: IR bases, sparse sampling in imaginary time and Matsubara frequency, and the discrete Lehmann representation (DLR). This file describes version 2; code written for version 1 needs the changes listed under "Migrating from v1".
+
+## Documentation
+
+- [README](https://github.com/SpM-lab/SparseIR.jl/blob/main/README.md): installation, an example, and the full v1 → v2 migration table
+- [API documentation](https://spm-lab.github.io/SparseIR.jl/stable/)
+- [Notation and conventions](https://spm-lab.github.io/sparse-ir-doc/src/notation.html): statistics, τ domain, Matsubara frequencies, sign of the Green's function
+- [Tutorial](https://spm-lab.github.io/sparse-ir-tutorial-v2/)
+
+## Basic usage
+
+```julia
+using SparseIR
+β, ωmax, ε = 10.0, 1.0, 1e-8
+basis = FiniteTempBasis{Fermionic}(β, ωmax, ε)   # ε is required
+smpl_tau = TauSampling(basis)                     # default points: τ ∈ [0, β], ascending
+smpl_iw = MatsubaraSampling(basis; positive_only=true)
+gl = -basis.s .* basis.v(0.3)                     # IR coefficients of a single pole at ω = 0.3
+gtau = evaluate(smpl_tau, gl)                     # dim= selects the axis of a multidimensional array
+giw = evaluate(smpl_iw, gl)
+gl ≈ fit(smpl_tau, gtau)
+```
+
+- `basis.u(τ)`, `basis.v(ω)`, `basis.uhat(n)` evaluate all basis functions; `basis.u[l+1]` is `U_l`; `basis[1:L]` is the basis truncated to size `L`.
+- `SparseIR.β(basis)`, `SparseIR.ωmax(basis)`, `SparseIR.accuracy(basis)`, `SparseIR.significance(basis)`; also spelled `SparseIR.beta`, `SparseIR.wmax`.
+- `SparseIR.default_tau_sampling_points(basis)`, `SparseIR.default_matsubara_sampling_points(basis; positive_only)`, `default_omega_sampling_points(basis)` give the default sampling points; `sampling_points(smpl)` those of a sampling object.
+- Kernels: `LogisticKernel(Λ)` (default, `Λ = β ωmax`) and `RegularizedBoseKernel(Λ)` only.
+
+## Migrating from v1
+
+- `ε` is required: `FiniteTempBasis{S}(β, ωmax, ε)`, `FiniteTempBasis(S(), β, ωmax, ε)`, `finite_temp_bases(β, ωmax, ε)`.
+- `SVEResult(kernel; ε)` → `SparseIR.SVEResult(kernel, ε)`; `Twork=Float64x2` → `Twork=SparseIR.SPIR_TWORK_FLOAT64X2`.
+- An `SVEResult` has no `u` or `v`, only the singular values `s`. `basis.sve_result.u` and `basis.sve_result.v` fail.
+- `SparseIR.default_sampling_points(basis.sve_result.u, length(basis))` (the SVE points in `x ∈ (-1, 1)`) → `2 .* SparseIR.default_tau_sampling_points(basis) ./ SparseIR.β(basis) .- 1`. For another size `L`, use `basis[1:L]` (`L ≤ length(basis)`) or a larger basis built with `max_size=L` and a smaller `ε`.
+- `SparseIR.default_sampling_points(basis.sve_result.v, L)` → `default_omega_sampling_points(b) ./ SparseIR.ωmax(b)` for a basis `b` of size `L`.
+- `SparseIR.default_matsubara_sampling_points(basis.uhat_full, L; positive_only)` → `SparseIR.default_matsubara_sampling_points(basis[1:L]; positive_only)`. `basis.uhat_full` and the `fence` keyword were removed.
+- Removed: `SparseIR.roots`, `SparseIR.sign_changes`, `SparseIR.find_extrema`, the `factorize` keyword of `TauSampling`/`MatsubaraSampling`, `SparseIR.sve_result(basis)` and `SparseIR.kernel(basis)` (use the fields `basis.sve_result`, `basis.kernel`), the field `basis.accuracy` (use `SparseIR.accuracy(basis)`), user-defined subtypes of `SparseIR.AbstractKernel`.
+- Renamed: `TauSampling(basis).τ` → `.tau`; `SparseIR.TauSampling64` → `SparseIR.TauSampling64F` / `SparseIR.TauSampling64B`.
+- Changed silently: `MatsubaraSampling(basis; sampling_points=ωn)` keeps the order of `ωn` (v1 sorted it); `basis.u(τ)` also accepts `τ ∈ [-β, 0)` (v1 threw a `DomainError`).
+- Unchanged: the default τ, Matsubara and ω sampling points are the same as in v1.
