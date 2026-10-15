@@ -16,7 +16,10 @@ makedocs(; modules=[SparseIR],
     sitename="SparseIR.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
-        assets=String["assets/custom.css"],
+        # The navigation banner shared by the sparse-ir documentation sites;
+        # the links are maintained in SpM-lab/SpM-lab.github.io.
+        assets=Any["assets/custom.css",
+            asset("https://spm-lab.github.io/assets/ecosystem-banner.js"; class=:js)],
         mathengine=MathJax3(Dict(:loader => Dict("load" => [
                 "[tex]/physics"
             ]),

@@ -59,8 +59,11 @@ with the Python and Rust libraries.
 
 This library is built upon the libsparseir C library from [sparse-ir-rs](https://github.com/SpM-lab/sparse-ir-rs), which also provides Fortran bindings.
 There is also a [Python library].
+All of them are part of the [sparse-ir ecosystem] (overview, history of IR and DLR, notation, other languages), maintained by [SpM-lab].
 
-[comprehensive tutorial]: https://spm-lab.github.io/sparse-ir-tutorial-v2/
+[comprehensive tutorial]: https://spm-lab.github.io/sparse-ir-tutorial/
+[sparse-ir ecosystem]: https://spm-lab.github.io/sparse-ir-doc/
+[SpM-lab]: https://spm-lab.github.io/
 [API documentation]: https://spm-lab.github.io/SparseIR.jl/stable/
 [notation page]: https://spm-lab.github.io/sparse-ir-doc/src/notation.html
 [Python library]: https://github.com/SpM-lab/sparse-ir
