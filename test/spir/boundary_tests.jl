@@ -271,11 +271,19 @@ end
 @testitem "boundary: dim on three-dimensional input" tags=[:julia, :boundary] setup=[SIRTestSetup] begin
     using Test
     using SparseIR
+    using LinearAlgebra: cond
 
     @testset "$(nameof(typeof(stat)))" for stat in (Fermionic(), Bosonic())
         basis = get_basis(stat, 10.0, 1.0, 1e-6)
         L = length(basis)
         dlr = DiscreteLehmannRepresentation(basis)
+        # The two calls place the coefficient axis differently, which can select
+        # a different contraction geometry, so their rounding can differ; the
+        # ill-conditioned DLR round trip amplifies that (SpM-lab/sparse-ir-rs#326).
+        # G_l = -S_l sum_p V_l(w_p) c_p; its conditioning is what amplifies the
+        # input. The other transforms are well conditioned and keep the fixed bound.
+        amp = cond(-basis.s .* basis.v(dlr.poles))
+        @test isfinite(amp)
         pairs = ["TauSampling" => (x, d) -> evaluate(TauSampling(basis), x; dim=d),
             "TauSampling fit" => (x, d) -> fit(TauSampling(basis),
                 evaluate(TauSampling(basis), x; dim=d); dim=d),
@@ -291,8 +299,9 @@ end
             data = permutedims(data1, perm)          # basis axis at d
             out = f(data, d)
             ref = f(data1, 1)
+            tol = name == "to_IR(from_IR)" ? max(1e-12, amp * eps()) : 1e-12
             @test maximum(abs, permutedims(out, invperm(perm)) - ref) <=
-                  1e-12 * maximum(abs, ref)
+                  tol * maximum(abs, ref)
         end
     end
 end
