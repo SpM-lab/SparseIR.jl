@@ -7,7 +7,8 @@
 - [README](https://github.com/SpM-lab/SparseIR.jl/blob/main/README.md): installation, an example, and the full v1 → v2 migration table
 - [API documentation](https://spm-lab.github.io/SparseIR.jl/stable/)
 - [Notation and conventions](https://spm-lab.github.io/sparse-ir-doc/src/notation.html): statistics, τ domain, Matsubara frequencies, sign of the Green's function
-- [Tutorial](https://spm-lab.github.io/sparse-ir-tutorial-v2/)
+- [Tutorial](https://spm-lab.github.io/sparse-ir-tutorial/)
+- [sparse-ir ecosystem](https://spm-lab.github.io/sparse-ir-doc/): overview of the libraries in all languages, and the history of IR, DLR and MiniPole
 
 ## Basic usage
 

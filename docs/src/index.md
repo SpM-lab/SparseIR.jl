@@ -4,7 +4,7 @@ CurrentModule = SparseIR
 
 # SparseIR.jl
 
-Documentation for [SparseIR.jl](https://github.com/SpM-lab/SparseIR.jl).
+Documentation for [SparseIR.jl](https://github.com/SpM-lab/SparseIR.jl), part of the [sparse-ir ecosystem](https://spm-lab.github.io/sparse-ir-doc/) (overview, [history of IR, DLR and MiniPole](https://spm-lab.github.io/sparse-ir-doc/src/history_comparison.html), the Python and Rust libraries, and the [tutorial](https://spm-lab.github.io/sparse-ir-tutorial/)).
 
 There is a [guide](@ref guide) available which explains the intermediate representation and how SparseIR.jl computes it by means of a worked example.
 

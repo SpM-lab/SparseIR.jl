@@ -57,15 +57,15 @@ jobs:
             brew install openblas pkg-config
           fi
       - name: Clone sparse-ir-rs
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: SpM-lab/sparse-ir-rs
           path: sparse-ir-rs
       - name: Move sparse-ir-rs to parent directory
         run: |
           mv sparse-ir-rs ../sparse-ir-rs
-      - uses: actions/checkout@v6
-      - uses: julia-actions/setup-julia@v2
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
@@ -73,7 +73,7 @@ jobs:
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
       - uses: julia-actions/julia-processcoverage@v1
-      - uses: codecov/codecov-action@v6
+      - uses: codecov/codecov-action@v7
   docs:
     name: Documentation
     runs-on: ubuntu-latest
@@ -81,8 +81,8 @@ jobs:
       group: docs-deploy
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v6
-      - uses: julia-actions/setup-julia@v2
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
         with:
           version: '1'
       - uses: julia-actions/julia-buildpkg@v1
