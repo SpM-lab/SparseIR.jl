@@ -57,6 +57,9 @@ domain and endpoints, Matsubara frequencies, Fourier transform, sign of the
 Green's function, basis normalization) are those of the [notation page], shared
 with the Python and Rust libraries.
 
+For coding agents and LLM-based tools, [`llms.txt`](llms.txt) summarizes the
+library, the conventions that fail silently when missed, and where to read next.
+
 This library is built upon the libsparseir C library from [sparse-ir-rs](https://github.com/SpM-lab/sparse-ir-rs), which also provides Fortran bindings.
 There is also a [Python library].
 
