@@ -31,6 +31,16 @@ functions and their Fourier transforms, sparse sampling) is done by the libspars
 which is installed automatically as the prebuilt binary package `libsparseir_jll`; QuadGK.jl
 computes the overlap integrals. (A formal list of dependencies can be found in `Project.toml`.)
 
+The prebuilt libsparseir (from sparse-ir-rs 0.13 on) uses the fused multiply-add (FMA)
+instruction, which every aarch64 CPU and every x86-64 CPU since 2013 has. On a CPU without it
+`using SparseIR` throws an error naming the requirement instead of crashing (with a library
+that exports `spir_cpu_has_fma`, sparse-ir-rs#332; older ones are not checked). There, build the
+library locally from a sibling `../sparse-ir-rs` checkout as described under "Development" below,
+with FMA turned off:
+```bash
+RUSTFLAGS="-C target-feature=-fma" julia -e 'using Pkg; Pkg.build("SparseIR")'
+```
+
 To manually install the current development version, you can use the following:
 ```
 julia -e 'import Pkg; Pkg.develop(url="https://github.com/SpM-lab/SparseIR.jl")'

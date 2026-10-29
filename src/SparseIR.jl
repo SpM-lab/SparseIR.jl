@@ -224,7 +224,42 @@ function _init_sparseir_blas_backend()
     return nothing
 end
 
+"""
+    _fma_requirement_error(uses_fma, has_fma)
+
+The error to throw when `libsparseir` was built with the fused multiply-add
+(`uses_fma`) and this CPU lacks it (`!has_fma`), or `nothing`.
+"""
+function _fma_requirement_error(uses_fma::Bool, has_fma::Bool)
+    uses_fma && !has_fma || return nothing
+    return SparseIRError(
+        "libsparseir was built for CPUs with the fused multiply-add (FMA) " *
+        "instruction, which this CPU does not have; calling it would crash " *
+        "with SIGILL. Build the library locally without FMA, with " *
+        "`RUSTFLAGS=\"-C target-feature=-fma\"` set for `Pkg.build(\"SparseIR\")` " *
+        "next to a sparse-ir-rs checkout (see the README).")
+end
+
+"""
+    _check_cpu_supports_build(lib=C_API.libsparseir)
+
+Throw a [`SparseIRError`](@ref) if `lib` uses FMA instructions that this CPU
+lacks (sparse-ir-rs#332), before anything in it runs. A library older than
+the check does not export `spir_build_uses_fma` and is not checked.
+"""
+function _check_cpu_supports_build(lib=C_API.libsparseir)
+    handle = Libdl.dlopen(lib)
+    uses = Libdl.dlsym_e(handle, :spir_build_uses_fma)
+    has = Libdl.dlsym_e(handle, :spir_cpu_has_fma)
+    (uses == C_NULL || has == C_NULL) && return nothing
+    err = _fma_requirement_error(
+        ccall(uses, Cint, ()) != 0, ccall(has, Cint, ()) != 0)
+    err === nothing || throw(err)
+    return nothing
+end
+
 function __init__()
+    _check_cpu_supports_build()
     _init_sparseir_blas_backend()
 end
 
