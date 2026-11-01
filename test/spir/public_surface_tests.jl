@@ -69,7 +69,11 @@
         :get_poles => () -> get_poles(DiscreteLehmannRepresentation(bf, [-0.5, 0.5])) ==
                             [-0.5, 0.5],
         :default_omega_sampling_points => () -> all(abs.(default_omega_sampling_points(bf)) .<=
-                                                    ωmax))
+                                                    ωmax),
+        :warmup => () -> begin
+            reference = bf.uhat([1, -1])
+            warmup(bf) === nothing && bf.uhat([1, -1]) == reference
+        end)
 
     exported = Set(n for n in names(SparseIR) if n !== :SparseIR)
     @test Set(keys(SMOKE)) == exported
