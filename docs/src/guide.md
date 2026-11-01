@@ -533,6 +533,24 @@ We successfully obtained the self-energy (accurate to second order) with minimal
 Regarding further work, perhaps the single most obvious direction is the extension to multi-particle quantities; And indeed, Refs. [Shinaoka2018,Wallerberger2021](@cite) did exactly this, with Markus Wallerberger writing the as of yet unpublished Julia library `OvercompleteIR.jl` which builds upon `SparseIR.jl`.
 So, as a transitive dependency, `SparseIR.jl` has already found applications in solving the parquet equations for the Hubbard model and for the Anderson impurity model [Michalek2024](@cite).
 
+## Threads and MPI
+
+A basis is read-only once constructed, so several threads may evaluate it at the same time.
+The one thing to watch for is the *first* evaluation: it has to be compiled, and compiling inside a threaded region is not always safe when an MPI library is already initialized.
+Julia's garbage collector synchronizes threads with `SIGSEGV`, and some MPI transports (UCX, and the ones Intel MPI 2021 selects) install a handler for that signal, so the process aborts with a backtrace in the compiler instead of compiling ([SparseIR.jl#148](https://github.com/SpM-lab/SparseIR.jl/issues/148), [MPI.jl#337](https://github.com/JuliaParallel/MPI.jl/issues/337)).
+Evaluate once on the main thread, e.g. with [`warmup`](@ref), before entering the threaded region:
+
+```julia
+MPI.Init()
+basis = FiniteTempBasis{Fermionic}(β, ωmax, ε)
+warmup(basis)
+@threads for …
+    G = ComplexF64.(basis.uhat(freqs))   # no compilation on a worker thread
+end
+```
+
+The same applies to `basis.u` and `basis.v`, which `warmup` leaves to the caller.
+
 # References
 
 ```@bibliography
