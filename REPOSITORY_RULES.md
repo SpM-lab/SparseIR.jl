@@ -34,7 +34,7 @@ that contradicts this file, fix this file in the same PR.
 ## The `libsparseir` Dependency And Local Override
 
 - `SparseIR.jl` depends on the prebuilt `libsparseir_jll` package
-  (`Project.toml`, `[deps]`/`[compat]`: `libsparseir_jll = "0.8, 0.9"`) for the
+  (`Project.toml`, `[deps]`/`[compat]`: `libsparseir_jll = "0.15"`) for the
   compiled `libsparseir` C library. This is what most users and CI (`CI.yml`)
   use.
 - `src/C_API.jl` resolves the library path at load time via
