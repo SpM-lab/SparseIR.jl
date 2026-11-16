@@ -156,6 +156,13 @@ Base.:*(a::BosonicFreq, c::Integer)         = BosonicFreq(a.n * c)
 Base.:*(a::FermionicFreq, c::Integer)       = MatsubaraFreq(a.n * c)
 Base.:*(c::Integer, a::MatsubaraFreq)       = a * c
 
+# Julia 1.13.4's findfirst on a StepRange calls integer-only internals (JuliaLang/julia#64956),
+# so search the underlying integer range; same-statistics frequencies are equal iff their n are.
+function Base.findfirst(p::Union{Base.Fix2{typeof(isequal),T},Base.Fix2{typeof(==),T}},
+                        r::StepRange{T,BosonicFreq}) where {T<:MatsubaraFreq}
+    return findfirst(==(p.x.n), first(r).n:step(r).n:last(r).n)
+end
+
 Base.:(==)(::FermionicFreq, ::BosonicFreq)      = false
 Base.:(==)(::BosonicFreq, ::FermionicFreq)      = false
 Base.sign(a::MatsubaraFreq)                     = sign(a.n)
