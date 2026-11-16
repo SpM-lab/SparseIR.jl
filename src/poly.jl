@@ -27,6 +27,7 @@ mutable struct PiecewiseLegendrePoly
 end
 
 Base.size(polys::PiecewiseLegendrePoly) = ()
+Base.length(::PiecewiseLegendrePoly) = 1
 
 """
     PiecewiseLegendrePolyVector

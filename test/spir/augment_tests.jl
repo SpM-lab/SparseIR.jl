@@ -240,3 +240,20 @@
         @test length(AugmentedBasis(bf, MatsubaraConst(10.0))) == length(bf) + 1
     end
 end
+
+@testitem "augment: integer deriv order, one basis function left" tags=[:julia, :sparseir] begin
+    using Test
+    using SparseIR
+
+    basis = FiniteTempBasis{Bosonic}(10.0, 1.0, 1e-6)
+    aug = AugmentedBasis(basis, TauConst, TauLinear)
+
+    # deriv takes an Integer order, as deriv(basis.u, n) does.
+    @test SparseIR.deriv(aug.u, 2)(0.3) ≈ SparseIR.deriv(aug.u, Val(2))(0.3)
+    @test SparseIR.deriv(aug.u, 1)(0.3)[2] ≈ 2 * sqrt(3 / 10.0) / 10.0
+
+    # Two augmentations plus one basis function.
+    u3 = aug.u[1:3]
+    @test length(u3) == 3
+    @test length(u3(0.3)) == 3
+end

@@ -524,6 +524,9 @@ function deriv(aug::TauLinear, (::Val{n})=Val(1)) where {n}
     return τ -> zero(β(aug))
 end
 
+# An integer order, as accepted by `deriv(basis.u, n)`.
+deriv(aug::Union{TauConst,TauLinear}, n::Integer) = deriv(aug, Val(n))
+
 """
     MatsubaraConst{S} <: AbstractAugmentation{S}
 

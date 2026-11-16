@@ -194,10 +194,6 @@ function _get_blas_gemm_ptrs()
     return dgemm_ptr, zgemm_ptr
 end
 
-# The backend handle type on the C side is represented as Ptr{Cvoid}
-# (the detailed struct is only known to the Rust side)
-const SpirGemmBackend = Ptr{Cvoid}
-
 function _init_sparseir_blas_backend()
     dgemm_ptr, zgemm_ptr = _get_blas_gemm_ptrs()
 

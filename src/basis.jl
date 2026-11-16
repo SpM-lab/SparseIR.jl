@@ -268,12 +268,6 @@ function default_omega_sampling_points(basis::FiniteTempBasis)
     return points_array
 end
 
-# Basis function type
-mutable struct BasisFunction
-    ptr::Ptr{spir_funcs}
-    basis::FiniteTempBasis  # Keep reference to prevent GC
-end
-
 # Property accessors
 β(basis::FiniteTempBasis) = basis.beta
 ωmax(basis::FiniteTempBasis) = basis.wmax
@@ -283,10 +277,6 @@ function accuracy(basis::FiniteTempBasis)
     s_full = basis.sve_result.s
     n = length(basis.s)
     return length(s_full) > n ? s_full[n + 1] / first(s_full) : last(s_full) / first(s_full)
-end
-
-function (f::BasisFunction)(freq::MatsubaraFreq)
-    return f(freq.n)
 end
 
 """

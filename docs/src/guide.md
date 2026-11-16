@@ -536,20 +536,24 @@ So, as a transitive dependency, `SparseIR.jl` has already found applications in 
 ## Threads and MPI
 
 A basis is read-only once constructed, so several threads may evaluate it at the same time.
-The one thing to watch for is the *first* evaluation: it has to be compiled, and compiling inside a threaded region is not always safe when an MPI library is already initialized.
-Julia's garbage collector synchronizes threads with `SIGSEGV`, and some MPI transports (UCX, and the ones Intel MPI 2021 selects) install a handler for that signal, so the process aborts with a backtrace in the compiler instead of compiling ([SparseIR.jl#148](https://github.com/SpM-lab/SparseIR.jl/issues/148), [MPI.jl#337](https://github.com/JuliaParallel/MPI.jl/issues/337)).
-Evaluate once on the main thread, e.g. with [`warmup`](@ref), before entering the threaded region:
+
+Some MPI libraries break multithreaded Julia code, with or without SparseIR.
+Julia's garbage collector synchronizes threads with `SIGSEGV`, and some MPI libraries replace Julia's handler for that signal in `MPI.Init()`: UCX, and the libfabric layer of Intel MPI 2021.
+The process then aborts with a backtrace that often ends in the compiler, typically in the first threaded region after `MPI.Init()` ([SparseIR.jl#148](https://github.com/SpM-lab/SparseIR.jl/issues/148), [MPI.jl#725](https://github.com/JuliaParallel/MPI.jl/issues/725)).
+[`warmup`](@ref) compiles the evaluation on the main thread first, which makes the crash less likely but does not prevent it.
+What worked with Intel MPI 2021.12 in [SparseIR.jl#148](https://github.com/SpM-lab/SparseIR.jl/issues/148):
+
+  - On a single node, set `I_MPI_FABRICS=shm`, so that libfabric is not loaded.
+  - Otherwise, put Julia's handler back after `MPI.Init()` (Linux x86_64, glibc):
 
 ```julia
+segv = zeros(UInt8, 152)  # sizeof(struct sigaction)
+ccall(:sigaction, Cint, (Cint, Ptr{Cvoid}, Ptr{UInt8}), 11, C_NULL, segv)  # save Julia's SIGSEGV handler
 MPI.Init()
-basis = FiniteTempBasis{Fermionic}(β, ωmax, ε)
-warmup(basis)
-@threads for …
-    G = ComplexF64.(basis.uhat(freqs))   # no compilation on a worker thread
-end
+ccall(:sigaction, Cint, (Cint, Ptr{UInt8}, Ptr{Cvoid}), 11, segv, C_NULL)  # restore it
 ```
 
-The same applies to `basis.u` and `basis.v`, which `warmup` leaves to the caller.
+The MPI library then loses its own crash handler, so a genuine crash inside it may be reported less clearly.
 
 # References
 
