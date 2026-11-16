@@ -241,7 +241,7 @@
     end
 end
 
-@testitem "augment: integer deriv order and a single remaining basis function" tags=[:julia, :sparseir] begin
+@testitem "augment: integer deriv order, one basis function left" tags=[:julia, :sparseir] begin
     using Test
     using SparseIR
 
