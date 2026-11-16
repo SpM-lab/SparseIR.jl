@@ -41,15 +41,6 @@ jobs:
             os: macos-15-intel
             arch: x64
     steps:
-      - name: Install OpenBLAS
-        run: |
-          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-            sudo apt-get update
-            sudo apt-get install -y libopenblas-dev pkg-config gzip
-          fi
-          if [ "${{ matrix.os }}" = "macOS-latest" ]; then
-            brew install openblas pkg-config
-          fi
       - uses: julia-actions/setup-julia@v3
         with:
           version: ${{ matrix.version }}

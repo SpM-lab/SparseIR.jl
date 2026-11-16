@@ -45,17 +45,6 @@ that depends on the kernel and the statistics (see [`LogisticKernel`](@ref)).
 """
 abstract type AbstractKernel end
 
-abstract type AbstractReducedKernel <: AbstractKernel end
-
-###############################################################################
-
-"""
-    AbstractSVEHints
-
-Discretization hints for singular value expansion of a given kernel.
-"""
-abstract type AbstractSVEHints end
-
 ###############################################################################
 
 """
@@ -75,10 +64,6 @@ least squares fit:
         |________________|      fit        |___________________|
 """
 abstract type AbstractSampling{T,Tmat,F} end
-
-###############################################################################
-
-abstract type AbstractSVE end
 
 _get_ptr(basis::AbstractBasis) = basis.ptr
 
