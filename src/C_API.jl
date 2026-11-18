@@ -278,7 +278,7 @@ Get the number of default Matsubara sampling points
 
 For a DLR the default points are its Matsubara interpolation nodes, one per pole (the DLR had none up to 0.10).
 
-# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if b or num\\_points is null * [`SPIR_NOT_SUPPORTED`](@ref) (-5) if the basis functions have no definite parity, as for a basis built on an SVE from [`spir_sve_result_from_matrix`](@ref) (not centrosymmetric): the default Matsubara sampling points are chosen by the parity of a basis function and are not defined then. Nothing is written. * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
+# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if b or num\\_points is null * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
 """
 function spir_basis_get_n_default_matsus(b, positive_only, num_points)
     ccall((:spir_basis_get_n_default_matsus, libsparseir), StatusCode, (Ptr{spir_basis}, Bool, Ptr{Cint}), b, positive_only, num_points)
@@ -295,7 +295,7 @@ Call [`spir_basis_get_n_default_matsus`](@ref) first and allocate the count it r
 
 For a DLR the default points are its Matsubara interpolation nodes, one per pole (the DLR had none up to 0.10).
 
-# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if b or points is null * [`SPIR_NOT_SUPPORTED`](@ref) (-5) if the basis functions have no definite parity, as for a basis built on an SVE from [`spir_sve_result_from_matrix`](@ref) (not centrosymmetric): the default Matsubara sampling points are chosen by the parity of a basis function and are not defined then. Nothing is written. * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
+# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if b or points is null * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
 """
 function spir_basis_get_default_matsus(b, positive_only, points)
     ccall((:spir_basis_get_default_matsus, libsparseir), StatusCode, (Ptr{spir_basis}, Bool, Ptr{Int64}), b, positive_only, points)
@@ -417,11 +417,11 @@ end
 
 Get the number of default Matsubara sampling points for a given basis size (extended version)
 
-# Arguments * `b` - Basis object * `positive_only` - If true, return only non-negative frequencies * `fence` - If true, add fencing points to improve conditioning * `basis_size` - Size of the basis the points are chosen for. When sampling an augmented basis, pass the augmented size; it may differ from the size of `b`. * `n_points_total` - Pointer to store the number of sampling points
+# Arguments * `b` - Basis object * `positive_only` - If true, return only non-negative frequencies * `fence` - If true, add fencing points to improve conditioning (for a basis without definite parity, about 10% more frequencies) * `basis_size` - Size of the basis the points are chosen for. When sampling an augmented basis, pass the augmented size; it may differ from the size of `b`. * `n_points_total` - Pointer to store the number of sampling points
 
 A DLR has no default Matsubara sampling points: for a DLR this returns [`SPIR_COMPUTATION_SUCCESS`](@ref) with 0 points.
 
-# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if `b` or `n_points_total` is null, or `basis\\_size < 0` * [`SPIR_NOT_SUPPORTED`](@ref) (-5) if the basis functions have no definite parity, as for a basis built on an SVE from [`spir_sve_result_from_matrix`](@ref) (not centrosymmetric): the default Matsubara sampling points are chosen by the parity of a basis function and are not defined then. Nothing is written. * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
+# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if `b` or `n_points_total` is null, or `basis\\_size < 0` * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) for a basis without definite parity if `basis_size` exceeds the number of singular functions of its SVE (the selection fits at most those) * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
 
 # Note The count generally differs from `basis_size`: the parity adjustment, `fence` and `positive_only` all change it. Pass it as `points_capacity` to [`spir_basis_get_default_matsus_ext`](@ref) with the same `positive_only`, `fence` and `basis_size`.
 """
@@ -434,11 +434,11 @@ end
 
 Get default Matsubara sampling points for a given basis size (extended version)
 
-# Arguments * `b` - Basis object * `positive_only` - If true, return only non-negative frequencies * `fence` - If true, add fencing points to improve conditioning * `basis_size` - Size of the basis the points are chosen for. When sampling an augmented basis, pass the augmented size; it may differ from the size of `b`. * `points_capacity` - Number of elements `points` can hold * `points` - Buffer for the Matsubara indices, or NULL to query the number of points only * `n_points_total` - Pointer to store the number of sampling points
+# Arguments * `b` - Basis object * `positive_only` - If true, return only non-negative frequencies * `fence` - If true, add fencing points to improve conditioning (for a basis without definite parity, about 10% more frequencies) * `basis_size` - Size of the basis the points are chosen for. When sampling an augmented basis, pass the augmented size; it may differ from the size of `b`. * `points_capacity` - Number of elements `points` can hold * `points` - Buffer for the Matsubara indices, or NULL to query the number of points only * `n_points_total` - Pointer to store the number of sampling points
 
 A DLR has no default Matsubara sampling points: for a DLR this returns [`SPIR_COMPUTATION_SUCCESS`](@ref) with 0 points and writes nothing.
 
-# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success, including a count query (`points` is NULL, `points_capacity` is ignored) * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if `b` or `n_points_total` is null, or `basis_size` or `points_capacity` is negative; nothing is written * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if `points_capacity` is smaller than the number of points; `points` is left untouched and `*n\\_points\\_total` is set to the required number * [`SPIR_NOT_SUPPORTED`](@ref) (-5) if the basis functions have no definite parity, as for a basis built on an SVE from [`spir_sve_result_from_matrix`](@ref) (not centrosymmetric): the default Matsubara sampling points are chosen by the parity of a basis function and are not defined then. Nothing is written. * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
+# Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success, including a count query (`points` is NULL, `points_capacity` is ignored) * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if `b` or `n_points_total` is null, or `basis_size` or `points_capacity` is negative; nothing is written * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) if `points_capacity` is smaller than the number of points; `points` is left untouched and `*n\\_points\\_total` is set to the required number * [`SPIR_INVALID_ARGUMENT`](@ref) (-6) for a basis without definite parity if `basis_size` exceeds the number of singular functions of its SVE (the selection fits at most those); nothing is written * [`SPIR_INTERNAL_ERROR`](@ref) (-7) if internal panic occurs
 
 # Note The point set depends only on `positive_only`, `fence` and `basis_size`. `points_capacity` never changes it, and the output is never truncated.
 """
@@ -560,6 +560,8 @@ Convert IR coefficients to DLR (real-valued)
 
 `input_dims` is validated before `input` or `out` is accessed.
 
+`input` and `out` must not overlap: the transform reads `input` while it writes `out`, so an in-place call gives an undefined result.
+
 The mathematical transform does not depend on the axis placement or the memory order of the arrays, but the floating-point result can: a different `target_dim` selects a different contraction geometry, and the GEMM backend decides how that geometry is blocked. Bitwise agreement across axis placements is not guaranteed, and conditioning or cancellation can amplify the difference (SpM-lab/sparse-ir-rs#326).
 
 # Safety Caller must ensure pointers are valid and arrays have correct sizes
@@ -578,6 +580,8 @@ Convert IR coefficients to DLR (complex-valued)
 # Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) on success * [`SPIR_INVALID_ARGUMENT`](@ref) if `dlr`, `input_dims`, `input` or `out` is null, `order` is invalid, `ndim < 1`, or `target_dim` is not in `[0, ndim)` * [`SPIR_INVALID_DIMENSION`](@ref) if an element of `input_dims` is zero or negative, or the input or output array is too large to be addressed * [`SPIR_INPUT_DIMENSION_MISMATCH`](@ref) if `input\\_dims[target\\_dim]` is not the size of the IR basis of `dlr` * [`SPIR_NOT_SUPPORTED`](@ref) if `dlr` is not a DLR basis * [`SPIR_INTERNAL_ERROR`](@ref) if an internal panic occurs
 
 `input_dims` is validated before `input` or `out` is accessed.
+
+`input` and `out` must not overlap: the transform reads `input` while it writes `out`, so an in-place call gives an undefined result.
 
 The mathematical transform does not depend on the axis placement or the memory order of the arrays, but the floating-point result can: a different `target_dim` selects a different contraction geometry, and the GEMM backend decides how that geometry is blocked. Bitwise agreement across axis placements is not guaranteed, and conditioning or cancellation can amplify the difference (SpM-lab/sparse-ir-rs#326).
 
@@ -598,6 +602,8 @@ Convert DLR coefficients to IR (real-valued)
 
 `input_dims` is validated before `input` or `out` is accessed.
 
+`input` and `out` must not overlap: the transform reads `input` while it writes `out`, so an in-place call gives an undefined result.
+
 The mathematical transform does not depend on the axis placement or the memory order of the arrays, but the floating-point result can: a different `target_dim` selects a different contraction geometry, and the GEMM backend decides how that geometry is blocked. Bitwise agreement across axis placements is not guaranteed, and conditioning or cancellation can amplify the difference (SpM-lab/sparse-ir-rs#326).
 
 # Safety Caller must ensure pointers are valid and arrays have correct sizes
@@ -616,6 +622,8 @@ Convert DLR coefficients to IR (complex-valued)
 # Returns * [`SPIR_COMPUTATION_SUCCESS`](@ref) on success * [`SPIR_INVALID_ARGUMENT`](@ref) if `dlr`, `input_dims`, `input` or `out` is null, `order` is invalid, `ndim < 1`, or `target_dim` is not in `[0, ndim)` * [`SPIR_INVALID_DIMENSION`](@ref) if an element of `input_dims` is zero or negative, or the input or output array is too large to be addressed * [`SPIR_INPUT_DIMENSION_MISMATCH`](@ref) if `input\\_dims[target\\_dim]` is not the number of poles of `dlr` ([`spir_dlr_get_npoles`](@ref)) * [`SPIR_NOT_SUPPORTED`](@ref) if `dlr` is not a DLR basis * [`SPIR_INTERNAL_ERROR`](@ref) if an internal panic occurs
 
 `input_dims` is validated before `input` or `out` is accessed.
+
+`input` and `out` must not overlap: the transform reads `input` while it writes `out`, so an in-place call gives an undefined result.
 
 The mathematical transform does not depend on the axis placement or the memory order of the arrays, but the floating-point result can: a different `target_dim` selects a different contraction geometry, and the GEMM backend decides how that geometry is blocked. Bitwise agreement across axis placements is not guaranteed, and conditioning or cancellation can amplify the difference (SpM-lab/sparse-ir-rs#326).
 
@@ -823,11 +831,11 @@ Get default Matsubara sampling points from a Matsubara-space [`spir_funcs`](@ref
 
 This function computes default sampling points in Matsubara frequencies (iν) from a [`spir_funcs`](@ref) object that represents Matsubara-space basis functions (e.g., uhat or uhat\\_full). The statistics type (Fermionic/Bosonic) is automatically detected from the [`spir_funcs`](@ref) object type.
 
-This extracts the PiecewiseLegendreFTVector from [`spir_funcs`](@ref) and calls `sparse\\_ir::basis::default\\_matsubara\\_sampling\\_points\\_from\\_uhat` to compute default sampling points: the sign changes of the first discarded Matsubara basis function (its extrema when that function is not available); bosonic sets always include n = 0.
+This extracts the PiecewiseLegendreFTVector from [`spir_funcs`](@ref) and calls `sparse\\_ir::basis::default\\_matsubara\\_sampling\\_points\\_from\\_uhat` to compute default sampling points: the sign changes of the first discarded Matsubara basis function (its extrema when that function is not available); bosonic sets always include n = 0. Functions without a definite parity, as those of a basis built on an SVE from [`spir_sve_result_from_matrix`](@ref) (not centrosymmetric), have no such sign changes; their points are selected as a set symmetric in ±n by an interpolative decomposition (pivoted QR) of the rows Re û(n), Im û(n).
 
-# Arguments * `uhat` - Pointer to a [`spir_funcs`](@ref) object representing Matsubara-space basis functions * `positive_only` - If true, return only non-negative frequencies * `fence` - If true, add fencing points to improve conditioning * `basis_size` - Size of the basis the points are chosen for * `points_capacity` - Number of elements `points` can hold * `points` - Buffer for the Matsubara indices, or NULL to query the number of points only * `n_points_total` - Pointer to store the number of sampling points
+# Arguments * `uhat` - Pointer to a [`spir_funcs`](@ref) object representing Matsubara-space basis functions * `positive_only` - If true, return only non-negative frequencies * `fence` - If true, add fencing points to improve conditioning (for functions without definite parity, about 10% more frequencies) * `basis_size` - Size of the basis the points are chosen for * `points_capacity` - Number of elements `points` can hold * `points` - Buffer for the Matsubara indices, or NULL to query the number of points only * `n_points_total` - Pointer to store the number of sampling points
 
-# Returns Status code: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success, including a count query (`points` is NULL, `points_capacity` is ignored) - [`SPIR_INVALID_ARGUMENT`](@ref) if uhat or n\\_points\\_total is null, or basis\\_size or points\\_capacity is negative; nothing is written - [`SPIR_INVALID_ARGUMENT`](@ref) if points\\_capacity is smaller than the number of points; `points` is left untouched and `*n\\_points\\_total` is set to the required number - [`SPIR_NOT_SUPPORTED`](@ref) if uhat is not a Matsubara-space function, or if its functions have no definite parity, as those of a basis built on an SVE from [`spir_sve_result_from_matrix`](@ref) (not centrosymmetric): the default points are chosen by the parity of a basis function and are not defined then. Nothing is written.
+# Returns Status code: - [`SPIR_COMPUTATION_SUCCESS`](@ref) (0) on success, including a count query (`points` is NULL, `points_capacity` is ignored) - [`SPIR_INVALID_ARGUMENT`](@ref) if uhat or n\\_points\\_total is null, or basis\\_size or points\\_capacity is negative; nothing is written - [`SPIR_INVALID_ARGUMENT`](@ref) if points\\_capacity is smaller than the number of points; `points` is left untouched and `*n\\_points\\_total` is set to the required number - [`SPIR_INVALID_ARGUMENT`](@ref) for functions without definite parity if basis\\_size exceeds the number of functions in uhat (the selection fits at most those); nothing is written - [`SPIR_NOT_SUPPORTED`](@ref) if uhat is not a Matsubara-space function. Nothing is written.
 
 # Note This function is only available for [`spir_funcs`](@ref) objects representing Matsubara-space basis functions The statistics type is automatically detected from the [`spir_funcs`](@ref) object type The default sampling points are chosen to provide near-optimal conditioning The number of points generally differs from `basis_size`: the parity adjustment, `fence` and `positive_only` all change it. The point set never depends on `points_capacity`, and the output is never truncated.
 """
@@ -1084,7 +1092,7 @@ Minimal pole representation from DLR coefficients (MPM-DLR)
 
 The poles `ω_l` of the DLR and the residues `A\\_l = g\\_l w\\_l` (`w_l` the pole weights) are compressed as in `MiniPoleDLR` of Green-Phys/MiniPole.
 
-# Arguments * `dlr` - Pointer to a DLR basis object * `order` - Memory layout order ([`SPIR_ORDER_ROW_MAJOR`](@ref) or [`SPIR_ORDER_COLUMN_MAJOR`](@ref)) * `ndim` - Number of dimensions of `coeffs` * `input_dims` - Dimensions of `coeffs`; `input\\_dims[target\\_dim]` must equal the number of DLR poles * `target_dim` - Dimension holding the DLR coefficients * `coeffs` - Complex DLR coefficients `g_l` * `n0` - The contour starts at `(2 n0 + 1)π/β` (>= 0) * `nmax` - The contour ends at `(2 nmax + 1)π/β` without symmetry, or <= 0 for `nmax = β` * `err` - Error tolerance of ESPRIT, or <= 0 to use `n_poles` alone * `err_type` - 0: `err` is absolute, 1: relative to the largest singular value * `n_poles` - Number of poles, or <= 0 to choose it from `err`; one of `err` and `n_poles` is required * `symmetry` - Impose up-down symmetry (gapless map) * `status` - Pointer to store the status code
+# Arguments * `dlr` - Pointer to a DLR basis object * `order` - Memory layout order ([`SPIR_ORDER_ROW_MAJOR`](@ref) or [`SPIR_ORDER_COLUMN_MAJOR`](@ref)) * `ndim` - Number of dimensions of `coeffs` * `input_dims` - Dimensions of `coeffs`; `input\\_dims[target\\_dim]` must equal the number of DLR poles * `target_dim` - Dimension holding the DLR coefficients * `coeffs` - Complex DLR coefficients `g_l` * `n0` - The contour starts at `(2 n0 + 1)π/β` (>= 0) * `nmax` - The contour ends at `(2 nmax + 1)π/β` without symmetry, or <= 0 for `nmax = β` * `err` - Error tolerance of ESPRIT, or <= 0 to use `n_poles` alone * `err_type` - 0: `err` is absolute, 1: relative to the largest singular value * `n_poles` - Maximum number of poles, or <= 0 to choose it from `err`; one of `err` and `n_poles` is required. The result can have fewer: the number is capped by the size of the Hankel matrix and lowered until the approximation error is controlled, and nodes with |γ| >= 1 are dropped * `symmetry` - Impose up-down symmetry (gapless map) * `status` - Pointer to store the status code
 
 # Returns Pointer to the pole representation, or NULL on failure. Residues share the layout of `coeffs` with `input\\_dims[target\\_dim]` replaced by the number of poles.
 """
@@ -1099,7 +1107,7 @@ Minimal pole representation from Matsubara data (MPM)
 
 The data are given on a uniform grid of non-negative Matsubara frequencies `ω\\_n = nπ/β` and compressed as in `MiniPole` of Green-Phys/MiniPole.
 
-# Arguments * `beta` - Inverse temperature * `n_freqs` - Number of Matsubara frequencies (>= 3) * `matsubara_indices` - Matsubara indices `n`, non-negative, increasing and uniformly spaced (e.g. `1, 3, 5, ...` for fermions, `0, 2, 4, ...` for bosons) * `order`, `ndim`, `input_dims`, `target_dim` - Layout of `values`; `input\\_dims[target\\_dim]` must equal `n_freqs`, and the other dimensions must be none or two equal ones (a matrix) * `values` - Complex values `G(iω\\_n)` * `n0` - Number of low frequencies left out of the contour, or < 0 to choose it from the data * `n0_shift` - Shift (>= 0) added to the automatic choice of `n0` * `err` - Error tolerance (> 0), at least the noise level of the data * `err_type` - 0: `err` is absolute, 1: relative * `n_poles` - Number of poles, or <= 0 to use the precision of the first approximation * `symmetry` - Preserve up-down symmetry * `g_symmetric` - Symmetrize the data as `G\\_ij = G\\_ji` * `compute_const` - Fit a constant term (not with `symmetry`) * `plane` - Pole weights from a least-squares fit to the data (0), from the mapped plane (1), or < 0 for the default (0 without, 1 with `symmetry`) * `include_n0` - Include the first `n0` frequencies in the least-squares fit * `k_max` - Maximum number of contour integrals, or <= 0 for 999 * `ratio_max` - Maximum ratio of oscillation when choosing `n0`, or <= 0 for 10 * `status` - Pointer to store the status code
+# Arguments * `beta` - Inverse temperature * `n_freqs` - Number of Matsubara frequencies (>= 3) * `matsubara_indices` - Matsubara indices `n`, non-negative, increasing and uniformly spaced (e.g. `1, 3, 5, ...` for fermions, `0, 2, 4, ...` for bosons) * `order`, `ndim`, `input_dims`, `target_dim` - Layout of `values`; `input\\_dims[target\\_dim]` must equal `n_freqs`, and the other dimensions must be none or two equal ones (a matrix) * `values` - Complex values `G(iω\\_n)` * `n0` - Number of low frequencies left out of the contour, or < 0 to choose it from the data * `n0_shift` - Shift (>= 0) added to the automatic choice of `n0` * `err` - Error tolerance (> 0), at least the noise level of the data * `err_type` - 0: `err` is absolute, 1: relative * `n_poles` - Maximum number of poles, or <= 0 to use the precision of the first approximation. The result can have fewer: the number is capped and lowered as in [`spir_minipole_from_dlr`](@ref), and nodes with |γ| >= 1 and poles whose weights do not exceed the error are dropped * `symmetry` - Preserve up-down symmetry * `g_symmetric` - Symmetrize the data as `G\\_ij = G\\_ji` * `compute_const` - Fit a constant term (not with `symmetry`) * `plane` - Pole weights from a least-squares fit to the data (0), from the mapped plane (1), or < 0 for the default (0 without, 1 with `symmetry`) * `include_n0` - Include the first `n0` frequencies in the least-squares fit * `k_max` - Maximum number of contour integrals, or <= 0 for 999 * `ratio_max` - Maximum ratio of oscillation when choosing `n0`, or <= 0 for 10 * `status` - Pointer to store the status code
 
 # Returns Pointer to the pole representation, or NULL on failure.
 """
@@ -1365,6 +1373,8 @@ An integer status code: - `0` ([`SPIR_COMPUTATION_SUCCESS`](@ref)) on success - 
 
 All shape arguments are validated before `input` or `out` is accessed.
 
+`input` and `out` must not overlap: the transform reads `input` while it writes `out`, so an in-place call gives an undefined result.
+
 # Notes
 
 - For optimal performance, the target dimension should be either the first (`0`) or the last (`ndim-1`) dimension to avoid large temporary array allocations - The output array must be pre-allocated with the correct size - The input and output arrays must be contiguous in memory - The transformation is performed using a pre-computed sampling matrix that is factorized using SVD for efficiency
@@ -1390,6 +1400,8 @@ For Matsubara sampling: transforms real IR coefficients to complex values. Zero-
 
 All shape arguments are validated before `input` or `out` is accessed.
 
+`input` and `out` must not overlap: the transform reads `input` while it writes `out`, so an in-place call gives an undefined result.
+
 The mathematical transform does not depend on the axis placement or the memory order of the arrays, but the floating-point result can: a different `target_dim` selects a different contraction geometry, and the GEMM backend decides how that geometry is blocked. Bitwise agreement across axis placements is not guaranteed; the sampling transforms are well conditioned, so the difference stays at rounding level (SpM-lab/sparse-ir-rs#327).
 """
 function spir_sampling_eval_dz(s, backend, order, ndim, input_dims, target_dim, input, out)
@@ -1408,6 +1420,8 @@ For Matsubara sampling: transforms complex coefficients to complex values. Zero-
 - [`SPIR_COMPUTATION_SUCCESS`](@ref) on success - [`SPIR_INVALID_ARGUMENT`](@ref) if `s`, `input_dims`, `input` or `out` is null, `order` is invalid, `ndim < 1`, or `target_dim` is not in `[0, ndim)` - [`SPIR_INVALID_DIMENSION`](@ref) if an element of `input_dims` is zero or negative, or the input or output array is too large to be addressed - [`SPIR_INPUT_DIMENSION_MISMATCH`](@ref) if `input\\_dims[target\\_dim]` is not the basis size - [`SPIR_NOT_SUPPORTED`](@ref) if the sampling type does not support this operation - [`SPIR_INTERNAL_ERROR`](@ref) if an internal panic occurs
 
 All shape arguments are validated before `input` or `out` is accessed.
+
+`input` and `out` must not overlap: the transform reads `input` while it writes `out`, so an in-place call gives an undefined result.
 
 The mathematical transform does not depend on the axis placement or the memory order of the arrays, but the floating-point result can: a different `target_dim` selects a different contraction geometry, and the GEMM backend decides how that geometry is blocked. Bitwise agreement across axis placements is not guaranteed; the sampling transforms are well conditioned, so the difference stays at rounding level (SpM-lab/sparse-ir-rs#327).
 """
@@ -1431,6 +1445,8 @@ Transforms values at sampling points back to basis coefficients, where both inpu
 An integer status code: * `0` ([`SPIR_COMPUTATION_SUCCESS`](@ref)) on success * [`SPIR_INVALID_ARGUMENT`](@ref) if `s`, `input_dims`, `input` or `out` is null, `order` is invalid, `ndim < 1`, or `target_dim` is not in `[0, ndim)` * [`SPIR_INVALID_DIMENSION`](@ref) if an element of `input_dims` is zero or negative, or the input or output array is too large to be addressed * [`SPIR_INPUT_DIMENSION_MISMATCH`](@ref) if `input\\_dims[target\\_dim]` is not the number of sampling points * [`SPIR_NOT_SUPPORTED`](@ref) if the sampling type does not support this operation * [`SPIR_INTERNAL_ERROR`](@ref) if an internal panic occurs
 
 All shape arguments are validated before `input` or `out` is accessed.
+
+`input` and `out` must not overlap: the transform reads `input` while it writes `out`, so an in-place call gives an undefined result.
 
 # Notes
 
@@ -1459,6 +1475,8 @@ For more details, see [[`spir_sampling_fit_dd`](@ref)] Zero-copy implementation 
 
 All shape arguments are validated before `input` or `out` is accessed.
 
+`input` and `out` must not overlap: the transform reads `input` while it writes `out`, so an in-place call gives an undefined result.
+
 The mathematical transform does not depend on the axis placement or the memory order of the arrays, but the floating-point result can: a different `target_dim` selects a different contraction geometry, and the GEMM backend decides how that geometry is blocked. Bitwise agreement across axis placements is not guaranteed; the sampling transforms are well conditioned, so the difference stays at rounding level (SpM-lab/sparse-ir-rs#327).
 """
 function spir_sampling_fit_zz(s, backend, order, ndim, input_dims, target_dim, input, out)
@@ -1474,11 +1492,11 @@ This function fits basis coefficients from Matsubara sampling points using compl
 
 # Supported Sampling Types
 
-- **Matsubara (full)**: ✅ Supported (takes real part of fitted complex coefficients) - **Matsubara (positive\\_only)**: ✅ Supported - **Tau**: ❌ Not supported (use [`spir_sampling_fit_dd`](@ref) instead)
+- **Matsubara (full)**: ✅ Supported - **Matsubara (positive\\_only)**: ✅ Supported - **Tau**: ❌ Not supported (use [`spir_sampling_fit_dd`](@ref) instead)
 
 # Notes
 
-For full-range Matsubara sampling, this function fits complex coefficients internally and returns their real parts. This is physically correct for Green's functions where IR coefficients are guaranteed to be real by symmetry.
+The coefficients are the least-squares solution over real coefficients: with the sampling matrix `A` and the values `y`, they are `[Re A; Im A]⁺ [Re y; Im y]`. For points symmetric in ±n, such as the default ones, this equals the real part of the complex fit ([`spir_sampling_fit_zz`](@ref)); for other points the two differ.
 
 Zero-copy implementation.
 
@@ -1491,6 +1509,8 @@ Zero-copy implementation.
 - [`SPIR_COMPUTATION_SUCCESS`](@ref) on success - [`SPIR_INVALID_ARGUMENT`](@ref) if `s`, `input_dims`, `input` or `out` is null, `order` is invalid, `ndim < 1`, or `target_dim` is not in `[0, ndim)` - [`SPIR_INVALID_DIMENSION`](@ref) if an element of `input_dims` is zero or negative, or the input or output array is too large to be addressed - [`SPIR_INPUT_DIMENSION_MISMATCH`](@ref) if `input\\_dims[target\\_dim]` is not the number of sampling points - [`SPIR_NOT_SUPPORTED`](@ref) if the sampling type doesn't support this operation - [`SPIR_INTERNAL_ERROR`](@ref) if an internal panic occurs
 
 All shape arguments are validated before `input` or `out` is accessed.
+
+`input` and `out` must not overlap: the transform reads `input` while it writes `out`, so an in-place call gives an undefined result.
 
 # See also
 
